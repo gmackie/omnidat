@@ -1,0 +1,8 @@
+{
+  "name": "@omnidat/tsconfig",
+  "private": true,
+  "files": [
+    "*.json"
+  ],
+  "scripts": {}
+}

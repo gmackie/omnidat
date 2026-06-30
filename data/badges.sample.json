@@ -1,0 +1,29 @@
+[
+  {
+    "badge_id": "FIELD-COURIER",
+    "name": "Field Courier",
+    "requirements": [
+      "CALL DIRECTORY",
+      "DELIVER MESSAGE",
+      "CLEAR DISPATCH"
+    ]
+  },
+  {
+    "badge_id": "TERMINAL-OPERATOR",
+    "name": "Terminal Operator",
+    "requirements": [
+      "CALL TEST LOOP",
+      "SUBMIT FORM",
+      "PRINT RECEIPT"
+    ]
+  },
+  {
+    "badge_id": "MILIWAYS-RUNNER",
+    "name": "Miliways Runner",
+    "requirements": [
+      "CLAIM ORDER",
+      "DELIVER ORDER",
+      "CONFIRM PICKUP"
+    ]
+  }
+]

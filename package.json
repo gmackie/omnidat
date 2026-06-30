@@ -1,0 +1,26 @@
+{
+  "name": "omnidat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OMNIDAT Field Office and Packet Clearing service",
+  "scripts": {
+    "dev": "./scripts/ui --port 8828",
+    "v1:dev": "corepack pnpm@10.32.1 --dir gmacko dev:next",
+    "v1:build": "corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/nextjs build",
+    "v1:test": "corepack pnpm@10.32.1 --dir gmacko test",
+    "v1:db:push": "corepack pnpm@10.32.1 --dir gmacko db:push",
+    "scaffold:gmacko": "./scripts/create-gmacko-app-preview",
+    "db:shared:check": "./scripts/check-shared-postgres",
+    "deploy:worker:dry-run": "wrangler deploy --dry-run",
+    "deploy:worker": "wrangler deploy",
+    "health": "curl -fsS http://127.0.0.1:8828/api/health",
+    "ready": "curl -fsS http://127.0.0.1:8828/api/health/ready",
+    "live": "curl -fsS http://127.0.0.1:8828/api/health/live",
+    "test:worker": "node --test tests/worker/*.test.mjs",
+    "test": "python -m unittest discover -s tests && npm run test:worker --silent",
+    "validate": "./scripts/validate-data",
+    "build:db": "./scripts/build-db",
+    "render": "./scripts/render-artifacts",
+    "status": "./scripts/status"
+  }
+}

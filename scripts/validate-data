@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+set -eu
+
+for file in data/*.json; do
+  python3 -m json.tool "$file" >/dev/null
+  echo "valid $file"
+done
+
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+services = json.loads(Path("data/services.json").read_text())
+numbers = [service["number"] for service in services]
+expected = [str(number) for number in range(8800, 8824)]
+
+if numbers != expected:
+    raise SystemExit(f"service numbers do not match 8800-8823: {numbers}")
+
+service_ids = [service["service_id"] for service in services]
+if len(service_ids) != len(set(service_ids)):
+    raise SystemExit("duplicate service_id in data/services.json")
+
+endpoints = json.loads(Path("data/endpoints.json").read_text())
+endpoint_ids = {endpoint["endpoint_id"] for endpoint in endpoints}
+missing = sorted({
+    endpoint_id
+    for service in services
+    for endpoint_id in service.get("endpoints", [])
+    if endpoint_id not in endpoint_ids
+})
+if missing:
+    raise SystemExit(f"service references missing endpoints: {', '.join(missing)}")
+
+print("service map covers 8800-8823")
+print("service endpoint references resolve")
+PY

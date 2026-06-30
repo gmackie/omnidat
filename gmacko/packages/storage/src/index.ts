@@ -1,0 +1,44 @@
+import { integrations } from "@omnidat/config";
+import { createLogger } from "@omnidat/logging";
+import type { FileRouter } from "uploadthing/next";
+import { createUploadthing } from "uploadthing/next";
+import { UploadThingError } from "uploadthing/server";
+
+const log = createLogger({ module: "storage" });
+
+/**
+ * Create an UploadThing file router
+ * Only functional if storage integration is enabled
+ */
+export function createFileRouter(): ReturnType<
+  typeof createUploadthing
+> | null {
+  if (!integrations.storage.enabled) {
+    log.debug("uploadthing initialization skipped (integration disabled)");
+    return null;
+  }
+
+  return createUploadthing();
+}
+
+/**
+ * Check if storage is enabled
+ */
+export function isStorageEnabled(): boolean {
+  return integrations.storage.enabled;
+}
+
+/**
+ * Create a guarded file router that returns empty if disabled
+ */
+export function createGuardedRouter<T extends FileRouter>(
+  routerFn: () => T,
+): T | Record<string, never> {
+  if (!integrations.storage.enabled) {
+    return {} as Record<string, never>;
+  }
+  return routerFn();
+}
+
+export type { FileRouter };
+export { createUploadthing, UploadThingError };

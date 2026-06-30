@@ -1,0 +1,79 @@
+[
+  {
+    "address": "020184",
+    "owner_name": "Camp Laminar",
+    "app_name": "Camp Laminar Message Desk",
+    "template": "MESSAGE_DESK",
+    "access_class": "PUBLIC",
+    "directory_status": "provisional",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad", "wifi-tcp"],
+    "description": "Campsite message desk, lost-property contact, and field notes"
+  },
+  {
+    "address": "020185",
+    "owner_name": "Camp Laminar",
+    "app_name": "Camp Laminar Lost Property",
+    "template": "FORM",
+    "access_class": "PUBLIC",
+    "directory_status": "provisional",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad"],
+    "description": "Lost-and-found reports routed to Camp Laminar"
+  },
+  {
+    "address": "020500",
+    "owner_name": "Miliways",
+    "app_name": "Miliways Menu Status",
+    "template": "BULLETIN",
+    "access_class": "PUBLIC",
+    "directory_status": "official",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad", "meshtastic-radio-pad", "wifi-tcp"],
+    "description": "Current menu, sold-out notices, and kitchen service state"
+  },
+  {
+    "address": "020501",
+    "owner_name": "Miliways",
+    "app_name": "Miliways Order Entry",
+    "template": "QUEUE",
+    "access_class": "PASSPORT",
+    "directory_status": "official",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad", "wifi-tcp"],
+    "description": "Food order intake and queue ticket issue"
+  },
+  {
+    "address": "020502",
+    "owner_name": "Miliways",
+    "app_name": "Miliways Queue Position",
+    "template": "QUEUE",
+    "access_class": "PUBLIC",
+    "directory_status": "official",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad", "meshtastic-radio-pad", "wifi-tcp"],
+    "description": "Food queue position and pickup status lookup"
+  },
+  {
+    "address": "030010",
+    "owner_name": "OMNIDAT Field Operations",
+    "app_name": "Field Dispatch Queue",
+    "template": "QUEUE",
+    "access_class": "PASSPORT",
+    "directory_status": "official",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad", "wifi-tcp"],
+    "description": "Courier assignments, delivery confirmations, and field dispatch"
+  },
+  {
+    "address": "030021",
+    "owner_name": "OMNIDAT Activity Clearing",
+    "app_name": "Passport Log Entry",
+    "template": "FORM",
+    "access_class": "PASSPORT",
+    "directory_status": "official",
+    "status": "active",
+    "transports": ["hosted-node", "meshcore-radio-pad", "wifi-tcp"],
+    "description": "Activity passport and merit-badge transaction logging"
+  }
+]

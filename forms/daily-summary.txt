@@ -1,0 +1,31 @@
+OMNIDAT DAILY SUMMARY
+A GMACKO CORPORATION
+EXCHANGE 88
+
+DATE: ____________________________
+OPEN OPERATOR: ___________________
+CLOSE OPERATOR: __________________
+
+SERVICE STATUS:
+  [ ] TRUSTDESK
+  [ ] OMNIDAT ONLINE
+  [ ] MODEM POOL
+  [ ] PACKET CLEARING
+  [ ] MEDIA VAULT
+  [ ] DOCUMENT SERVICES
+  [ ] OMNIDAT TV
+  [ ] ATV STATION
+
+CALLS COMPLETED: _________________
+BUSY/INTERCEPTS: _________________
+PAD SESSIONS: ____________________
+BBS SESSIONS: ____________________
+FAXES RECEIVED: __________________
+PRINT JOBS: ______________________
+MEDIA REQUESTS: __________________
+INCIDENTS: _______________________
+
+NOTES:
+____________________________________________________________
+____________________________________________________________
+____________________________________________________________

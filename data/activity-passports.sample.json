@@ -1,0 +1,14 @@
+[
+  {
+    "passport_id": "PASS-04271",
+    "handle": "RED-LINE-27",
+    "access_class": "PASSPORT",
+    "status": "active"
+  },
+  {
+    "passport_id": "PASS-02024",
+    "handle": "BLUE-FORM-12",
+    "access_class": "PASSPORT",
+    "status": "active"
+  }
+]

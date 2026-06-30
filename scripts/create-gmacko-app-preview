@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+set -eu
+
+CREATE_GMACKO_APP_BIN="${CREATE_GMACKO_APP_BIN:-/Volumes/dev/fryos/packages/create-gmacko-app/dist/index.js}"
+OUTPUT_DIR="${1:-build/create-gmacko-app-preview}"
+
+if [ ! -f "$CREATE_GMACKO_APP_BIN" ]; then
+  echo "create-gmacko-app binary not found: $CREATE_GMACKO_APP_BIN" >&2
+  echo "Set CREATE_GMACKO_APP_BIN to a built create-gmacko-app dist/index.js" >&2
+  exit 1
+fi
+
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
+
+node "$CREATE_GMACKO_APP_BIN" omnidat-app \
+  --yes \
+  --no-install \
+  --no-git \
+  --no-mobile \
+  --no-ai \
+  --trpc-operators \
+  --integrations "" \
+  --package-scope @omnidat
+
+mv omnidat-app "$OUTPUT_DIR/"
+echo "$OUTPUT_DIR/omnidat-app"

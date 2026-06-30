@@ -1,0 +1,58 @@
+[
+  {
+    "transport_id": "pad-terminal",
+    "name": "PAD / Terminal",
+    "kind": "terminal",
+    "authority": "rich-access",
+    "default_access": "PUBLIC",
+    "description": "Interactive terminal or PAD session over serial, console, hosted terminal, or terminal server"
+  },
+  {
+    "transport_id": "pots-modem",
+    "name": "POTS / ShadyTel Modem",
+    "kind": "modem",
+    "authority": "rich-access",
+    "default_access": "PUBLIC",
+    "description": "Dial-up access through Exchange 88, modem pool, or POTS line"
+  },
+  {
+    "transport_id": "wifi-tcp",
+    "name": "Wi-Fi / TCP",
+    "kind": "ip-terminal",
+    "authority": "rich-access",
+    "default_access": "PUBLIC",
+    "description": "Local web terminal, telnet-like endpoint, SSH-style shell, or campsite service bridge"
+  },
+  {
+    "transport_id": "meshcore-radio-pad",
+    "name": "MeshCore Radio PAD",
+    "kind": "radio-pad",
+    "authority": "managed-field-access",
+    "default_access": "PASSPORT",
+    "description": "Managed OMNIDAT loaner and fixed-node radio access using compact Radio PAD commands"
+  },
+  {
+    "transport_id": "meshtastic-radio-pad",
+    "name": "Meshtastic Radio PAD",
+    "kind": "radio-pad",
+    "authority": "guest-field-access",
+    "default_access": "PUBLIC",
+    "description": "BYO guest radio ingress using compact Radio PAD commands with stricter size and rate limits"
+  },
+  {
+    "transport_id": "hosted-node",
+    "name": "OMNIDAT Hosted Node",
+    "kind": "hosted",
+    "authority": "service-host",
+    "default_access": "PUBLIC",
+    "description": "OMNIDAT-hosted campsite app template with assigned packet address and owner credentials"
+  },
+  {
+    "transport_id": "remote-node",
+    "name": "Remote Campsite Node",
+    "kind": "remote-service",
+    "authority": "subscriber-hosted",
+    "default_access": "PUBLIC",
+    "description": "Campsite-hosted service routed through OMNIDAT by Wi-Fi/TCP, POTS, or future XOT/X.25 gateway"
+  }
+]

@@ -1,0 +1,32 @@
+/**
+ * @omnidat/trpc-client
+ *
+ * A vanilla tRPC client for external consumers to interact with the API.
+ * Supports both API key authentication and cookie-based session authentication.
+ *
+ * @example
+ * ```ts
+ * import { createClient } from "@omnidat/trpc-client";
+ *
+ * // With API key
+ * const client = createClient({
+ *   baseUrl: "https://api.example.com",
+ *   apiKey: "gmk_your_api_key",
+ * });
+ *
+ * // With cookie auth (browser)
+ * const client = createClient({
+ *   baseUrl: "https://api.example.com",
+ *   credentials: "include",
+ * });
+ *
+ * const posts = await client.post.all.query();
+ * ```
+ */
+
+export type { TRPCClient } from "./client";
+export { type CreateClientOptions, createClient } from "./client";
+
+// Re-export types from @omnidat/api for convenience
+// Users can import these directly if they have @omnidat/api installed
+export type { AppRouter, RouterInputs, RouterOutputs } from "./types";

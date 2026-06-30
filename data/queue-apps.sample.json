@@ -1,0 +1,46 @@
+[
+  {
+    "queue_id": "miliways",
+    "name": "Miliways",
+    "ticket_prefix": "MLY",
+    "service_address": "020501",
+    "items": [
+      {
+        "item_id": "tea",
+        "name": "Tea",
+        "status": "available",
+        "fryos_menu_item_id": "demo-menu-iced-tea"
+      },
+      {
+        "item_id": "coffee",
+        "name": "Coffee",
+        "status": "available",
+        "fryos_menu_item_id": "demo-menu-lemonade"
+      },
+      {
+        "item_id": "pancakes",
+        "name": "Pancakes",
+        "status": "sold_out",
+        "fryos_menu_item_id": "demo-menu-classic-fries"
+      }
+    ]
+  },
+  {
+    "queue_id": "field-dispatch",
+    "name": "Field Dispatch",
+    "ticket_prefix": "FD",
+    "service_address": "030010",
+    "items": [
+      {
+        "item_id": "courier-run",
+        "name": "Courier Run",
+        "status": "available"
+      },
+      {
+        "item_id": "delivery-confirm",
+        "name": "Delivery Confirmation",
+        "status": "available"
+      }
+    ]
+  }
+]

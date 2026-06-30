@@ -1,0 +1,9 @@
+{
+  "name": "omnidat",
+  "apps": {
+    ".": {
+      "name": "omnidat",
+      "script": "dev"
+    }
+  }
+}

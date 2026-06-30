@@ -1,0 +1,31 @@
+{
+  "name": "@omnidat/email",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "dev": "tsc",
+    "format": "biome check .",
+    "lint": "oxlint .",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false"
+  },
+  "dependencies": {
+    "@omnidat/config": "workspace:*",
+    "@omnidat/logging": "workspace:*",
+    "resend": "^6.9.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@omnidat/tsconfig": "workspace:*",
+    "oxlint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

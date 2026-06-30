@@ -1,0 +1,23 @@
+[
+  {
+    "vendor_id": "VEND-NITEMARKT",
+    "name": "NiteMarkt",
+    "kind": "anchor-tenant",
+    "contact_number": "8819",
+    "status": "planned"
+  },
+  {
+    "vendor_id": "VEND-OMNIDAT",
+    "name": "OMNIDAT Operations",
+    "kind": "operator",
+    "contact_number": "8800",
+    "status": "planned"
+  },
+  {
+    "vendor_id": "VEND-MISC-001",
+    "name": "Misc Vendor 001",
+    "kind": "vendor",
+    "contact_number": "8819",
+    "status": "planned"
+  }
+]

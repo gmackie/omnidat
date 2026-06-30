@@ -1,0 +1,43 @@
+{
+  "preset": "field-office",
+  "integrations": {
+    "createGmackoApp": {
+      "enabled": true,
+      "source": "/Volumes/dev/fryos/packages/create-gmacko-app",
+      "mode": "web-only-trpc-operators",
+      "notes": "V1 should migrate the OMNIDAT web/operator surface into a create-gmacko-app scaffold. The current Python service remains a behavior harness until the generated app owns these flows."
+    },
+    "fryosSharedInfra": {
+      "enabled": true,
+      "sharedContracts": [
+        "/api/health",
+        "/api/health/live",
+        "/api/health/ready",
+        "portless.json",
+        "package.json scripts"
+      ],
+      "notes": "OMNIDAT can share local app routing and operational readiness conventions with FryOS while keeping packet, activity, and queue state local to OMNIDAT."
+    },
+    "realtime": {
+      "enabled": false,
+      "provider": "none",
+      "notes": "Radio PAD and queue updates are request/response for V1. FryOS-style realtime can be added after the service contracts settle."
+    },
+    "database": {
+      "enabled": true,
+      "provider": "postgres-shared-fryos-v1",
+      "notes": "V1 uses the FryOS local Postgres service/database with an OMNIDAT schema. SQLite remains only a prototype/export harness until the create-gmacko-app app owns persistence."
+    },
+    "payments": {
+      "enabled": false,
+      "provider": "none",
+      "notes": "Carrier accounting stays cosmetic until a Shadybucks/Shadybank integration is explicitly approved."
+    }
+  },
+  "platforms": {
+    "web": true,
+    "mobile": false,
+    "radioPad": true,
+    "packetClearing": true
+  }
+}

@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+set -eu
+
+DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/gmacko_dev}"
+OMNIDAT_DB_SCHEMA="${OMNIDAT_DB_SCHEMA:-omnidat}"
+
+case "$OMNIDAT_DB_SCHEMA" in
+  *[!A-Za-z0-9_]* | "")
+    echo "invalid OMNIDAT_DB_SCHEMA: $OMNIDAT_DB_SCHEMA" >&2
+    exit 1
+    ;;
+esac
+
+if command -v psql >/dev/null 2>&1; then
+  psql "$DATABASE_URL" -c "create schema if not exists \"$OMNIDAT_DB_SCHEMA\";"
+  psql "$DATABASE_URL" -c "select '$OMNIDAT_DB_SCHEMA' as omnidat_schema, 1 as omnidat_shared_postgres_ready;"
+else
+  echo "psql not found; expected shared FryOS Postgres URL:"
+  echo "$DATABASE_URL"
+  exit 2
+fi

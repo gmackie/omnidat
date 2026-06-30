@@ -1,0 +1,31 @@
+OMNIDAT MEDIA VAULT
+A GMACKO CORPORATION
+FORM MV-88
+
+REQUEST NO: ______________________
+ACCOUNT NO: ______________________
+CALLBACK EXT: ____________________
+
+TAPE ID:    ______________________
+TITLE:      ______________________
+
+REQUEST SOURCE:
+  [ ] TRUSTDESK
+  [ ] BBS
+  [ ] PACKET CLEARING
+  [ ] FAX
+  [ ] OPERATOR
+
+APPROVAL:
+  [ ] APPROVED
+  [ ] REJECTED
+  [ ] HOLD
+
+OPERATOR INITIALS: _______________
+TIME RECEIVED:     _______________
+TIME CLEARED:      _______________
+
+NOTES:
+____________________________________________________________
+____________________________________________________________
+____________________________________________________________

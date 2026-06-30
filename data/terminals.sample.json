@@ -1,0 +1,47 @@
+[
+  {
+    "terminal_id": "TERM-NM-POS-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "kind": "pos-terminal",
+    "trust_mode": "directGateway",
+    "location": "NiteMarkt register 1",
+    "account_id": "ACCT-NITEMARKT-BOH",
+    "status": "planned"
+  },
+  {
+    "terminal_id": "TERM-NM-ATM-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "kind": "atm",
+    "trust_mode": "dedicated-terminal",
+    "location": "NiteMarkt cash desk",
+    "account_id": "ACCT-NITEMARKT-BOH",
+    "status": "planned"
+  },
+  {
+    "terminal_id": "TERM-NM-BOH-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "kind": "boh-wms",
+    "trust_mode": "registered-pad",
+    "location": "NiteMarkt back office",
+    "account_id": "ACCT-NITEMARKT-BOH",
+    "status": "planned"
+  },
+  {
+    "terminal_id": "TERM-NM-PROXY-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "kind": "merchant-proxy",
+    "trust_mode": "proxyGateway",
+    "location": "NiteMarkt proxy host",
+    "account_id": "ACCT-NITEMARKT-BOH",
+    "status": "planned"
+  },
+  {
+    "terminal_id": "TERM-VENDOR-001-POS",
+    "vendor_id": "VEND-MISC-001",
+    "kind": "pos-terminal",
+    "trust_mode": "directGateway",
+    "location": "Vendor booth 001",
+    "account_id": "ACCT-VENDOR-DEMO",
+    "status": "planned"
+  }
+]

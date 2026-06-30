@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "omnidat",
+  "compatibility_date": "2026-06-30",
+  "main": "./worker/omnidat-worker.mjs",
+  "routes": [
+    {
+      "pattern": "omnidat.gmac.io",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "APP_ENV": "production",
+    "APP_URL": "https://omnidat.gmac.io"
+  }
+}

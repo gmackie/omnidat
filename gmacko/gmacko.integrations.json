@@ -1,0 +1,29 @@
+{
+  "preset": "custom",
+  "integrations": {
+    "sentry": false,
+    "posthog": false,
+    "stripe": false,
+    "revenuecat": false,
+    "notifications": false,
+    "email": {
+      "enabled": false,
+      "provider": "none"
+    },
+    "realtime": {
+      "enabled": false,
+      "provider": "none"
+    },
+    "storage": {
+      "enabled": false,
+      "provider": "none"
+    }
+  },
+  "platforms": {
+    "web": true,
+    "mobile": false,
+    "tanstackStart": false
+  },
+  "scaffoldedAt": "2026-06-30T18:10:43.031Z",
+  "packageScope": "@omnidat"
+}

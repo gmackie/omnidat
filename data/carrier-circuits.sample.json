@@ -1,0 +1,42 @@
+[
+  {
+    "circuit_id": "CKT-NM-POS-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "terminal_id": "TERM-NM-POS-01",
+    "service_address": "000011",
+    "access_class": "REGISTERED",
+    "status": "planned"
+  },
+  {
+    "circuit_id": "CKT-NM-ATM-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "terminal_id": "TERM-NM-ATM-01",
+    "service_address": "000010",
+    "access_class": "REGISTERED",
+    "status": "planned"
+  },
+  {
+    "circuit_id": "CKT-NM-WMS-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "terminal_id": "TERM-NM-BOH-01",
+    "service_address": "000020",
+    "access_class": "REGISTERED",
+    "status": "planned"
+  },
+  {
+    "circuit_id": "CKT-NM-PROXY-01",
+    "vendor_id": "VEND-NITEMARKT",
+    "terminal_id": "TERM-NM-PROXY-01",
+    "service_address": "000012",
+    "access_class": "OPERATOR",
+    "status": "planned"
+  },
+  {
+    "circuit_id": "CKT-VENDOR-001-POS",
+    "vendor_id": "VEND-MISC-001",
+    "terminal_id": "TERM-VENDOR-001-POS",
+    "service_address": "000011",
+    "access_class": "REGISTERED",
+    "status": "planned"
+  }
+]

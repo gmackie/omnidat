@@ -1,0 +1,17 @@
+app: omnidat-app
+server: https://forge.gmac.io
+stages:
+  - name: staging
+    nodeId: hetzner-master
+    sortOrder: 10
+  - name: production
+    nodeId: hetzner-master
+    sortOrder: 20
+
+# ForgeGraph operator notes:
+# flakeRef: .
+# primary web service path: apps/nextjs
+# healthcheck path: /api/health
+# database strategy: shared-fryos-postgres-schema
+# preview domain: omnidat-staging.gmac.io
+# production domain: omnidat.gmac.io

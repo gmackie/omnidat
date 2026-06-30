@@ -1,0 +1,27 @@
+[
+  {
+    "queue": "forms",
+    "description": "Blank request forms and account cards",
+    "operator_visible": true
+  },
+  {
+    "queue": "receipts",
+    "description": "BBS, PAD, modem, and Media Vault receipts",
+    "operator_visible": true
+  },
+  {
+    "queue": "logs",
+    "description": "Operator and PBX daily logs",
+    "operator_visible": true
+  },
+  {
+    "queue": "vault",
+    "description": "Media Vault load tickets and fault slips",
+    "operator_visible": true
+  },
+  {
+    "queue": "settlement",
+    "description": "Batch settlement reports",
+    "operator_visible": true
+  }
+]

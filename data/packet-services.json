@@ -1,0 +1,104 @@
+[
+  {
+    "address": "000001",
+    "name": "OMNIDAT DIRECTORY",
+    "access_class": "PUBLIC",
+    "description": "Packet service directory"
+  },
+  {
+    "address": "000002",
+    "name": "ACCOUNT INQUIRY",
+    "access_class": "REGISTERED",
+    "description": "Account status and records"
+  },
+  {
+    "address": "000003",
+    "name": "SETTLEMENT QUEUE",
+    "access_class": "REGISTERED",
+    "description": "Batch settlement and remittance status"
+  },
+  {
+    "address": "000004",
+    "name": "MEDIA VAULT CATALOG",
+    "access_class": "PUBLIC",
+    "description": "Tape catalog and queue status"
+  },
+  {
+    "address": "000005",
+    "name": "DOCUMENT SERVICES",
+    "access_class": "PUBLIC",
+    "description": "Fax, print, and form services"
+  },
+  {
+    "address": "000006",
+    "name": "OPERATOR MESSAGES",
+    "access_class": "REGISTERED",
+    "description": "Messages to and from TrustDesk"
+  },
+  {
+    "address": "000010",
+    "name": "SHADYBUCKS ATM SWITCH",
+    "access_class": "REGISTERED",
+    "description": "ATM transaction access for provisioned Shadybucks terminals"
+  },
+  {
+    "address": "000011",
+    "name": "SHADYBUCKS POS AUTHORIZATION",
+    "access_class": "REGISTERED",
+    "description": "Trusted POS authorization, capture, void, and reverse path"
+  },
+  {
+    "address": "000012",
+    "name": "MERCHANT PROXY REGISTRY",
+    "access_class": "OPERATOR",
+    "description": "Registration and status for merchant proxy hosts"
+  },
+  {
+    "address": "000013",
+    "name": "SETTLEMENT BATCH SERVICE",
+    "access_class": "REGISTERED",
+    "description": "End-of-day capture, settlement, and exception batches"
+  },
+  {
+    "address": "000014",
+    "name": "TERMINAL MANAGEMENT",
+    "access_class": "OPERATOR",
+    "description": "Enable, disable, provision, and maintenance controls"
+  },
+  {
+    "address": "000020",
+    "name": "NITEMARKT BOH WMS",
+    "access_class": "REGISTERED",
+    "description": "NiteMarkt back-office warehouse management system"
+  },
+  {
+    "address": "000021",
+    "name": "NITEMARKT RECEIVING",
+    "access_class": "REGISTERED",
+    "description": "Receiving, vendor intake, and exception forms"
+  },
+  {
+    "address": "000022",
+    "name": "NITEMARKT STOCK COUNT",
+    "access_class": "REGISTERED",
+    "description": "Stock count, cycle count, and register close support"
+  },
+  {
+    "address": "000030",
+    "name": "VENDOR SERVICES DIRECTORY",
+    "access_class": "PUBLIC",
+    "description": "Directory of provisioned vendor services"
+  },
+  {
+    "address": "000031",
+    "name": "VENDOR POS PROVISIONING",
+    "access_class": "OPERATOR",
+    "description": "Provisioning desk for miscellaneous vendor POS terminals"
+  },
+  {
+    "address": "000099",
+    "name": "TEST LOOP",
+    "access_class": "PUBLIC",
+    "description": "Echo and diagnostics"
+  }
+]

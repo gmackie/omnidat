@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+set -eu
+PYTHONPATH=. python3 -m tools.omnidat_radio_pad "$@"

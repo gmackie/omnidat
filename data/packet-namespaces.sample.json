@@ -1,0 +1,72 @@
+[
+  {
+    "namespace_id": "core",
+    "range_start": "000000",
+    "range_end": "000999",
+    "label": "OMNIDAT core services",
+    "service_class": "CORE",
+    "provisioning": "manual",
+    "directory_status": "official",
+    "description": "Directory, accounts, operator messages, documents, Media Vault, diagnostics, and internal expansion"
+  },
+  {
+    "namespace_id": "carrier-partner",
+    "range_start": "001000",
+    "range_end": "001999",
+    "label": "Carrier partner services",
+    "service_class": "CARRIER",
+    "provisioning": "operator-approved",
+    "directory_status": "official",
+    "description": "ShadyTel, trusted carrier interconnect, exchange tests, and future carrier handoffs"
+  },
+  {
+    "namespace_id": "merchant-carrier",
+    "range_start": "002000",
+    "range_end": "002999",
+    "label": "Merchant carrier services",
+    "service_class": "MERCHANT",
+    "provisioning": "operator-approved",
+    "directory_status": "restricted",
+    "description": "Shadybucks, NiteMarkt, POS, ATM, settlement, and vendor access circuits"
+  },
+  {
+    "namespace_id": "approved-village",
+    "range_start": "010000",
+    "range_end": "019999",
+    "label": "Approved village services",
+    "service_class": "APPROVED",
+    "provisioning": "operator-promoted",
+    "directory_status": "official",
+    "description": "Reviewed campsite and village packet applications"
+  },
+  {
+    "namespace_id": "open-campsite",
+    "range_start": "020000",
+    "range_end": "029999",
+    "label": "Open campsite applications",
+    "service_class": "OPEN",
+    "provisioning": "self-service",
+    "directory_status": "provisional",
+    "description": "Self-service campsite applications and provisional public directory entries"
+  },
+  {
+    "namespace_id": "event-operations",
+    "range_start": "030000",
+    "range_end": "039999",
+    "label": "Event operations services",
+    "service_class": "EVENT",
+    "provisioning": "template-or-operator",
+    "directory_status": "official",
+    "description": "Dispatch, activity passport, temporary queues, puzzles, and event operations"
+  },
+  {
+    "namespace_id": "diagnostics",
+    "range_start": "090000",
+    "range_end": "090999",
+    "label": "Diagnostics and training",
+    "service_class": "TEST",
+    "provisioning": "manual",
+    "directory_status": "technical",
+    "description": "Echo, loopback, PAD training, line tests, and service diagnostics"
+  }
+]

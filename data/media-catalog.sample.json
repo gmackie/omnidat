@@ -1,0 +1,42 @@
+[
+  {
+    "tape_id": "PUB-0001",
+    "title": "Public Domain Feature 01",
+    "slot": 1,
+    "runtime_minutes": 72,
+    "rights": "public-domain",
+    "status": "available"
+  },
+  {
+    "tape_id": "PUB-0002",
+    "title": "Public Domain Short Subjects",
+    "slot": 2,
+    "runtime_minutes": 48,
+    "rights": "public-domain",
+    "status": "available"
+  },
+  {
+    "tape_id": "TRAIN-0001",
+    "title": "Authorized Terminal Training",
+    "slot": 3,
+    "runtime_minutes": 23,
+    "rights": "licensed",
+    "status": "available"
+  },
+  {
+    "tape_id": "OMNI-0001",
+    "title": "OMNIDAT Orientation Loop",
+    "slot": 4,
+    "runtime_minutes": 12,
+    "rights": "original",
+    "status": "available"
+  },
+  {
+    "tape_id": "TEST-0001",
+    "title": "Color Bars and Vault Alignment",
+    "slot": 5,
+    "runtime_minutes": 10,
+    "rights": "original",
+    "status": "available"
+  }
+]
