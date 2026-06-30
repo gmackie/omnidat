@@ -45,6 +45,15 @@ test("homepage emphasizes the X.25 business innovation network", async () => {
   assert.match(html, /Department of Recreational Commerce/);
 });
 
+test("homepage links business language to haha.business", async () => {
+  const response = await fetchPath("/");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /href="https:\/\/haha\.business\/"[^>]*>The Future of Business Innovation<\/a>/);
+  assert.match(html, /href="https:\/\/haha\.business\/"[^>]*>business<\/a>/i);
+});
+
 test("homepage wraps terminal examples in preformatted blocks", async () => {
   const response = await fetchPath("/");
   const html = await response.text();

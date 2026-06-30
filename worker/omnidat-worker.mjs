@@ -145,6 +145,10 @@ function homepage() {
       color: #e9d9b6;
     }
 
+    a {
+      color: inherit;
+    }
+
     .terminal {
       padding: 18px;
       border: 1px solid var(--brass);
@@ -261,9 +265,9 @@ function homepage() {
     <header>
       <div class="masthead">
         <div>
-          <div><span class="seal">Exchange 88 v1 edge office</span><span class="tagline">The Future of Business Innovation</span></div>
+          <div><span class="seal">Exchange 88 v1 edge office</span><span class="tagline"><a href="https://haha.business/" rel="noopener">The Future of Business Innovation</a></span></div>
           <h1>X.25 Packet Clearing Network</h1>
-          <p>OMNIDAT Field Office provisions campsite businesses, terminal applications, and recreational commerce circuits with the confidence of a regulated monopoly and the convenience of a blinking cursor.</p>
+          <p>OMNIDAT Field Office provisions campsite <a href="https://haha.business/" rel="noopener">business</a> accounts, terminal applications, and recreational commerce circuits with the confidence of a regulated monopoly and the convenience of a blinking cursor.</p>
           <div class="ledger" aria-label="Corporate network filing facts">
             <div>Authority</div><div>Packet Utility Commission, Department of Recreational Commerce</div>
             <div>Product</div><div>X.25 network access for camps, villages, kitchens, badge desks, message offices, and future-forward business innovation</div>
