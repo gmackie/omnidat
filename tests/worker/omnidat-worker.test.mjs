@@ -33,6 +33,41 @@ test("homepage presents the field office and network signup surface", async () =
   assert.doesNotMatch(html, /provisional/i);
 });
 
+test("homepage emphasizes the X.25 business innovation network", async () => {
+  const response = await fetchPath("/");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /X\.25 Packet Clearing Network/);
+  assert.match(html, /The Future of Business Innovation/);
+  assert.match(html, /Packet Utility Commission/);
+  assert.match(html, /Executive Circuit Provisioning/);
+  assert.match(html, /Department of Recreational Commerce/);
+});
+
+test("homepage wraps terminal examples in preformatted blocks", async () => {
+  const response = await fetchPath("/");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.ok((html.match(/<pre/g) || []).length >= 4);
+  assert.match(html, /CALL 010110[\s\S]*CONNECT PACKET CLEARING DIRECTORY/);
+  assert.match(html, /OPEN CAMP\.MILIWAYS[\s\S]*ORDER STATUS: RECEIVED/);
+  assert.match(html, /SUBMIT PASSPORT\.LOG[\s\S]*STAMP: FILED/);
+  assert.match(html, /CREATE APP CAMP\.SUNDIAL[\s\S]*CIRCUIT REQUEST: QUEUED/);
+});
+
+test("business examples endpoint returns fake corporate network use cases", async () => {
+  const response = await fetchPath("/api/business-examples");
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.service, "omnidat-v1-worker");
+  assert.ok(body.examples.some((example) => example.slug === "miliways-line-management"));
+  assert.ok(body.examples.some((example) => example.slug === "activity-passport"));
+  assert.ok(body.examples.some((example) => example.slug === "camp-app-exchange"));
+});
+
 test("terminal directory endpoint returns campsite app entries", async () => {
   const response = await fetchPath("/radio?command=DIR");
   const text = await response.text();
