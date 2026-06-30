@@ -7,6 +7,11 @@ async function fetchPath(path) {
   return worker.fetch(new Request(`https://omnidat.gmac.io${path}`), {}, {});
 }
 
+async function fetchJson(path, init = {}) {
+  const response = await worker.fetch(new Request(`https://omnidat.gmac.io${path}`, init), {}, {});
+  return { response, body: await response.json() };
+}
+
 test("health endpoint reports the OMNIDAT edge service as healthy", async () => {
   const response = await fetchPath("/api/health");
   const body = await response.json();
@@ -75,6 +80,124 @@ test("business examples endpoint returns fake corporate network use cases", asyn
   assert.ok(body.examples.some((example) => example.slug === "miliways-line-management"));
   assert.ok(body.examples.some((example) => example.slug === "activity-passport"));
   assert.ok(body.examples.some((example) => example.slug === "camp-app-exchange"));
+});
+
+test("operational console exposes login and user provisioning surfaces", async () => {
+  const login = await fetchPath("/login");
+  const loginHtml = await login.text();
+  const consolePage = await fetchPath("/console");
+  const consoleHtml = await consolePage.text();
+
+  assert.equal(login.status, 200);
+  assert.match(loginHtml, /ShadyTel SSO/);
+  assert.match(loginHtml, /Demo Field Operator Login/);
+  assert.match(loginHtml, /ShadyBucks/);
+  assert.equal(consolePage.status, 200);
+  assert.match(consoleHtml, /PDF Configuration/);
+  assert.match(consoleHtml, /Provisioning Verification/);
+  assert.match(consoleHtml, /X\.121 Address/);
+});
+
+test("session endpoint returns demo user, roles, PDFs, and ShadyBucks account", async () => {
+  const { response, body } = await fetchJson("/api/session", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "operator@camp.example", campsite: "Camp Laminar" }),
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(body.user.email, "operator@camp.example");
+  assert.deepEqual(body.user.roles, ["user"]);
+  assert.equal(body.user.pdfProfile.enabled, true);
+  assert.equal(body.user.shadybucksAccount.status, "linked-demo");
+  assert.match(body.user.shadybucksAccount.accountId, /^SB-/);
+});
+
+test("network status reports X.25 source, directory, and live service reachability", async () => {
+  const { response, body } = await fetchJson("/api/network");
+
+  assert.equal(response.status, 200);
+  assert.equal(body.network.protocol, "X.25");
+  assert.equal(body.network.status, "operational");
+  assert.equal(body.network.source, "seeded-exchange-88-adapter");
+  assert.ok(body.directory.some((entry) => entry.x121 === "311088020501"));
+  assert.ok(body.services.some((entry) => entry.slug === "shadybucks-atm" && entry.reachable === true));
+});
+
+test("services define verbs inputs outputs and X.121 addresses", async () => {
+  const { response, body } = await fetchJson("/api/services");
+
+  assert.equal(response.status, 200);
+  const food = body.services.find((entry) => entry.slug === "food-service");
+  const atm = body.services.find((entry) => entry.slug === "shadybucks-atm");
+
+  assert.equal(food.x121, "311088020501");
+  assert.ok(food.verbs.some((verb) => verb.name === "MENU" && verb.inputs.includes("serviceId")));
+  assert.ok(food.verbs.some((verb) => verb.name === "QUOTE" && verb.outputs.includes("total")));
+  assert.equal(atm.x121, "311088030100");
+  assert.ok(atm.verbs.some((verb) => verb.name === "ATM.SETUP" && verb.inputs.includes("terminalId")));
+  assert.ok(atm.verbs.some((verb) => verb.name === "WITHDRAW" && verb.outputs.includes("receiptId")));
+});
+
+test("provisioning verification returns a network transcript", async () => {
+  const { response, body } = await fetchJson("/api/provisioning", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      campsiteName: "Camp Laminar",
+      serviceSlug: "food-service",
+      transport: "meshcore",
+    }),
+  });
+
+  assert.equal(response.status, 202);
+  assert.equal(body.status, "verified");
+  assert.equal(body.assignment.x121, "311088020184");
+  assert.match(body.transcript, /CALL 311088020501/);
+  assert.match(body.transcript, /CONNECT MILIWAYS ORDER ENTRY/);
+});
+
+test("admin and NOC APIs expose billing, provisioning, and circuit state", async () => {
+  const admin = await fetchJson("/api/admin/overview");
+  const noc = await fetchJson("/api/noc/status");
+  const billing = await fetchJson("/api/billing/accounts");
+
+  assert.equal(admin.response.status, 200);
+  assert.ok(admin.body.billing.accounts.some((account) => account.provider === "ShadyBucks"));
+  assert.ok(admin.body.provisioning.pending.some((request) => request.campsiteName === "Camp Laminar"));
+  assert.equal(noc.response.status, 200);
+  assert.ok(noc.body.circuits.some((circuit) => circuit.x121 === "311088030100" && circuit.status === "up"));
+  assert.equal(billing.response.status, 200);
+  assert.ok(billing.body.accounts.some((account) => account.type === "atm-settlement"));
+});
+
+test("food service and ShadyBucks ATM protocol endpoints are configurable", async () => {
+  const food = await fetchJson("/api/protocols/food-service");
+  const atm = await fetchJson("/api/protocols/shadybucks-atm");
+
+  assert.equal(food.response.status, 200);
+  assert.ok(food.body.menu.some((item) => item.priceShadyBucks === 7));
+  assert.ok(food.body.waitLines.some((line) => line.status === "accepting-orders"));
+  assert.ok(food.body.verbs.some((verb) => verb.name === "ORDER.CREATE"));
+  assert.equal(atm.response.status, 200);
+  assert.ok(atm.body.setupChecklist.includes("Assign X.121 terminal address"));
+  assert.ok(atm.body.verbs.some((verb) => verb.name === "ATM.SETUP"));
+});
+
+test("admin and NOC pages render operational controls", async () => {
+  const admin = await fetchPath("/admin");
+  const adminHtml = await admin.text();
+  const noc = await fetchPath("/noc");
+  const nocHtml = await noc.text();
+
+  assert.equal(admin.status, 200);
+  assert.match(adminHtml, /Admin Control Panel/);
+  assert.match(adminHtml, /Service Registry/);
+  assert.match(adminHtml, /ShadyBucks Settlement/);
+  assert.equal(noc.status, 200);
+  assert.match(nocHtml, /Network Operations Center/);
+  assert.match(nocHtml, /Circuit State/);
+  assert.match(nocHtml, /X\.25 Adapter/);
 });
 
 test("terminal directory endpoint returns campsite app entries", async () => {

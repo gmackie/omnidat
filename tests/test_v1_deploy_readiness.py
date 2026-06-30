@@ -29,6 +29,18 @@ class V1DeployReadinessTests(unittest.TestCase):
         self.assertNotIn("static-provisional", worker)
         self.assertNotIn("provisional edge office", worker)
 
+    def test_worker_declares_operational_x25_control_plane(self):
+        worker = Path("worker/omnidat-worker.mjs").read_text()
+
+        self.assertIn('url.pathname === "/api/network"', worker)
+        self.assertIn('url.pathname === "/api/services"', worker)
+        self.assertIn('url.pathname === "/api/provisioning"', worker)
+        self.assertIn('url.pathname === "/api/billing/accounts"', worker)
+        self.assertIn('url.pathname === "/api/protocols/shadybucks-atm"', worker)
+        self.assertIn('url.pathname === "/api/protocols/food-service"', worker)
+        self.assertIn("X25_STATUS_URL", worker)
+        self.assertIn("ShadyBucks", worker)
+
     def test_runbook_documents_worker_v1_smoke_tests(self):
         runbook = Path("runbooks/cloudflare-worker-deploy.md").read_text()
 
