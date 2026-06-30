@@ -1,13 +1,23 @@
 const hostname = "omnidat.gmac.io";
+const service = "omnidat-v1-worker";
 
 const directoryEntries = [
-  ["010001", "OMNIDAT FIELD OFFICE"],
-  ["010110", "PACKET CLEARING DIRECTORY"],
-  ["020184", "CAMP LAMINAR MESSAGE DESK"],
-  ["020501", "MILIWAYS ORDER ENTRY"],
-  ["030021", "PASSPORT LOG ENTRY"],
-  ["030088", "BADGE CLAIMS COUNTER"],
-  ["040777", "RADIO GATEWAY STATUS"],
+  { circuit: "010001", label: "OMNIDAT FIELD OFFICE", kind: "network-office", slug: "field-office" },
+  { circuit: "010110", label: "PACKET CLEARING DIRECTORY", kind: "directory", slug: "directory" },
+  { circuit: "020184", label: "CAMP LAMINAR MESSAGE DESK", kind: "campsite-app", slug: "camp-laminar" },
+  { circuit: "020501", label: "MILIWAYS ORDER ENTRY", kind: "campsite-app", slug: "miliways" },
+  { circuit: "030021", label: "PASSPORT LOG ENTRY", kind: "campsite-app", slug: "passport" },
+  { circuit: "030088", label: "BADGE CLAIMS COUNTER", kind: "campsite-app", slug: "badges" },
+  { circuit: "040777", label: "RADIO GATEWAY STATUS", kind: "transport", slug: "radio-gateway" },
+];
+
+const transportProfiles = [
+  { slug: "meshcore", label: "MeshCore packet gateway" },
+  { slug: "meshtastic", label: "Meshtastic packet gateway" },
+  { slug: "wifi", label: "Camp Wi-Fi terminal" },
+  { slug: "pots", label: "POTS acoustic terminal" },
+  { slug: "shadytel", label: "ShadyTel hosted circuit" },
+  { slug: "omnidat-hosted", label: "OMNIDAT hosted circuit" },
 ];
 
 const htmlHeaders = {
@@ -123,7 +133,7 @@ function homepage() {
 <body>
   <main>
     <header>
-      <div class="label">Exchange 88 provisional edge office</div>
+      <div class="label">Exchange 88 v1 edge office</div>
       <h1>OMNIDAT Field Office</h1>
       <p>Join the packet clearing network, request campsite circuits, and publish small applications with the same ceremony as an old digital business account.</p>
       <div class="terminal" role="region" aria-label="OMNIDAT terminal preview">
@@ -145,7 +155,7 @@ ${directoryText()}</pre>
 }
 
 function directoryText() {
-  return directoryEntries.map(([code, label]) => `${code}  ${label}`).join("\n");
+  return directoryEntries.map((entry) => `${entry.circuit}  ${entry.label}`).join("\n");
 }
 
 function directoryResponse() {
@@ -159,22 +169,98 @@ function notFound() {
   });
 }
 
+function health() {
+  return json({
+    service,
+    status: "healthy",
+    hostname,
+    transport: "cloudflare-worker",
+    database: "postgres-shared-fryos-v1",
+    schema: "omnidat",
+    upstream: "cloudflare-workers",
+  });
+}
+
+function campsiteApps() {
+  return json({
+    service,
+    namespace: "camp",
+    apps: directoryEntries
+      .filter((entry) => entry.kind === "campsite-app")
+      .map((entry) => ({
+        circuit: entry.circuit,
+        slug: entry.slug,
+        label: entry.label,
+        namespace: "camp",
+      })),
+  });
+}
+
+async function signup(request) {
+  if (request.method !== "POST") {
+    return json({
+      status: "rejected",
+      error: "POST required for campsite signup requests.",
+    }, 405);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({
+      status: "rejected",
+      error: "Valid JSON request body required.",
+    }, 400);
+  }
+
+  const campsiteName = String(payload.campsiteName || "").trim();
+  const contact = String(payload.contact || "").trim();
+  const namespace = String(payload.namespace || "camp").trim() || "camp";
+  const transport = String(payload.transport || "").trim();
+
+  if (!campsiteName || !contact || !transport) {
+    return json({
+      status: "rejected",
+      error: "campsiteName, contact, and transport are required.",
+    }, 400);
+  }
+
+  return json({
+    service,
+    status: "queued",
+    message: `${campsiteName} is queued for OMNIDAT circuit review.`,
+    request: {
+      campsiteName,
+      contact,
+      namespace,
+      transport,
+    },
+  }, 202);
+}
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/health" || url.pathname === "/api/health/live" || url.pathname === "/api/health/ready") {
-      return json({
-        service: "omnidat-field-office-edge",
-        status: "healthy",
-        hostname,
-        transport: "cloudflare-worker",
-        upstream: "static-provisional",
-      });
+      return health();
     }
 
     if (url.pathname === "/") {
       return homepage();
+    }
+
+    if (url.pathname === "/api/campsite-apps") {
+      return campsiteApps();
+    }
+
+    if (url.pathname === "/api/signup") {
+      return signup(request);
+    }
+
+    if (url.pathname === "/api/transports") {
+      return json({ service, transports: transportProfiles });
     }
 
     if (url.pathname === "/radio" && (url.searchParams.get("command") || "").toUpperCase() === "DIR") {

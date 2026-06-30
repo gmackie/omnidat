@@ -11,6 +11,8 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    "APP_URL": "https://omnidat.gmac.io"
+    "APP_URL": "https://omnidat.gmac.io",
+    "OMNIDAT_DB_SCHEMA": "omnidat",
+    "DATABASE_PROVIDER": "postgres-shared-fryos-v1"
   }
 }
