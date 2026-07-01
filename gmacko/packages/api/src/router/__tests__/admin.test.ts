@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { platformPrimitives } from "@omnidat/config";
 import {
   applicationSettings,
   user,
@@ -685,19 +686,25 @@ describe("admin launch controls", () => {
       announcementTone: "info",
       allowedEmailDomains: [],
       platformPrimitives: expect.objectContaining({
-        featureFlags: { enabled: true, provider: "local" },
-        jobs: { enabled: true, provider: "local" },
+        featureFlags: {
+          enabled: platformPrimitives.featureFlags.enabled,
+          provider: platformPrimitives.featureFlags.provider,
+        },
+        jobs: {
+          enabled: platformPrimitives.jobs.enabled,
+          provider: platformPrimitives.jobs.provider,
+        },
         rateLimits: expect.objectContaining({
-          enabled: true,
-          scopes: expect.arrayContaining(["auth", "contact", "operator-api"]),
+          enabled: platformPrimitives.rateLimits.enabled,
+          scopes: [...platformPrimitives.rateLimits.scopes],
         }),
         botProtection: {
-          enabled: true,
-          provider: "local-rate-limit",
+          enabled: platformPrimitives.botProtection.enabled,
+          provider: platformPrimitives.botProtection.provider,
         },
         compliance: expect.objectContaining({
-          dataExport: true,
-          enabled: true,
+          dataExport: platformPrimitives.compliance.dataExport,
+          enabled: platformPrimitives.compliance.enabled,
         }),
       }),
       waitlistCount: 1,

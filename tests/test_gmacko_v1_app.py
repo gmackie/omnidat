@@ -31,6 +31,32 @@ class GmackoV1AppTests(unittest.TestCase):
         self.assertIn("omnidat-v1", health_route)
         self.assertIn("postgres-shared-fryos-v1", health_route)
 
+    def test_next_app_owns_operational_pages_and_trpc_router(self):
+        app_root = Path("gmacko/apps/nextjs/src/app")
+
+        self.assertTrue((app_root / "login/page.tsx").exists())
+        self.assertTrue((app_root / "console/page.tsx").exists())
+        self.assertTrue((app_root / "noc/page.tsx").exists())
+        self.assertTrue((app_root / "admin/page.tsx").exists())
+        self.assertTrue(Path("gmacko/packages/api/src/router/omnidat.ts").exists())
+
+        home = (app_root / "page.tsx").read_text()
+        console = (app_root / "console/page.tsx").read_text()
+        noc = (app_root / "noc/page.tsx").read_text()
+        admin = (app_root / "admin/page.tsx").read_text()
+        root_router = Path("gmacko/packages/api/src/root.ts").read_text()
+
+        self.assertIn("trpc.omnidat.dashboard", home)
+        self.assertIn('href="/login"', home)
+        self.assertIn('href="/console"', home)
+        self.assertIn("PDF Configuration", console)
+        self.assertIn("Provisioning Verification", console)
+        self.assertIn("Network Operations Center", noc)
+        self.assertIn("Circuit State", noc)
+        self.assertIn("ShadyBucks Settlement", admin)
+        self.assertIn("Service Registry", admin)
+        self.assertIn("omnidat: omnidatRouter", root_router)
+
     def test_next_app_metadata_is_omnidat_not_template(self):
         layout = Path("gmacko/apps/nextjs/src/app/layout.tsx").read_text()
 
@@ -61,6 +87,10 @@ class GmackoV1AppTests(unittest.TestCase):
         self.assertIn('OMNIDAT_DB_SCHEMA="omnidat"', env)
         self.assertIn('APP_URL="https://omnidat.gmac.io"', env)
         self.assertIn('NEXT_PUBLIC_APP_URL="https://omnidat.gmac.io"', env)
+        self.assertIn('AUTH_GITHUB_ID=""', env)
+        self.assertIn('AUTH_GITHUB_SECRET=""', env)
+        self.assertIn('AUTH_GOOGLE_ID=""', env)
+        self.assertIn('AUTH_GOOGLE_SECRET=""', env)
 
     def test_forgegraph_config_targets_omnidat_domain_and_shared_postgres(self):
         config = Path("gmacko/.forgegraph.yaml").read_text()

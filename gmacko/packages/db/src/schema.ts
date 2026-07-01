@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 
 import { user } from "./auth-schema";
 
+export * from "./omnidat-schema";
+
 export const workspaceRoleEnum = ["owner", "admin", "member"] as const;
 export type WorkspaceRole = (typeof workspaceRoleEnum)[number];
 export const billingIntervalEnum = ["month", "year"] as const;

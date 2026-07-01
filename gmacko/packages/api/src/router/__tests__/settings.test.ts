@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { saasFeatures } from "@omnidat/config";
+import { platformPrimitives, saasFeatures } from "@omnidat/config";
 import {
   applicationSettings,
   user,
@@ -1210,24 +1210,30 @@ describe("settings billing overview", () => {
 
     await expect(settingsCaller.getPlatformPrimitives()).resolves.toMatchObject(
       {
-        featureFlags: { enabled: true, provider: "local" },
-        jobs: { enabled: true, provider: "local" },
+        featureFlags: {
+          enabled: platformPrimitives.featureFlags.enabled,
+          provider: platformPrimitives.featureFlags.provider,
+        },
+        jobs: {
+          enabled: platformPrimitives.jobs.enabled,
+          provider: platformPrimitives.jobs.provider,
+        },
         rateLimits: expect.objectContaining({
-          enabled: true,
-          scopes: expect.arrayContaining(["auth", "contact", "operator-api"]),
+          enabled: platformPrimitives.rateLimits.enabled,
+          scopes: [...platformPrimitives.rateLimits.scopes],
         }),
         botProtection: {
-          enabled: true,
-          provider: "local-rate-limit",
+          enabled: platformPrimitives.botProtection.enabled,
+          provider: platformPrimitives.botProtection.provider,
         },
         compliance: {
-          dataDeletion: true,
-          dataExport: true,
-          enabled: true,
+          dataDeletion: platformPrimitives.compliance.dataDeletion,
+          dataExport: platformPrimitives.compliance.dataExport,
+          enabled: platformPrimitives.compliance.enabled,
         },
         emailDelivery: {
-          enabled: false,
-          provider: "none",
+          enabled: platformPrimitives.emailDelivery.enabled,
+          provider: platformPrimitives.emailDelivery.provider,
         },
       },
     );

@@ -35,6 +35,7 @@
     "@omnidat/auth": "workspace:*",
     "@omnidat/config": "workspace:*",
     "@omnidat/db": "workspace:*",
+    "@omnidat/operator-core": "workspace:*",
     "@omnidat/telemetry": "workspace:*",
     "@omnidat/validators": "workspace:*",
     "@trpc/server": "catalog:",

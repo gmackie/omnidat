@@ -25,7 +25,7 @@
     "dev": "tsup src/index.ts src/omnidat.ts --format esm --watch --dts",
     "format": "biome check .",
     "lint": "oxlint .",
-    "test": "vitest run src/__tests__/operator-core.test.ts",
+    "test": "vitest run src/__tests__/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
