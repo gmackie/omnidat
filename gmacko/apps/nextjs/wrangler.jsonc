@@ -22,7 +22,8 @@
     "APP_ENV": "production",
     "APP_URL": "https://omnidat.gmac.io",
     "NEXT_PUBLIC_APP_URL": "https://omnidat.gmac.io",
-    "OMNIDAT_DB_SCHEMA": "omnidat"
+    "OMNIDAT_DB_SCHEMA": "omnidat",
+    "SKIP_ENV_VALIDATION": "1"
   },
   "env": {
     "staging": {
@@ -30,7 +31,8 @@
         "APP_ENV": "staging",
         "APP_URL": "https://omnidat-staging.gmac.io",
         "NEXT_PUBLIC_APP_URL": "https://omnidat-staging.gmac.io",
-        "OMNIDAT_DB_SCHEMA": "omnidat"
+        "OMNIDAT_DB_SCHEMA": "omnidat",
+        "SKIP_ENV_VALIDATION": "1"
       }
     }
   }
