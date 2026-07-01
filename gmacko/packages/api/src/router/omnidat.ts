@@ -1,10 +1,14 @@
 import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
+  configurePad,
+  executeXotCommand,
+  getOperationalState,
   omnidatBillingAccounts,
   omnidatFoodMenu,
-  omnidatProvisioningRequests,
   omnidatServiceDefinitions,
+  provisionCampsiteService,
+  setupAtmTerminal,
 } from "@omnidat/operator-core/omnidat";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
@@ -31,18 +35,18 @@ export const omnidatRouter = {
         totalServices: snapshot.services.length,
         upServices,
         degradedCircuits,
-        billingAccounts: omnidatBillingAccounts.length,
-        pendingProvisioning: omnidatProvisioningRequests.length,
+        billingAccounts: getOperationalState().billingAccounts.length,
+        pendingProvisioning: getOperationalState().provisioningRequests.length,
       },
-      recentProvisioning: omnidatProvisioningRequests,
-      billingAccounts: omnidatBillingAccounts,
+      recentProvisioning: getOperationalState().provisioningRequests,
+      billingAccounts: getOperationalState().billingAccounts,
     };
   }),
 
   network: publicProcedure.query(() => buildNetworkSnapshot()),
 
   services: publicProcedure.query(() => ({
-    services: omnidatServiceDefinitions,
+    services: getOperationalState().services,
   })),
 
   noc: publicProcedure.query(() => {
@@ -61,8 +65,10 @@ export const omnidatRouter = {
 
   billing: publicProcedure.query(() => ({
     provider: "ShadyBucks",
-    accounts: omnidatBillingAccounts,
+    accounts: getOperationalState().billingAccounts,
   })),
+
+  operations: publicProcedure.query(() => getOperationalState()),
 
   foodProtocol: publicProcedure.query(() => ({
     protocol: "OMNIDAT-FOOD-1",
@@ -104,4 +110,54 @@ export const omnidatRouter = {
       }),
     )
     .mutation(({ input }) => buildProvisioningTranscript(input)),
+
+  provisionCampsiteService: publicProcedure
+    .input(
+      z.object({
+        campsiteName: z.string().min(1),
+        namespace: z.string().min(1).default("camp"),
+        contact: z.string().min(1),
+        appName: z.string().min(1),
+        appKind: z.string().min(1),
+        transport: z.string().min(1),
+      }),
+    )
+    .mutation(({ input }) => provisionCampsiteService(input)),
+
+  configurePad: publicProcedure
+    .input(
+      z.object({
+        x121: z.string().min(6),
+        transport: z.string().min(1),
+        padKind: z.enum([
+          "meshcore-pad",
+          "meshtastic-pad",
+          "wifi-terminal",
+          "pots-pad",
+          "xot-terminal",
+        ]),
+        endpointLabel: z.string().min(1),
+      }),
+    )
+    .mutation(({ input }) => configurePad(input)),
+
+  setupAtmTerminal: publicProcedure
+    .input(
+      z.object({
+        terminalId: z.string().min(1),
+        settlementAccountId: z.string().min(1),
+        terminalX121: z.string().optional(),
+        locationLabel: z.string().min(1),
+      }),
+    )
+    .mutation(({ input }) => setupAtmTerminal(input)),
+
+  xotCommand: publicProcedure
+    .input(
+      z.object({
+        sourceX121: z.string().min(6),
+        command: z.string().min(1),
+      }),
+    )
+    .mutation(({ input }) => executeXotCommand(input)),
 } satisfies TRPCRouterRecord;

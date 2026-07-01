@@ -7,6 +7,7 @@ import { useTRPC } from "~/trpc/react";
 export function OmnidatNocDashboard() {
   const trpc = useTRPC();
   const noc = useQuery(trpc.omnidat.noc.queryOptions());
+  const operations = useQuery(trpc.omnidat.operations.queryOptions());
 
   return (
     <div className="grid gap-5">
@@ -79,6 +80,44 @@ export function OmnidatNocDashboard() {
               </p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
+        <h2 className="text-2xl font-bold">PAD and XOT Terminal Inventory</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
+            <thead className="text-left text-[#c0a36e]">
+              <tr>
+                <th className="border-b border-[#5c4a32] py-2">X.121</th>
+                <th className="border-b border-[#5c4a32] py-2">Endpoint</th>
+                <th className="border-b border-[#5c4a32] py-2">Kind</th>
+                <th className="border-b border-[#5c4a32] py-2">Transport</th>
+                <th className="border-b border-[#5c4a32] py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(operations.data?.pads ?? []).map((pad) => (
+                <tr key={pad.id}>
+                  <td className="border-b border-[#33291d] py-3 font-mono">
+                    {pad.x121}
+                  </td>
+                  <td className="border-b border-[#33291d] py-3">
+                    {pad.endpointLabel}
+                  </td>
+                  <td className="border-b border-[#33291d] py-3">
+                    {pad.padKind}
+                  </td>
+                  <td className="border-b border-[#33291d] py-3">
+                    {pad.transport}
+                  </td>
+                  <td className="border-b border-[#33291d] py-3 uppercase">
+                    {pad.status}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>

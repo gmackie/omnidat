@@ -62,6 +62,45 @@ export type OmnidatFoodMenuItem = {
   available: boolean;
 };
 
+export type OmnidatPadConfig = {
+  id: string;
+  x121: string;
+  transport: string;
+  padKind: "meshcore-pad" | "meshtastic-pad" | "wifi-terminal" | "pots-pad" | "xot-terminal";
+  endpointLabel: string;
+  status: "configured" | "testing" | "disabled";
+  profile: string;
+};
+
+export type OmnidatBillingLedgerEntry = {
+  id: string;
+  accountId: string;
+  entryKind: "provisioning-fee" | "atm-activation" | "food-order" | "adjustment";
+  amount: number;
+  currency: "SHDY";
+  memo: string;
+  receiptId: string;
+};
+
+export type OmnidatAuditEvent = {
+  id: string;
+  eventType: string;
+  subjectKind: string;
+  subjectId: string;
+  details: Record<string, string | number | boolean>;
+};
+
+export type OmnidatOperationalState = {
+  services: OmnidatServiceDefinition[];
+  circuits: OmnidatCircuitMetric[];
+  provisioningRequests: OmnidatProvisioningRequest[];
+  billingAccounts: OmnidatBillingAccount[];
+  ledger: OmnidatBillingLedgerEntry[];
+  pads: OmnidatPadConfig[];
+  auditEvents: OmnidatAuditEvent[];
+  nextCampAddress: number;
+};
+
 export const omnidatDirectoryEntries: OmnidatDirectoryEntry[] = [
   { address: "010001", name: "OMNIDAT FIELD OFFICE", kind: "office" },
   { address: "010110", name: "PACKET CLEARING DIRECTORY", kind: "directory" },
@@ -208,6 +247,450 @@ export const omnidatFoodMenu: OmnidatFoodMenuItem[] = [
   { itemId: "NIGHT-PLATE", name: "Night Plate", priceShadyBucks: 13, available: false },
 ];
 
+function createInitialOperationalState(): OmnidatOperationalState {
+  return {
+    services: omnidatServiceDefinitions.map((service) => ({
+      ...service,
+      verbs: service.verbs.map((verb) => ({ ...verb })),
+    })),
+    circuits: omnidatCircuitMetrics.map((circuit) => ({ ...circuit })),
+    provisioningRequests: omnidatProvisioningRequests.map((request) => ({
+      ...request,
+    })),
+    billingAccounts: omnidatBillingAccounts.map((account) => ({ ...account })),
+    ledger: [
+      {
+        id: "LEDGER-PV-020184",
+        accountId: "SB-CAMP-LAMINAR-001",
+        entryKind: "provisioning-fee",
+        amount: -25,
+        currency: "SHDY",
+        memo: "X.121 provisioning fee for Camp Laminar",
+        receiptId: "RCPT-PV-020184",
+      },
+    ],
+    pads: [
+      {
+        id: "PAD-040777",
+        x121: "311088040777",
+        transport: "meshtastic",
+        padKind: "meshtastic-pad",
+        endpointLabel: "Exchange 88 radio gateway",
+        status: "testing",
+        profile: [
+          "PAD SET TRANSPORT MESHTASTIC",
+          "PAD SET X121 311088040777",
+          "PAD SET WINDOW 2",
+          "PAD SET ECHO LOCAL",
+        ].join("\n"),
+      },
+    ],
+    auditEvents: [
+      {
+        id: "AUDIT-BOOT",
+        eventType: "network.boot",
+        subjectKind: "network",
+        subjectId: "exchange-88",
+        details: { source: "seeded-exchange-88-adapter" },
+      },
+    ],
+    nextCampAddress: 185,
+  };
+}
+
+const globalForOmnidat = globalThis as unknown as {
+  omnidatOperationalState: OmnidatOperationalState | undefined;
+};
+
+function state() {
+  globalForOmnidat.omnidatOperationalState ??= createInitialOperationalState();
+  return globalForOmnidat.omnidatOperationalState;
+}
+
+export function resetOmnidatOperationalState() {
+  globalForOmnidat.omnidatOperationalState = createInitialOperationalState();
+}
+
+export function getOperationalState() {
+  const current = state();
+  return {
+    services: current.services.map((service) => ({
+      ...service,
+      verbs: service.verbs.map((verb) => ({ ...verb })),
+    })),
+    circuits: current.circuits.map((circuit) => ({ ...circuit })),
+    provisioningRequests: current.provisioningRequests.map((request) => ({
+      ...request,
+    })),
+    billingAccounts: current.billingAccounts.map((account) => ({ ...account })),
+    ledger: current.ledger.map((entry) => ({ ...entry })),
+    pads: current.pads.map((pad) => ({ ...pad })),
+    auditEvents: current.auditEvents.map((event) => ({
+      ...event,
+      details: { ...event.details },
+    })),
+  };
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function nextX121() {
+  const current = state();
+  const suffix = String(current.nextCampAddress).padStart(4, "0");
+  current.nextCampAddress += 1;
+  return `31108802${suffix}`;
+}
+
+function appendAudit(eventType: string, subjectKind: string, subjectId: string, details: Record<string, string | number | boolean>) {
+  state().auditEvents.unshift({
+    id: `AUDIT-${String(state().auditEvents.length + 1).padStart(4, "0")}`,
+    eventType,
+    subjectKind,
+    subjectId,
+    details,
+  });
+}
+
+function accountIdFor(campsiteName: string) {
+  return `SB-CAMP-${slugify(campsiteName).toUpperCase()}-001`;
+}
+
+export function provisionCampsiteService(input: {
+  campsiteName: string;
+  namespace: string;
+  contact: string;
+  appName: string;
+  appKind: string;
+  transport: string;
+}) {
+  const current = state();
+  const campsiteName = input.campsiteName.trim();
+  const namespace = input.namespace.trim().toLowerCase() || "camp";
+  const appName = input.appName.trim();
+  const x121 = nextX121();
+  const slug = `${slugify(campsiteName)}-${slugify(appName)}`;
+  const billingAccountId = accountIdFor(campsiteName);
+  let billingAccount = current.billingAccounts.find(
+    (account) => account.accountId === billingAccountId,
+  );
+
+  if (!billingAccount) {
+    billingAccount = {
+      accountId: billingAccountId,
+      provider: "ShadyBucks",
+      type: "camp-operating",
+      owner: campsiteName,
+      status: "linked-demo",
+      balance: 250,
+      currency: "SHDY",
+    };
+    current.billingAccounts.push(billingAccount);
+  }
+
+  billingAccount.balance -= 25;
+
+  const request: OmnidatProvisioningRequest = {
+    id: `PV-${x121.slice(-6)}`,
+    campsiteName,
+    namespace,
+    transport: input.transport.trim(),
+    assignedX121: x121,
+    status: "verified",
+  };
+  current.provisioningRequests.unshift(request);
+
+  const service: OmnidatServiceDefinition = {
+    slug,
+    name: appName,
+    x121,
+    owner: campsiteName,
+    category: "transport",
+    status: "up",
+    reachable: true,
+    verbs: [
+      {
+        name: "STATUS",
+        description: "Return campsite app status.",
+        inputs: ["x121"],
+        outputs: ["status", "transport", "owner"],
+      },
+      {
+        name: "MESSAGE.SEND",
+        description: "Submit a campsite application message.",
+        inputs: ["body", "operatorId"],
+        outputs: ["messageId", "receiptId"],
+      },
+    ],
+  };
+  current.services.push(service);
+  current.circuits.push({
+    x121,
+    service: appName,
+    status: "up",
+    latencyMs: input.transport === "xot" ? 38 : 96,
+    transport: input.transport,
+    packetLoss: 0,
+  });
+
+  const ledgerEntry: OmnidatBillingLedgerEntry = {
+    id: `LEDGER-${request.id}`,
+    accountId: billingAccount.accountId,
+    entryKind: "provisioning-fee",
+    amount: -25,
+    currency: "SHDY",
+    memo: `X.121 provisioning fee for ${campsiteName}`,
+    receiptId: `RCPT-${request.id}`,
+  };
+  current.ledger.unshift(ledgerEntry);
+  appendAudit("provisioning.verified", "x121", x121, {
+    campsiteName,
+    namespace,
+    transport: request.transport,
+  });
+
+  return {
+    status: "verified" as const,
+    assignment: request,
+    service,
+    billing: {
+      account: billingAccount,
+      ledgerEntry,
+    },
+    transcript: [
+      "OMNIDAT PACKET CLEARING OFFICE",
+      `ASSIGN ${x121}`,
+      `NAMESPACE ${namespace}`,
+      `SERVICE ${appName.toUpperCase()}`,
+      `BILL ${billingAccount.accountId} -25 SHDY`,
+      "STATUS VERIFIED",
+    ].join("\n"),
+  };
+}
+
+function padProfile(input: {
+  x121: string;
+  transport: string;
+  padKind: OmnidatPadConfig["padKind"];
+  endpointLabel: string;
+}) {
+  if (input.padKind === "xot-terminal") {
+    return [
+      "XOT HOST omnidat.gmac.io",
+      "XOT PORT 1998",
+      `XOT CALLING ${input.x121}`,
+      "PAD SET WINDOW 2",
+      "PAD SET PACKET-SIZE 128",
+      "PAD SET ECHO LOCAL",
+      "PAD SET CR-PAD 1",
+    ].join("\n");
+  }
+
+  return [
+    `PAD SET TRANSPORT ${input.transport.toUpperCase()}`,
+    `PAD SET X121 ${input.x121}`,
+    "PAD SET WINDOW 2",
+    "PAD SET ECHO LOCAL",
+  ].join("\n");
+}
+
+export function configurePad(input: {
+  x121: string;
+  transport: string;
+  padKind: OmnidatPadConfig["padKind"];
+  endpointLabel: string;
+}) {
+  const current = state();
+  const service = current.services.find((entry) => entry.x121 === input.x121);
+  if (!service) {
+    throw new Error(`Unknown X.121 address: ${input.x121}`);
+  }
+
+  const existing = current.pads.find((pad) => pad.x121 === input.x121);
+  const pad: OmnidatPadConfig = {
+    id: existing?.id ?? `PAD-${input.x121.slice(-6)}`,
+    x121: input.x121,
+    transport: input.transport,
+    padKind: input.padKind,
+    endpointLabel: input.endpointLabel.trim(),
+    status: "configured",
+    profile: padProfile(input),
+  };
+
+  if (existing) {
+    Object.assign(existing, pad);
+  } else {
+    current.pads.unshift(pad);
+  }
+
+  const circuit = current.circuits.find((entry) => entry.x121 === input.x121);
+  if (circuit) {
+    circuit.transport = input.transport;
+    circuit.status = "up";
+    circuit.latencyMs = input.padKind === "xot-terminal" ? 38 : circuit.latencyMs;
+    circuit.packetLoss = 0;
+  }
+
+  appendAudit("pad.configured", "x121", input.x121, {
+    transport: input.transport,
+    padKind: input.padKind,
+  });
+  return pad;
+}
+
+export function setupAtmTerminal(input: {
+  terminalId: string;
+  settlementAccountId: string;
+  terminalX121?: string;
+  locationLabel: string;
+}) {
+  const current = state();
+  const settlementAccount = current.billingAccounts.find(
+    (account) => account.accountId === input.settlementAccountId,
+  );
+  if (!settlementAccount) {
+    throw new Error(`Unknown ShadyBucks account: ${input.settlementAccountId}`);
+  }
+  const terminalX121 = input.terminalX121?.trim() || nextX121();
+  const ledgerEntry: OmnidatBillingLedgerEntry = {
+    id: `LEDGER-ATM-${slugify(input.terminalId).toUpperCase()}`,
+    accountId: settlementAccount.accountId,
+    entryKind: "atm-activation",
+    amount: -10,
+    currency: "SHDY",
+    memo: `ATM activation for ${input.terminalId}`,
+    receiptId: `RCPT-ATM-${terminalX121.slice(-6)}`,
+  };
+  settlementAccount.balance -= 10;
+  current.ledger.unshift(ledgerEntry);
+  current.services.push({
+    slug: `shadybucks-atm-${slugify(input.terminalId)}`,
+    name: `ShadyBucks ATM ${input.terminalId}`,
+    x121: terminalX121,
+    owner: settlementAccount.owner,
+    category: "billing",
+    status: "up",
+    reachable: true,
+    verbs: [
+      {
+        name: "BALANCE",
+        description: "Return settlement account balance for this ATM terminal.",
+        inputs: ["shadybucksAccountId"],
+        outputs: ["balance", "currency"],
+      },
+      {
+        name: "WITHDRAW",
+        description: "Authorize a ShadyBucks cash-out operation.",
+        inputs: ["shadybucksAccountId", "amount"],
+        outputs: ["authorizationCode", "receiptId"],
+      },
+      {
+        name: "DEPOSIT",
+        description: "Record an operator cash-in operation.",
+        inputs: ["shadybucksAccountId", "amount"],
+        outputs: ["receiptId", "newBalance"],
+      },
+    ],
+  });
+  current.circuits.push({
+    x121: terminalX121,
+    service: `ATM ${input.terminalId}`,
+    status: "up",
+    latencyMs: 54,
+    transport: "xot",
+    packetLoss: 0,
+  });
+  appendAudit("atm.activated", "x121", terminalX121, {
+    terminalId: input.terminalId,
+    locationLabel: input.locationLabel,
+  });
+
+  return {
+    terminalId: input.terminalId,
+    terminalX121,
+    settlementAccount,
+    activationCode: `ATM-${terminalX121.slice(-6)}-READY`,
+    receiptId: ledgerEntry.receiptId,
+  };
+}
+
+function serviceDirectory(namespace?: string) {
+  const current = state();
+  const services = namespace?.toLowerCase() === "camp"
+    ? current.services.filter((service) => service.owner !== "OMNIDAT")
+    : current.services;
+  return services
+    .map((service) => `${service.x121}  ${service.name}  ${service.status}`)
+    .join("\n");
+}
+
+export function executeXotCommand(input: {
+  sourceX121: string;
+  command: string;
+}) {
+  const current = state();
+  const command = input.command.trim();
+  const [verb = "", ...args] = command.split(/\s+/);
+  const normalizedVerb = verb.toUpperCase();
+  let transcript: string;
+
+  if (normalizedVerb === "HELP" || normalizedVerb === "?") {
+    transcript = "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCOUNT>";
+  } else if (normalizedVerb === "DIR") {
+    transcript = serviceDirectory(args[0]);
+  } else if (normalizedVerb === "LOOKUP" || normalizedVerb === "CALL") {
+    const x121 = args[0] ?? "";
+    const service = current.services.find((entry) => entry.x121 === x121);
+    transcript = service
+      ? [
+          `CALL ${x121}`,
+          `CONNECT ${service.name.toUpperCase()}`,
+          `OWNER ${service.owner}`,
+          `STATUS ${service.status.toUpperCase()}`,
+          `VERBS ${service.verbs.map((entry) => entry.name).join(", ")}`,
+        ].join("\n")
+      : `CLEAR 13 UNKNOWN ADDRESS ${x121}`;
+  } else if (normalizedVerb === "STATUS") {
+    const x121 = args[0] ?? input.sourceX121;
+    const circuit = current.circuits.find((entry) => entry.x121 === x121);
+    transcript = circuit
+      ? `STATUS ${x121} ${circuit.status.toUpperCase()} ${circuit.transport} ${circuit.latencyMs}MS LOSS ${(circuit.packetLoss * 100).toFixed(1)}%`
+      : `STATUS ${x121} UNKNOWN`;
+  } else if (normalizedVerb === "PAD") {
+    const x121 = args[0] ?? input.sourceX121;
+    const pad = current.pads.find((entry) => entry.x121 === x121);
+    transcript = pad
+      ? [`PAD ${x121} ${pad.status.toUpperCase()} ${pad.padKind}`, pad.profile].join("\n")
+      : `PAD ${x121} NOT CONFIGURED`;
+  } else if (normalizedVerb === "BILL") {
+    const accountId = args[0] ?? "";
+    const account = current.billingAccounts.find((entry) => entry.accountId === accountId);
+    transcript = account
+      ? `BILL ${account.accountId} BALANCE ${account.balance} ${account.currency}`
+      : `BILL ${accountId} UNKNOWN`;
+  } else {
+    transcript = `ERROR UNKNOWN VERB ${normalizedVerb || "(EMPTY)"}`;
+  }
+
+  appendAudit("xot.command", "x121", input.sourceX121, {
+    command,
+    verb: normalizedVerb,
+  });
+
+  return {
+    status: transcript.startsWith("ERROR") || transcript.includes("UNKNOWN")
+      ? "error"
+      : "ok",
+    transcript,
+  };
+}
+
 export function renderDirectoryText(entries = omnidatDirectoryEntries) {
   return entries.map((entry) => `${entry.address}  ${entry.name}`).join("\n");
 }
@@ -233,13 +716,14 @@ export function buildSignupReceipt(input: {
 }
 
 export function buildNetworkSnapshot() {
+  const current = state();
   return {
     protocol: "X.25",
     source: "seeded-exchange-88-adapter",
     status: "operational",
-    services: omnidatServiceDefinitions,
-    circuits: omnidatCircuitMetrics,
-    directory: omnidatServiceDefinitions.map((entry) => ({
+    services: current.services,
+    circuits: current.circuits,
+    directory: current.services.map((entry) => ({
       slug: entry.slug,
       name: entry.name,
       x121: entry.x121,
@@ -253,9 +737,10 @@ export function buildProvisioningTranscript(input: {
   serviceSlug: string;
   transport: string;
 }) {
+  const current = state();
   const fallback = omnidatServiceDefinitions[0];
   const destination =
-    omnidatServiceDefinitions.find((entry) => entry.slug === input.serviceSlug) ??
+    current.services.find((entry) => entry.slug === input.serviceSlug) ??
     fallback;
 
   if (!destination) {

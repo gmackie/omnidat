@@ -9,6 +9,7 @@ export function OmnidatAdminDashboard() {
   const dashboard = useQuery(trpc.omnidat.dashboard.queryOptions());
   const services = useQuery(trpc.omnidat.services.queryOptions());
   const billing = useQuery(trpc.omnidat.billing.queryOptions());
+  const operations = useQuery(trpc.omnidat.operations.queryOptions());
 
   return (
     <div className="grid gap-5">
@@ -52,6 +53,39 @@ export function OmnidatAdminDashboard() {
               </p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded border border-border bg-card p-5">
+        <h2 className="text-2xl font-bold">Billing Ledger and Audit</h2>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="rounded border border-border p-4">
+            <h3 className="font-semibold">Recent Ledger Entries</h3>
+            <div className="mt-3 grid gap-2 text-sm">
+              {(operations.data?.ledger ?? []).slice(0, 6).map((entry) => (
+                <div className="rounded bg-muted p-3" key={entry.id}>
+                  <p className="font-mono text-xs">{entry.receiptId}</p>
+                  <p className="mt-1 font-semibold">
+                    {entry.amount} {entry.currency} / {entry.entryKind}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">{entry.memo}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded border border-border p-4">
+            <h3 className="font-semibold">Control Plane Audit</h3>
+            <div className="mt-3 grid gap-2 text-sm">
+              {(operations.data?.auditEvents ?? []).slice(0, 6).map((event) => (
+                <div className="rounded bg-muted p-3" key={event.id}>
+                  <p className="font-mono text-xs">{event.eventType}</p>
+                  <p className="mt-1">
+                    {event.subjectKind}: {event.subjectId}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

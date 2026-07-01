@@ -3,10 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
+  configurePad,
+  executeXotCommand,
+  getOperationalState,
   omnidatBillingAccounts,
   omnidatCircuitMetrics,
   omnidatFoodMenu,
   omnidatServiceDefinitions,
+  provisionCampsiteService,
+  resetOmnidatOperationalState,
+  setupAtmTerminal,
 } from "../omnidat";
 
 describe("OMNIDAT operational model", () => {
@@ -67,5 +73,68 @@ describe("OMNIDAT operational model", () => {
     expect(transcript.status).toBe("verified");
     expect(transcript.assignment.x121).toBe("311088020184");
     expect(transcript.transcript).toContain("CALL 311088020501");
+  });
+
+  it("provisions an X.121 app, configures an XOT PAD, and exposes it to terminal/NOC/billing state", () => {
+    resetOmnidatOperationalState();
+
+    const provisioned = provisionCampsiteService({
+      campsiteName: "Camp Oscillator",
+      namespace: "camp",
+      contact: "oscillator@example.test",
+      appName: "Oscillator Bulletin Board",
+      appKind: "message-board",
+      transport: "wifi",
+    });
+    const pad = configurePad({
+      x121: provisioned.assignment.assignedX121,
+      transport: "xot",
+      padKind: "xot-terminal",
+      endpointLabel: "Camp Oscillator laptop terminal",
+    });
+    const call = executeXotCommand({
+      sourceX121: provisioned.assignment.assignedX121,
+      command: `CALL ${provisioned.assignment.assignedX121}`,
+    });
+    const directory = executeXotCommand({
+      sourceX121: provisioned.assignment.assignedX121,
+      command: "DIR CAMP",
+    });
+    const state = getOperationalState();
+
+    expect(provisioned.assignment.assignedX121).toMatch(/^31108802\d{4}$/);
+    expect(provisioned.billing.ledgerEntry.memo).toContain("X.121 provisioning");
+    expect(pad.profile).toContain(`XOT HOST omnidat.gmac.io`);
+    expect(call.transcript).toContain("CONNECT OSCILLATOR BULLETIN BOARD");
+    expect(directory.transcript).toContain(provisioned.assignment.assignedX121);
+    expect(state.pads.map((entry) => entry.x121)).toContain(
+      provisioned.assignment.assignedX121,
+    );
+    expect(
+      buildNetworkSnapshot().circuits.map((circuit) => circuit.x121),
+    ).toContain(provisioned.assignment.assignedX121);
+  });
+
+  it("registers activated ATM terminals as callable X.25 services", () => {
+    resetOmnidatOperationalState();
+
+    const atm = setupAtmTerminal({
+      terminalId: "OSC-ATM-1",
+      settlementAccountId: "SB-ATM-EX88-100",
+      locationLabel: "Camp Oscillator cashier window",
+    });
+    const call = executeXotCommand({
+      sourceX121: atm.terminalX121,
+      command: `CALL ${atm.terminalX121}`,
+    });
+    const status = executeXotCommand({
+      sourceX121: atm.terminalX121,
+      command: `STATUS ${atm.terminalX121}`,
+    });
+
+    expect(call.status).toBe("ok");
+    expect(call.transcript).toContain("CONNECT SHADYBUCKS ATM OSC-ATM-1");
+    expect(call.transcript).toContain("VERBS BALANCE, WITHDRAW, DEPOSIT");
+    expect(status.transcript).toContain(`STATUS ${atm.terminalX121} UP xot`);
   });
 });

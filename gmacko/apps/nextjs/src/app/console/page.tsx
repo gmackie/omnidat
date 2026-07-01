@@ -21,7 +21,7 @@ export default async function ConsolePage() {
               <Link className="rounded border border-[#7a694f] px-3 py-2" href="/noc">
                 NOC
               </Link>
-              <Link className="rounded border border-[#7a694f] px-3 py-2" href="/admin">
+              <Link className="rounded border border-[#7a694f] px-3 py-2" href="/operator-admin">
                 Admin
               </Link>
             </div>
