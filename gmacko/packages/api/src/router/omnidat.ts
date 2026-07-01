@@ -19,16 +19,24 @@ import {
   persistPadResult,
   persistProvisioningResult,
   persistXotCommandResult,
+  loadPersistentOperationalState,
   type OmnidatPersistenceDb,
 } from "./omnidat-persistence";
 
 export const omnidatRouter = {
-  dashboard: publicProcedure.query(() => {
+  dashboard: publicProcedure.query(async ({ ctx }) => {
+    const operationalState =
+      (await loadPersistentOperationalState(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        getOperationalState(),
+      )) ?? getOperationalState();
     const snapshot = buildNetworkSnapshot();
-    const upServices = snapshot.services.filter(
+    const services = operationalState.services;
+    const circuits = operationalState.circuits;
+    const upServices = services.filter(
       (service) => service.status === "up",
     ).length;
-    const degradedCircuits = snapshot.circuits.filter(
+    const degradedCircuits = circuits.filter(
       (circuit) => circuit.status === "degraded",
     ).length;
 
@@ -39,25 +47,36 @@ export const omnidatRouter = {
         source: snapshot.source,
       },
       metrics: {
-        totalServices: snapshot.services.length,
+        totalServices: services.length,
         upServices,
         degradedCircuits,
-        billingAccounts: getOperationalState().billingAccounts.length,
-        pendingProvisioning: getOperationalState().provisioningRequests.length,
+        billingAccounts: operationalState.billingAccounts.length,
+        pendingProvisioning: operationalState.provisioningRequests.length,
       },
-      recentProvisioning: getOperationalState().provisioningRequests,
-      billingAccounts: getOperationalState().billingAccounts,
+      recentProvisioning: operationalState.provisioningRequests,
+      billingAccounts: operationalState.billingAccounts,
     };
   }),
 
   network: publicProcedure.query(() => buildNetworkSnapshot()),
 
-  services: publicProcedure.query(() => ({
-    services: getOperationalState().services,
+  services: publicProcedure.query(async ({ ctx }) => ({
+    services:
+      (
+        (await loadPersistentOperationalState(
+          (ctx as { db?: OmnidatPersistenceDb }).db,
+          getOperationalState(),
+        )) ?? getOperationalState()
+      ).services,
   })),
 
-  noc: publicProcedure.query(() => {
+  noc: publicProcedure.query(async ({ ctx }) => {
     const snapshot = buildNetworkSnapshot();
+    const operationalState =
+      (await loadPersistentOperationalState(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        getOperationalState(),
+      )) ?? getOperationalState();
     return {
       center: "Exchange 88 Network Operations Center",
       adapter: {
@@ -65,17 +84,28 @@ export const omnidatRouter = {
         source: snapshot.source,
         status: snapshot.status,
       },
-      circuits: snapshot.circuits,
-      services: snapshot.services,
+      circuits: operationalState.circuits,
+      services: operationalState.services,
     };
   }),
 
-  billing: publicProcedure.query(() => ({
+  billing: publicProcedure.query(async ({ ctx }) => ({
     provider: "ShadyBucks",
-    accounts: getOperationalState().billingAccounts,
+    accounts:
+      (
+        (await loadPersistentOperationalState(
+          (ctx as { db?: OmnidatPersistenceDb }).db,
+          getOperationalState(),
+        )) ?? getOperationalState()
+      ).billingAccounts,
   })),
 
-  operations: publicProcedure.query(() => getOperationalState()),
+  operations: publicProcedure.query(async ({ ctx }) => (
+    (await loadPersistentOperationalState(
+      (ctx as { db?: OmnidatPersistenceDb }).db,
+      getOperationalState(),
+    )) ?? getOperationalState()
+  )),
 
   foodProtocol: publicProcedure.query(() => ({
     protocol: "OMNIDAT-FOOD-1",

@@ -1,4 +1,11 @@
 import { resetOmnidatOperationalState } from "@omnidat/operator-core/omnidat";
+import {
+  omnidatBillingAccount,
+  omnidatBillingLedgerEntry,
+  omnidatPadConfig,
+  omnidatProvisioningRequest,
+  omnidatShadyBucksAtm,
+} from "@omnidat/db/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../root";
@@ -152,5 +159,97 @@ describe("omnidat tRPC router", () => {
         subjectId: provisioned.assignment.assignedX121,
       }),
     );
+  });
+
+  it("reads operational dashboards from persisted OMNIDAT rows when database persistence is enabled", async () => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+    const rowsByTable = new Map<unknown, unknown[]>([
+      [
+        omnidatProvisioningRequest,
+        [
+          {
+            id: "pv-db-1",
+            assignedX121: "311088029999",
+            transport: "xot",
+            status: "verified",
+          },
+        ],
+      ],
+      [
+        omnidatBillingAccount,
+        [
+          {
+            externalAccountId: "SB-CAMP-DATABASE-001",
+            provider: "ShadyBucks",
+            accountType: "camp-operating",
+            displayName: "Camp Database",
+            status: "linked-demo",
+            balanceAmount: 1212,
+            currency: "SHDY",
+          },
+        ],
+      ],
+      [
+        omnidatBillingLedgerEntry,
+        [
+          {
+            id: "ledger-db-1",
+            accountId: "billing-db-1",
+            entryKind: "provisioning-fee",
+            amount: -25,
+            currency: "SHDY",
+            memo: "X.121 provisioning for Camp Database",
+            externalReceiptId: "RCPT-PV-029999",
+          },
+        ],
+      ],
+      [
+        omnidatPadConfig,
+        [
+          {
+            id: "pad-db-1",
+            x121: "311088029999",
+            transport: "xot",
+            padKind: "xot-terminal",
+            endpointLabel: "Camp Database terminal",
+            status: "configured",
+            profile: "XOT HOST omnidat.gmac.io\nCALL 311088029999",
+          },
+        ],
+      ],
+      [
+        omnidatShadyBucksAtm,
+        [
+          {
+            id: "atm-db-1",
+            terminalId: "DB-ATM-1",
+            terminalX121: "311088039999",
+            locationLabel: "Camp Database cashier",
+            status: "active",
+          },
+        ],
+      ],
+    ]);
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(async (table: unknown) => rowsByTable.get(table) ?? []),
+      })),
+    };
+    const persistentCaller = appRouter.createCaller({ db } as never);
+
+    const dashboard = await persistentCaller.omnidat.dashboard();
+    const billing = await persistentCaller.omnidat.billing();
+    const operations = await persistentCaller.omnidat.operations();
+    const noc = await persistentCaller.omnidat.noc();
+
+    expect(dashboard.metrics.billingAccounts).toBe(1);
+    expect(dashboard.metrics.pendingProvisioning).toBe(1);
+    expect(dashboard.recentProvisioning[0]?.assignedX121).toBe("311088029999");
+    expect(billing.accounts[0]?.accountId).toBe("SB-CAMP-DATABASE-001");
+    expect(operations.ledger[0]?.receiptId).toBe("RCPT-PV-029999");
+    expect(operations.pads[0]?.endpointLabel).toBe("Camp Database terminal");
+    expect(noc.services.map((service) => service.slug)).toContain("directory");
+    expect(noc.circuits.map((circuit) => circuit.x121)).toContain("311088029999");
+    expect(noc.circuits.map((circuit) => circuit.x121)).toContain("311088039999");
   });
 });

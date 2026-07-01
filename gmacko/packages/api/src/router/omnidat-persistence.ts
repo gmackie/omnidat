@@ -9,6 +9,12 @@ import {
 import type {
   configurePad,
   executeXotCommand,
+  OmnidatBillingAccount,
+  OmnidatBillingLedgerEntry,
+  OmnidatCircuitMetric,
+  OmnidatPadConfig,
+  OmnidatProvisioningRequest,
+  OmnidatServiceDefinition,
   provisionCampsiteService,
   setupAtmTerminal,
 } from "@omnidat/operator-core/omnidat";
@@ -18,6 +24,21 @@ type ProvisioningResult = ReturnType<typeof provisionCampsiteService>;
 type PadResult = ReturnType<typeof configurePad>;
 type AtmResult = ReturnType<typeof setupAtmTerminal>;
 type XotResult = ReturnType<typeof executeXotCommand>;
+type OmnidatOperationalSnapshot = {
+  services: OmnidatServiceDefinition[];
+  circuits: OmnidatCircuitMetric[];
+  provisioningRequests: OmnidatProvisioningRequest[];
+  billingAccounts: OmnidatBillingAccount[];
+  ledger: OmnidatBillingLedgerEntry[];
+  pads: OmnidatPadConfig[];
+  auditEvents: Array<{
+    id: string;
+    eventType: string;
+    subjectKind: string;
+    subjectId: string;
+    details: Record<string, string | number | boolean>;
+  }>;
+};
 
 type InsertValue<T> = T extends { $inferInsert: infer U } ? U : never;
 
@@ -27,6 +48,9 @@ export type OmnidatPersistenceDb = {
       onConflictDoUpdate?: (config: unknown) => unknown;
       returning?: (fields?: unknown) => Promise<unknown[]>;
     };
+  };
+  select?: () => {
+    from: (table: unknown) => Promise<unknown[]>;
   };
 };
 
@@ -152,6 +176,262 @@ export function projectXotCommandPersistenceRows(input: {
 
 export function databasePersistenceEnabled() {
   return process.env.OMNIDAT_PERSISTENCE === "database";
+}
+
+async function selectRows<T>(db: OmnidatPersistenceDb, table: unknown) {
+  if (!db.select) return [];
+  return (await db.select().from(table)) as T[];
+}
+
+function provisioningStatus(value: unknown): OmnidatProvisioningRequest["status"] {
+  return value === "verified" || value === "failed"
+    ? value
+    : "pending-network-install";
+}
+
+function billingType(value: unknown): OmnidatBillingAccount["type"] {
+  return value === "atm-settlement" ? "atm-settlement" : "camp-operating";
+}
+
+function billingStatus(value: unknown): OmnidatBillingAccount["status"] {
+  return value === "ready-for-terminal" ? "ready-for-terminal" : "linked-demo";
+}
+
+function ledgerKind(value: unknown): OmnidatBillingLedgerEntry["entryKind"] {
+  return value === "provisioning-fee" ||
+    value === "atm-activation" ||
+    value === "food-order"
+    ? value
+    : "adjustment";
+}
+
+function padKind(value: unknown): OmnidatPadConfig["padKind"] {
+  return value === "meshcore-pad" ||
+    value === "meshtastic-pad" ||
+    value === "wifi-terminal" ||
+    value === "pots-pad" ||
+    value === "xot-terminal"
+    ? value
+    : "xot-terminal";
+}
+
+function padStatus(value: unknown): OmnidatPadConfig["status"] {
+  return value === "testing" || value === "disabled" ? value : "configured";
+}
+
+function circuitStatus(value: OmnidatPadConfig["status"] | string) {
+  if (value === "disabled") return "down";
+  if (value === "testing") return "degraded";
+  return "up";
+}
+
+function latencyForTransport(transport: string) {
+  if (transport.includes("mesh")) return 160;
+  if (transport.includes("pots")) return 220;
+  if (transport.includes("xot")) return 48;
+  return 88;
+}
+
+type ProvisioningRow = {
+  id?: string;
+  assignedX121?: string | null;
+  transport?: string | null;
+  status?: string | null;
+};
+
+type BillingAccountRow = {
+  externalAccountId?: string | null;
+  provider?: string | null;
+  accountType?: string | null;
+  displayName?: string | null;
+  status?: string | null;
+  balanceAmount?: number | null;
+  currency?: string | null;
+};
+
+type LedgerRow = {
+  id?: string;
+  accountId?: string | null;
+  entryKind?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  memo?: string | null;
+  externalReceiptId?: string | null;
+};
+
+type PadRow = {
+  id?: string;
+  x121?: string | null;
+  transport?: string | null;
+  padKind?: string | null;
+  endpointLabel?: string | null;
+  status?: string | null;
+  profile?: string | null;
+};
+
+type AtmRow = {
+  id?: string;
+  terminalId?: string | null;
+  terminalX121?: string | null;
+  locationLabel?: string | null;
+  status?: string | null;
+};
+
+export async function loadPersistentOperationalState(
+  db: OmnidatPersistenceDb | undefined,
+  seed: OmnidatOperationalSnapshot,
+): Promise<OmnidatOperationalSnapshot | undefined> {
+  if (!db || !databasePersistenceEnabled()) return undefined;
+
+  const [
+    provisioningRows,
+    billingRows,
+    ledgerRows,
+    padRows,
+    atmRows,
+  ] = await Promise.all([
+    selectRows<ProvisioningRow>(db, omnidatProvisioningRequest),
+    selectRows<BillingAccountRow>(db, omnidatBillingAccount),
+    selectRows<LedgerRow>(db, omnidatBillingLedgerEntry),
+    selectRows<PadRow>(db, omnidatPadConfig),
+    selectRows<AtmRow>(db, omnidatShadyBucksAtm),
+  ]);
+
+  const provisioningRequests = provisioningRows
+    .filter((row) => row.assignedX121)
+    .map((row): OmnidatProvisioningRequest => ({
+      id: row.id ?? `PV-${row.assignedX121}`,
+      campsiteName: `Persisted ${row.assignedX121}`,
+      namespace: "camp",
+      transport: row.transport ?? "xot",
+      assignedX121: row.assignedX121 ?? "",
+      status: provisioningStatus(row.status),
+    }));
+
+  const billingAccounts = billingRows
+    .filter((row) => row.externalAccountId)
+    .map((row): OmnidatBillingAccount => ({
+      accountId: row.externalAccountId ?? "",
+      provider: "ShadyBucks",
+      type: billingType(row.accountType),
+      owner: row.displayName ?? row.externalAccountId ?? "OMNIDAT Account",
+      status: billingStatus(row.status),
+      balance: row.balanceAmount ?? 0,
+      currency: "SHDY",
+    }));
+
+  const ledger = ledgerRows.map((row): OmnidatBillingLedgerEntry => ({
+    id: row.id ?? row.externalReceiptId ?? "ledger-persisted",
+    accountId: row.accountId ?? "unknown",
+    entryKind: ledgerKind(row.entryKind),
+    amount: row.amount ?? 0,
+    currency: "SHDY",
+    memo: row.memo ?? "",
+    receiptId: row.externalReceiptId ?? row.id ?? "RCPT-PERSISTED",
+  }));
+
+  const pads = padRows
+    .filter((row) => row.x121)
+    .map((row): OmnidatPadConfig => ({
+      id: row.id ?? `PAD-${row.x121}`,
+      x121: row.x121 ?? "",
+      transport: row.transport ?? "xot",
+      padKind: padKind(row.padKind),
+      endpointLabel: row.endpointLabel ?? `PAD ${row.x121}`,
+      status: padStatus(row.status),
+      profile: row.profile ?? "",
+    }));
+
+  const padCircuits = pads.map((pad): OmnidatCircuitMetric => ({
+    x121: pad.x121,
+    service: pad.endpointLabel,
+    status: circuitStatus(pad.status),
+    latencyMs: latencyForTransport(pad.transport),
+    transport: pad.transport,
+    packetLoss: pad.status === "testing" ? 0.03 : 0,
+  }));
+
+  const atmCircuits = atmRows
+    .filter((row) => row.terminalX121)
+    .map((row): OmnidatCircuitMetric => ({
+      x121: row.terminalX121 ?? "",
+      service: `ATM ${row.terminalId ?? row.terminalX121}`,
+      status: row.status === "active" ? "up" : "down",
+      latencyMs: 74,
+      transport: "shadybucks-x25",
+      packetLoss: 0,
+    }));
+
+  const derivedServices = [
+    ...pads.map((pad): OmnidatServiceDefinition => ({
+      slug: `pad-${pad.x121}`,
+      name: pad.endpointLabel,
+      x121: pad.x121,
+      owner: "Persisted campsite",
+      category: "transport",
+      status: circuitStatus(pad.status),
+      reachable: pad.status !== "disabled",
+      verbs: [
+        {
+          name: "CALL",
+          description: "Open an XOT terminal call to this PAD.",
+          inputs: ["sourceX121"],
+          outputs: ["transcript", "status"],
+        },
+      ],
+    })),
+    ...atmRows
+      .filter((row) => row.terminalX121)
+      .map((row): OmnidatServiceDefinition => ({
+        slug: `atm-${row.terminalId ?? row.terminalX121}`,
+        name: `ATM ${row.terminalId ?? row.terminalX121}`,
+        x121: row.terminalX121 ?? "",
+        owner: "ShadyBucks Settlement Office",
+        category: "billing",
+        status: row.status === "active" ? "up" : "down",
+        reachable: row.status === "active",
+        verbs: [
+          {
+            name: "BALANCE",
+            description: "Read ShadyBucks account balance.",
+            inputs: ["shadybucksAccountId"],
+            outputs: ["availableBalance", "currency"],
+          },
+        ],
+      })),
+  ];
+
+  return {
+    ...seed,
+    services:
+      derivedServices.length > 0
+        ? [
+            ...seed.services,
+            ...derivedServices.filter(
+              (service) =>
+                !seed.services.some((seedService) => seedService.x121 === service.x121),
+            ),
+          ]
+        : seed.services,
+    circuits:
+      padCircuits.length > 0 || atmCircuits.length > 0
+        ? [
+            ...seed.circuits,
+            ...[...padCircuits, ...atmCircuits].filter(
+              (circuit) =>
+                !seed.circuits.some((seedCircuit) => seedCircuit.x121 === circuit.x121),
+            ),
+          ]
+        : seed.circuits,
+    provisioningRequests:
+      provisioningRequests.length > 0
+        ? provisioningRequests
+        : seed.provisioningRequests,
+    billingAccounts:
+      billingAccounts.length > 0 ? billingAccounts : seed.billingAccounts,
+    ledger: ledger.length > 0 ? ledger : seed.ledger,
+    pads: pads.length > 0 ? pads : seed.pads,
+  };
 }
 
 type ReturningInsert = {
