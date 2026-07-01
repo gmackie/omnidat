@@ -14,6 +14,7 @@ import {
   omnidatNetwork,
   omnidatNetworkMetric,
   omnidatNocIncident,
+  omnidatPadConfig,
   omnidatPdfProfile,
   omnidatProvisioningRequest,
   omnidatSecurityCredential,
@@ -72,6 +73,9 @@ describe("OMNIDAT X.25 operational schema", () => {
     expect(omnidatPdfProfile.enabledForms).toBeDefined();
     expect(omnidatProvisioningRequest.requestedByUserId).toBeDefined();
     expect(omnidatProvisioningRequest.verificationTranscript).toBeDefined();
+    expect(omnidatPadConfig.x121).toBeDefined();
+    expect(omnidatPadConfig.padKind).toBeDefined();
+    expect(omnidatPadConfig.profile).toBeDefined();
     expect(omnidatBillingAccount.provider).toBeDefined();
     expect(omnidatBillingAccount.externalAccountId).toBeDefined();
     expect(omnidatBillingLedgerEntry.amount).toBeDefined();
@@ -85,6 +89,9 @@ describe("OMNIDAT X.25 operational schema", () => {
     );
     expect(uniqueNames(omnidatShadyBucksAtm)).toContain(
       "omnidat_shadybucks_atm_terminal_x121_unique",
+    );
+    expect(uniqueNames(omnidatPadConfig)).toContain(
+      "omnidat_pad_config_x121_unique",
     );
   });
 

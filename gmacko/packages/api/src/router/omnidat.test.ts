@@ -1,13 +1,19 @@
 import { resetOmnidatOperationalState } from "@omnidat/operator-core/omnidat";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../root";
 
 const caller = appRouter.createCaller({} as never);
+const originalPersistence = process.env.OMNIDAT_PERSISTENCE;
 
 describe("omnidat tRPC router", () => {
   beforeEach(() => {
     resetOmnidatOperationalState();
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
   });
 
   it("returns dashboard metrics and network status", async () => {
@@ -104,5 +110,44 @@ describe("omnidat tRPC router", () => {
     expect(atm.activationCode).toContain("READY");
     expect(operations.ledger[0]?.entryKind).toBe("atm-activation");
     expect(bill.transcript).toContain("BALANCE");
+  });
+
+  it("records durable audit events when database persistence is enabled", async () => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+    const values = vi.fn(async () => undefined);
+    const db = {
+      insert: vi.fn(() => ({
+        values,
+      })),
+    };
+    const persistentCaller = appRouter.createCaller({ db } as never);
+
+    const provisioned = await persistentCaller.omnidat.provisionCampsiteService({
+      campsiteName: "Camp Durable",
+      namespace: "camp",
+      contact: "durable@example.test",
+      appName: "Durable Bulletin",
+      appKind: "message-board",
+      transport: "wifi",
+    });
+    await persistentCaller.omnidat.configurePad({
+      x121: provisioned.assignment.assignedX121,
+      transport: "xot",
+      padKind: "xot-terminal",
+      endpointLabel: "Camp Durable terminal",
+    });
+
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "provisioning.verified",
+        subjectId: provisioned.assignment.assignedX121,
+      }),
+    );
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "pad.configured",
+        subjectId: provisioned.assignment.assignedX121,
+      }),
+    );
   });
 });

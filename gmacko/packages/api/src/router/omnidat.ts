@@ -14,6 +14,14 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
+import {
+  persistAuditEvent,
+  projectAtmPersistenceRows,
+  projectPadPersistenceRows,
+  projectProvisioningPersistenceRows,
+  projectXotCommandPersistenceRows,
+  type OmnidatPersistenceDb,
+} from "./omnidat-persistence";
 
 export const omnidatRouter = {
   dashboard: publicProcedure.query(() => {
@@ -122,7 +130,14 @@ export const omnidatRouter = {
         transport: z.string().min(1),
       }),
     )
-    .mutation(({ input }) => provisionCampsiteService(input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = provisionCampsiteService(input);
+      await persistAuditEvent(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        projectProvisioningPersistenceRows(result).auditEvent,
+      );
+      return result;
+    }),
 
   configurePad: publicProcedure
     .input(
@@ -139,7 +154,14 @@ export const omnidatRouter = {
         endpointLabel: z.string().min(1),
       }),
     )
-    .mutation(({ input }) => configurePad(input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = configurePad(input);
+      await persistAuditEvent(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        projectPadPersistenceRows(result).auditEvent,
+      );
+      return result;
+    }),
 
   setupAtmTerminal: publicProcedure
     .input(
@@ -150,7 +172,14 @@ export const omnidatRouter = {
         locationLabel: z.string().min(1),
       }),
     )
-    .mutation(({ input }) => setupAtmTerminal(input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = setupAtmTerminal(input);
+      await persistAuditEvent(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        projectAtmPersistenceRows(result).auditEvent,
+      );
+      return result;
+    }),
 
   xotCommand: publicProcedure
     .input(
@@ -159,5 +188,12 @@ export const omnidatRouter = {
         command: z.string().min(1),
       }),
     )
-    .mutation(({ input }) => executeXotCommand(input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = executeXotCommand(input);
+      await persistAuditEvent(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        projectXotCommandPersistenceRows({ ...input, result }).auditEvent,
+      );
+      return result;
+    }),
 } satisfies TRPCRouterRecord;

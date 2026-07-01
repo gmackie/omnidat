@@ -213,6 +213,25 @@ export const omnidatProvisioningRequest = omnidatNamespace.table("omnidat_provis
   verifiedAt: t.timestamp({ mode: "date", withTimezone: true }),
 }));
 
+export const omnidatPadConfig = omnidatNamespace.table("omnidat_pad_config", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  x121: t.varchar({ length: 32 }).notNull(),
+  serviceId: t
+    .uuid()
+    .references(() => omnidatService.id, { onDelete: "set null" }),
+  transport: t.varchar({ length: 80 }).notNull(),
+  padKind: t.varchar({ length: 64 }).notNull(),
+  endpointLabel: t.varchar({ length: 160 }).notNull(),
+  status: t.varchar({ length: 32 }).notNull().default("configured"),
+  profile: t.text().notNull(),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+  updatedAt: t
+    .timestamp({ mode: "date", withTimezone: true })
+    .$onUpdateFn(() => sql`now()`),
+}), (table) => [
+  unique("omnidat_pad_config_x121_unique").on(table.x121),
+]);
+
 export const omnidatBillingAccount = omnidatNamespace.table("omnidat_billing_account", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   userId: t

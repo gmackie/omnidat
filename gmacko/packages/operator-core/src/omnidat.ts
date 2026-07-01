@@ -615,6 +615,7 @@ export function setupAtmTerminal(input: {
     terminalId: input.terminalId,
     terminalX121,
     settlementAccount,
+    locationLabel: input.locationLabel,
     activationCode: `ATM-${terminalX121.slice(-6)}-READY`,
     receiptId: ledgerEntry.receiptId,
   };
