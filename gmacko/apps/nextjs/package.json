@@ -7,7 +7,7 @@
     "clean": "git clean -xdf .cache .next .turbo node_modules playwright-report storybook-static test-results",
     "dev": "portless",
     "dev:app": "pnpm with-env next dev",
-    "prebuild:vinext": "pnpm --dir ../.. --filter @omnidat/nextjs^... build",
+    "prebuild:vinext": "rm -rf dist && pnpm --dir ../.. --filter @omnidat/nextjs^... build",
     "dev:vinext": "pnpm prebuild:vinext && pnpm with-env vinext dev",
     "build:vinext": "pnpm prebuild:vinext && pnpm with-env vinext build",
     "start:vinext": "pnpm with-env vinext start",

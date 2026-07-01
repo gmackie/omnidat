@@ -7,6 +7,10 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
+    "./init": {
+      "types": "./dist/init.d.ts",
+      "default": "./src/init.ts"
+    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "default": "./src/testing.ts"

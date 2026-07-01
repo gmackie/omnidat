@@ -120,6 +120,23 @@ class GmackoV1AppTests(unittest.TestCase):
         self.assertTrue((app_root / "worker/index.ts").exists())
         self.assertTrue((app_root / "src/cloudflare-env.ts").exists())
 
+    def test_worker_telemetry_barrel_excludes_node_only_initializer(self):
+        telemetry_index = Path("gmacko/packages/telemetry/src/index.ts").read_text()
+        instrumentation = Path("gmacko/apps/nextjs/src/instrumentation.ts").read_text()
+        package = json.loads(Path("gmacko/packages/telemetry/package.json").read_text())
+
+        self.assertNotIn('from "./init"', telemetry_index)
+        self.assertIn("./init", package["exports"])
+        self.assertIn('["@omnidat/telemetry", "init"].join("/")', instrumentation)
+        self.assertIn("await import(telemetryInitModule)", instrumentation)
+
+    def test_db_client_is_lazy_for_worker_validation(self):
+        client = Path("gmacko/packages/db/src/client.ts").read_text()
+
+        self.assertIn("function getDb()", client)
+        self.assertIn("new Proxy", client)
+        self.assertNotIn('if (!process.env.DATABASE_URL) {\n  throw new Error("Missing DATABASE_URL environment variable");\n}', client)
+
 
 if __name__ == "__main__":
     unittest.main()
