@@ -101,6 +101,25 @@ class GmackoV1AppTests(unittest.TestCase):
         self.assertIn("# database strategy: shared-fryos-postgres-schema", config)
         self.assertIn("# production domain: omnidat.gmac.io", config)
 
+    def test_next_app_has_cloudflare_workers_vinext_deploy_lane(self):
+        app_root = Path("gmacko/apps/nextjs")
+        package = json.loads((app_root / "package.json").read_text())
+        wrangler = (app_root / "wrangler.jsonc").read_text()
+
+        self.assertEqual(
+            package["scripts"]["deploy:cloudflare:production"],
+            "pnpm build:vinext && pnpm with-env wrangler deploy",
+        )
+        self.assertEqual(
+            package["scripts"]["deploy:cloudflare:staging"],
+            "pnpm build:vinext && pnpm with-env wrangler deploy --env staging",
+        )
+        self.assertIn("vinext", package["devDependencies"])
+        self.assertIn('"pattern": "omnidat.gmac.io"', wrangler)
+        self.assertTrue((app_root / "vite.config.ts").exists())
+        self.assertTrue((app_root / "worker/index.ts").exists())
+        self.assertTrue((app_root / "src/cloudflare-env.ts").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

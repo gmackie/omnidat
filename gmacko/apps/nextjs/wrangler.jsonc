@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "omnidat-app",
+  "compatibility_date": "2026-06-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./worker/index.ts",
+  "routes": [
+    {
+      "pattern": "omnidat.gmac.io",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "vars": {
+    "APP_ENV": "production",
+    "APP_URL": "https://omnidat.gmac.io",
+    "NEXT_PUBLIC_APP_URL": "https://omnidat.gmac.io",
+    "OMNIDAT_DB_SCHEMA": "omnidat"
+  },
+  "env": {
+    "staging": {
+      "vars": {
+        "APP_ENV": "staging",
+        "APP_URL": "https://omnidat-staging.gmac.io",
+        "NEXT_PUBLIC_APP_URL": "https://omnidat-staging.gmac.io",
+        "OMNIDAT_DB_SCHEMA": "omnidat"
+      }
+    }
+  }
+}
