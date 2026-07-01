@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "omnidat-app",
+  "name": "omnidat",
   "compatibility_date": "2026-06-30",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./worker/index.ts",
