@@ -62,6 +62,18 @@ export type OmnidatFoodMenuItem = {
   available: boolean;
 };
 
+export type OmnidatFoodOrder = {
+  id: string;
+  lineTicket: string;
+  pickupName: string;
+  itemIds: string[];
+  total: number;
+  currency: "SHDY";
+  status: "received" | "preparing" | "ready" | "fulfilled" | "cancelled";
+  estimatedWaitMinutes: number;
+  receiptId: string;
+};
+
 export type OmnidatPadConfig = {
   id: string;
   x121: string;
@@ -97,6 +109,7 @@ export type OmnidatOperationalState = {
   billingAccounts: OmnidatBillingAccount[];
   ledger: OmnidatBillingLedgerEntry[];
   pads: OmnidatPadConfig[];
+  foodOrders: OmnidatFoodOrder[];
   auditEvents: OmnidatAuditEvent[];
   nextCampAddress: number;
 };
@@ -285,6 +298,7 @@ function createInitialOperationalState(): OmnidatOperationalState {
         ].join("\n"),
       },
     ],
+    foodOrders: [],
     auditEvents: [
       {
         id: "AUDIT-BOOT",
@@ -325,6 +339,7 @@ export function getOperationalState() {
     billingAccounts: current.billingAccounts.map((account) => ({ ...account })),
     ledger: current.ledger.map((entry) => ({ ...entry })),
     pads: current.pads.map((pad) => ({ ...pad })),
+    foodOrders: current.foodOrders.map((order) => ({ ...order })),
     auditEvents: current.auditEvents.map((event) => ({
       ...event,
       details: { ...event.details },
@@ -360,6 +375,11 @@ function appendAudit(eventType: string, subjectKind: string, subjectId: string, 
 
 function accountIdFor(campsiteName: string) {
   return `SB-CAMP-${slugify(campsiteName).toUpperCase()}-001`;
+}
+
+function nextFoodTicket() {
+  const current = state();
+  return `MW-${String(current.foodOrders.length + 1).padStart(4, "0")}`;
 }
 
 export function provisionCampsiteService(input: {
@@ -618,6 +638,78 @@ export function setupAtmTerminal(input: {
     locationLabel: input.locationLabel,
     activationCode: `ATM-${terminalX121.slice(-6)}-READY`,
     receiptId: ledgerEntry.receiptId,
+  };
+}
+
+export function createFoodOrder(input: {
+  itemIds: string[];
+  pickupName: string;
+  shadybucksAccountId: string;
+}) {
+  const current = state();
+  const account = current.billingAccounts.find(
+    (entry) => entry.accountId === input.shadybucksAccountId,
+  );
+  if (!account) {
+    throw new Error(`Unknown ShadyBucks account: ${input.shadybucksAccountId}`);
+  }
+
+  const items = input.itemIds.map((itemId) => {
+    const item = omnidatFoodMenu.find((entry) => entry.itemId === itemId);
+    if (!item) throw new Error(`Unknown menu item: ${itemId}`);
+    if (!item.available) throw new Error(`Menu item unavailable: ${itemId}`);
+    return item;
+  });
+  if (items.length === 0) {
+    throw new Error("Food order requires at least one item");
+  }
+
+  const lineTicket = nextFoodTicket();
+  const total = items.reduce((sum, item) => sum + item.priceShadyBucks, 0);
+  const receiptId = `RCPT-FOOD-${lineTicket.slice(-4)}`;
+  const order: OmnidatFoodOrder = {
+    id: `ORDER-${lineTicket}`,
+    lineTicket,
+    pickupName: input.pickupName.trim(),
+    itemIds: items.map((item) => item.itemId),
+    total,
+    currency: "SHDY",
+    status: "received",
+    estimatedWaitMinutes: 7 + current.foodOrders.length * 2,
+    receiptId,
+  };
+  const ledgerEntry: OmnidatBillingLedgerEntry = {
+    id: `LEDGER-${receiptId}`,
+    accountId: account.accountId,
+    entryKind: "food-order",
+    amount: -total,
+    currency: "SHDY",
+    memo: `Miliways food order ${lineTicket} for ${order.pickupName}`,
+    receiptId,
+  };
+
+  account.balance -= total;
+  current.foodOrders.unshift(order);
+  current.ledger.unshift(ledgerEntry);
+  appendAudit("food.order.created", "food-order", lineTicket, {
+    pickupName: order.pickupName,
+    itemCount: order.itemIds.length,
+    total,
+  });
+
+  return {
+    ...order,
+    ledgerEntry,
+    billingAccount: account,
+    transcript: [
+      "CALL 311088020501",
+      "CONNECT MILIWAYS ORDER ENTRY",
+      `ORDER.CREATE ${order.itemIds.join(",")}`,
+      `LINE ${order.lineTicket}`,
+      `BILL ${account.accountId} -${total} SHDY`,
+      `RECEIPT ${receiptId}`,
+      `WAIT ${order.estimatedWaitMinutes} MIN`,
+    ].join("\n"),
   };
 }
 

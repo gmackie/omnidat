@@ -24,6 +24,9 @@ export function OmnidatOperatorConsole() {
   const [serviceSlug, setServiceSlug] = useState("food-service");
   const [assignedX121, setAssignedX121] = useState("311088020184");
   const [terminalCommand, setTerminalCommand] = useState("DIR CAMP");
+  const [pickupName, setPickupName] = useState("Packet Window 3");
+  const [shadybucksAccountId, setShadybucksAccountId] = useState("SB-CAMP-LAMINAR-001");
+  const [selectedFoodItems, setSelectedFoodItems] = useState(["NOODLE-CUP"]);
 
   const verify = useMutation(
     trpc.omnidat.verifyProvisioning.mutationOptions({
@@ -56,6 +59,16 @@ export function OmnidatOperatorConsole() {
   const xot = useMutation(
     trpc.omnidat.xotCommand.mutationOptions({
       onError: () => toast.error("XOT terminal command failed"),
+    }),
+  );
+
+  const foodOrder = useMutation(
+    trpc.omnidat.createFoodOrder.mutationOptions({
+      onSuccess: () => {
+        toast.success("Miliways line ticket issued");
+        void queryClient.invalidateQueries();
+      },
+      onError: () => toast.error("Food order failed"),
     }),
   );
 
@@ -231,16 +244,80 @@ BILL SB-CAMP-LAMINAR-001`}
           <h2 className="text-2xl font-bold">Miliways Food Protocol</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {(food.data?.menu ?? []).map((item) => (
-              <div
-                className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
+              <label
+                className="grid gap-2 rounded border border-[#5c4a32] bg-[#17130d] p-4"
                 key={item.itemId}
               >
-                <p className="font-semibold">{item.name}</p>
+                <span className="flex items-center gap-3">
+                  <input
+                    checked={selectedFoodItems.includes(item.itemId)}
+                    disabled={!item.available}
+                    onChange={(event) =>
+                      setSelectedFoodItems((current) =>
+                        event.target.checked
+                          ? [...current, item.itemId]
+                          : current.filter((itemId) => itemId !== item.itemId),
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  <span className="font-semibold">{item.name}</span>
+                </span>
                 <p className="mt-1 text-sm text-[#c0a36e]">
                   {item.priceShadyBucks} SHDY
                 </p>
                 <p className="mt-2 text-xs uppercase">
                   {item.available ? "available" : "sold out"}
+                </p>
+              </label>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-2 text-sm">
+              Pickup Name
+              <Input
+                value={pickupName}
+                onChange={(event) => setPickupName(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              ShadyBucks Account
+              <Input
+                value={shadybucksAccountId}
+                onChange={(event) => setShadybucksAccountId(event.target.value)}
+              />
+            </label>
+          </div>
+          <Button
+            className="mt-4"
+            disabled={foodOrder.isPending || selectedFoodItems.length === 0}
+            onClick={() =>
+              foodOrder.mutate({
+                itemIds: selectedFoodItems,
+                pickupName,
+                shadybucksAccountId,
+              })
+            }
+          >
+            Submit Food Order
+          </Button>
+          <pre className="mt-4 min-h-28 overflow-x-auto rounded bg-black p-4 font-mono text-sm leading-6 text-[#8ee36c]">
+            {foodOrder.data?.transcript ??
+              `CALL 311088020501
+ORDER.CREATE ${selectedFoodItems.join(",") || "NO SELECTION"}
+ACCOUNT ${shadybucksAccountId}
+STATUS AWAITING MENU SELECTION`}
+          </pre>
+          <div className="mt-4 grid gap-3">
+            {(operations.data?.foodOrders ?? []).slice(0, 3).map((order) => (
+              <div
+                className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
+                key={order.id}
+              >
+                <p className="font-mono text-sm text-[#9ed783]">{order.lineTicket}</p>
+                <p className="mt-1 font-semibold">{order.pickupName}</p>
+                <p className="mt-2 text-xs uppercase text-[#c0a36e]">
+                  {order.status} / {order.total} {order.currency} / {order.estimatedWaitMinutes} min
                 </p>
               </div>
             ))}

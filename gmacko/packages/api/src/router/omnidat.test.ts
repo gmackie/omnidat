@@ -119,6 +119,81 @@ describe("omnidat tRPC router", () => {
     expect(bill.transcript).toContain("BALANCE");
   });
 
+  it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
+    const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
+      .createFoodOrder;
+
+    expect(typeof orderProcedure).toBe("function");
+
+    const order = await (
+      orderProcedure as (input: {
+        itemIds: string[];
+        pickupName: string;
+        shadybucksAccountId: string;
+      }) => Promise<{
+        orderId: string;
+        lineTicket: string;
+        receiptId: string;
+        total: number;
+        estimatedWaitMinutes: number;
+      }>
+    )({
+      itemIds: ["NOODLE-CUP", "TEA-THERMOS"],
+      pickupName: "Packet Window 3",
+      shadybucksAccountId: "SB-CAMP-LAMINAR-001",
+    });
+    const operations = await caller.omnidat.operations();
+
+    expect(order.lineTicket).toMatch(/^MW-/);
+    expect(order.receiptId).toMatch(/^RCPT-FOOD-/);
+    expect(order.total).toBe(11);
+    expect(order.estimatedWaitMinutes).toBeGreaterThan(0);
+    expect(operations.ledger[0]?.entryKind).toBe("food-order");
+    expect(operations.ledger[0]?.amount).toBe(-11);
+
+    process.env.OMNIDAT_PERSISTENCE = "database";
+    let id = 0;
+    const returning = vi.fn(async () => [{ id: `row-${++id}` }]);
+    const onConflictDoUpdate = vi.fn(() => ({ returning }));
+    const values = vi.fn(() => ({ onConflictDoUpdate, returning }));
+    const persistentCaller = appRouter.createCaller({
+      db: {
+        insert: vi.fn(() => ({
+          values,
+        })),
+      },
+    } as never);
+    const persistentFoodOrder = (
+      persistentCaller.omnidat as unknown as {
+        createFoodOrder: (input: {
+          itemIds: string[];
+          pickupName: string;
+          shadybucksAccountId: string;
+        }) => Promise<unknown>;
+      }
+    ).createFoodOrder;
+    await persistentFoodOrder({
+      itemIds: ["NOODLE-CUP"],
+      pickupName: "Durable Diner",
+      shadybucksAccountId: "SB-CAMP-LAMINAR-001",
+    });
+
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lineTicket: expect.stringMatching(/^MW-/),
+        pickupName: "Durable Diner",
+        totalAmount: 7,
+        status: "received",
+      }),
+    );
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "food.order.created",
+        subjectKind: "food-order",
+      }),
+    );
+  });
+
   it("records durable audit events when database persistence is enabled", async () => {
     process.env.OMNIDAT_PERSISTENCE = "database";
     let id = 0;

@@ -313,7 +313,6 @@ export const omnidatFoodOrder = omnidatNamespace.table("omnidat_food_order", (t)
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   serviceId: t
     .uuid()
-    .notNull()
     .references(() => omnidatService.id, { onDelete: "cascade" }),
   billingAccountId: t
     .uuid()

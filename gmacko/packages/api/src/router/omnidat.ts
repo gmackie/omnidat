@@ -2,6 +2,7 @@ import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
   configurePad,
+  createFoodOrder,
   executeXotCommand,
   getOperationalState,
   omnidatBillingAccounts,
@@ -16,6 +17,7 @@ import { z } from "zod/v4";
 import { publicProcedure } from "../trpc";
 import {
   persistAtmResult,
+  persistFoodOrderResult,
   persistPadResult,
   persistProvisioningResult,
   persistXotCommandResult,
@@ -198,6 +200,20 @@ export const omnidatRouter = {
     .mutation(async ({ ctx, input }) => {
       const result = setupAtmTerminal(input);
       await persistAtmResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      return result;
+    }),
+
+  createFoodOrder: publicProcedure
+    .input(
+      z.object({
+        itemIds: z.array(z.string().min(1)).min(1),
+        pickupName: z.string().min(1),
+        shadybucksAccountId: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = createFoodOrder(input);
+      await persistFoodOrderResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
       return result;
     }),
 

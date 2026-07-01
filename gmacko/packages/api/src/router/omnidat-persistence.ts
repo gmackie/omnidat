@@ -2,16 +2,19 @@ import {
   omnidatAuditEvent,
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
+  omnidatFoodOrder,
   omnidatPadConfig,
   omnidatProvisioningRequest,
   omnidatShadyBucksAtm,
 } from "@omnidat/db/schema";
 import type {
   configurePad,
+  createFoodOrder,
   executeXotCommand,
   OmnidatBillingAccount,
   OmnidatBillingLedgerEntry,
   OmnidatCircuitMetric,
+  OmnidatFoodOrder,
   OmnidatPadConfig,
   OmnidatProvisioningRequest,
   OmnidatServiceDefinition,
@@ -24,6 +27,7 @@ type ProvisioningResult = ReturnType<typeof provisionCampsiteService>;
 type PadResult = ReturnType<typeof configurePad>;
 type AtmResult = ReturnType<typeof setupAtmTerminal>;
 type XotResult = ReturnType<typeof executeXotCommand>;
+type FoodOrderResult = ReturnType<typeof createFoodOrder>;
 type OmnidatOperationalSnapshot = {
   services: OmnidatServiceDefinition[];
   circuits: OmnidatCircuitMetric[];
@@ -31,6 +35,7 @@ type OmnidatOperationalSnapshot = {
   billingAccounts: OmnidatBillingAccount[];
   ledger: OmnidatBillingLedgerEntry[];
   pads: OmnidatPadConfig[];
+  foodOrders: OmnidatFoodOrder[];
   auditEvents: Array<{
     id: string;
     eventType: string;
@@ -174,6 +179,46 @@ export function projectXotCommandPersistenceRows(input: {
   };
 }
 
+export function projectFoodOrderPersistenceRows(result: FoodOrderResult) {
+  return {
+    billingAccount: {
+      provider: result.billingAccount.provider,
+      externalAccountId: result.billingAccount.accountId,
+      accountType: result.billingAccount.type,
+      displayName: result.billingAccount.owner,
+      status: result.billingAccount.status,
+      balanceAmount: result.billingAccount.balance,
+      currency: result.billingAccount.currency,
+    } satisfies InsertValue<typeof omnidatBillingAccount>,
+    foodOrder: {
+      lineTicket: result.lineTicket,
+      pickupName: result.pickupName,
+      items: result.itemIds.map((itemId) => ({ itemCode: itemId, quantity: 1 })),
+      totalAmount: result.total,
+      status: result.status,
+      estimatedWaitMinutes: result.estimatedWaitMinutes,
+    } satisfies InsertValue<typeof omnidatFoodOrder>,
+    ledgerEntry: {
+      entryKind: result.ledgerEntry.entryKind,
+      amount: result.ledgerEntry.amount,
+      currency: result.ledgerEntry.currency,
+      memo: result.ledgerEntry.memo,
+      externalReceiptId: result.ledgerEntry.receiptId,
+    } satisfies Omit<InsertValue<typeof omnidatBillingLedgerEntry>, "accountId">,
+    auditEvent: {
+      eventType: "food.order.created",
+      subjectKind: "food-order",
+      subjectId: result.lineTicket,
+      details: {
+        pickupName: result.pickupName,
+        itemCount: result.itemIds.length,
+        total: result.total,
+        receiptId: result.receiptId,
+      },
+    } satisfies InsertValue<typeof omnidatAuditEvent>,
+  };
+}
+
 export function databasePersistenceEnabled() {
   return process.env.OMNIDAT_PERSISTENCE === "database";
 }
@@ -277,6 +322,16 @@ type AtmRow = {
   status?: string | null;
 };
 
+type FoodOrderRow = {
+  id?: string;
+  lineTicket?: string | null;
+  pickupName?: string | null;
+  items?: Array<{ itemCode?: string; quantity?: number }> | null;
+  totalAmount?: number | null;
+  status?: string | null;
+  estimatedWaitMinutes?: number | null;
+};
+
 export async function loadPersistentOperationalState(
   db: OmnidatPersistenceDb | undefined,
   seed: OmnidatOperationalSnapshot,
@@ -289,12 +344,14 @@ export async function loadPersistentOperationalState(
     ledgerRows,
     padRows,
     atmRows,
+    foodOrderRows,
   ] = await Promise.all([
     selectRows<ProvisioningRow>(db, omnidatProvisioningRequest),
     selectRows<BillingAccountRow>(db, omnidatBillingAccount),
     selectRows<LedgerRow>(db, omnidatBillingLedgerEntry),
     selectRows<PadRow>(db, omnidatPadConfig),
     selectRows<AtmRow>(db, omnidatShadyBucksAtm),
+    selectRows<FoodOrderRow>(db, omnidatFoodOrder),
   ]);
 
   const provisioningRequests = provisioningRows
@@ -341,6 +398,30 @@ export async function loadPersistentOperationalState(
       status: padStatus(row.status),
       profile: row.profile ?? "",
     }));
+
+  const foodOrders = foodOrderRows
+    .filter((row) => row.lineTicket)
+    .map((row): OmnidatFoodOrder => {
+      const itemIds = (row.items ?? [])
+        .map((item) => item.itemCode)
+        .filter((itemId): itemId is string => Boolean(itemId));
+      return {
+        id: row.id ?? `ORDER-${row.lineTicket}`,
+        lineTicket: row.lineTicket ?? "",
+        pickupName: row.pickupName ?? "Persisted Pickup",
+        itemIds,
+        total: row.totalAmount ?? 0,
+        currency: "SHDY",
+        status: row.status === "ready" ||
+          row.status === "preparing" ||
+          row.status === "fulfilled" ||
+          row.status === "cancelled"
+          ? row.status
+          : "received",
+        estimatedWaitMinutes: row.estimatedWaitMinutes ?? 0,
+        receiptId: `RCPT-FOOD-${(row.lineTicket ?? "").slice(-4)}`,
+      };
+    });
 
   const padCircuits = pads.map((pad): OmnidatCircuitMetric => ({
     x121: pad.x121,
@@ -431,6 +512,7 @@ export async function loadPersistentOperationalState(
       billingAccounts.length > 0 ? billingAccounts : seed.billingAccounts,
     ledger: ledger.length > 0 ? ledger : seed.ledger,
     pads: pads.length > 0 ? pads : seed.pads,
+    foodOrders: foodOrders.length > 0 ? foodOrders : seed.foodOrders,
   };
 }
 
@@ -549,6 +631,22 @@ export async function persistXotCommandResult(
   await db
     .insert(omnidatAuditEvent)
     .values(projectXotCommandPersistenceRows(input).auditEvent);
+}
+
+export async function persistFoodOrderResult(
+  db: OmnidatPersistenceDb | undefined,
+  result: FoodOrderResult,
+) {
+  if (!db || !databasePersistenceEnabled()) return;
+  const rows = projectFoodOrderPersistenceRows(result);
+  const accountId = await upsertBillingAccount(db, rows.billingAccount);
+
+  await db.insert(omnidatFoodOrder).values(rows.foodOrder);
+  await db.insert(omnidatBillingLedgerEntry).values({
+    ...rows.ledgerEntry,
+    accountId,
+  });
+  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
 }
 
 export async function persistAuditEvent(
