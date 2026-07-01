@@ -154,6 +154,123 @@ export function databasePersistenceEnabled() {
   return process.env.OMNIDAT_PERSISTENCE === "database";
 }
 
+type ReturningInsert = {
+  onConflictDoUpdate?: (config: unknown) => ReturningInsert;
+  returning?: (fields?: unknown) => Promise<Array<{ id?: string }>>;
+};
+
+async function returningId(
+  insert: ReturningInsert,
+  fields: Record<string, unknown>,
+) {
+  const [row] = (await insert.returning?.(fields)) ?? [];
+  return row?.id;
+}
+
+async function upsertBillingAccount(
+  db: OmnidatPersistenceDb,
+  value: InsertValue<typeof omnidatBillingAccount>,
+) {
+  const insert = db.insert(omnidatBillingAccount).values(value) as ReturningInsert;
+  const upsert = insert.onConflictDoUpdate?.({
+    target: [
+      omnidatBillingAccount.provider,
+      omnidatBillingAccount.externalAccountId,
+    ],
+    set: {
+      accountType: value.accountType,
+      displayName: value.displayName,
+      status: value.status,
+      balanceAmount: value.balanceAmount,
+      currency: value.currency,
+    },
+  }) ?? insert;
+
+  const id = await returningId(upsert, { id: omnidatBillingAccount.id });
+  if (!id) {
+    throw new Error("OMNIDAT persistence could not resolve billing account id");
+  }
+  return id;
+}
+
+export async function persistProvisioningResult(
+  db: OmnidatPersistenceDb | undefined,
+  result: ProvisioningResult,
+) {
+  if (!db || !databasePersistenceEnabled()) return;
+  const rows = projectProvisioningPersistenceRows(result);
+  const accountId = await upsertBillingAccount(db, rows.billingAccount);
+
+  await db.insert(omnidatProvisioningRequest).values(rows.provisioningRequest);
+  await db.insert(omnidatBillingLedgerEntry).values({
+    ...rows.ledgerEntry,
+    accountId,
+  });
+  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+}
+
+export async function persistPadResult(
+  db: OmnidatPersistenceDb | undefined,
+  result: PadResult,
+) {
+  if (!db || !databasePersistenceEnabled()) return;
+  const rows = projectPadPersistenceRows(result);
+  const insert = db.insert(omnidatPadConfig).values(rows.padConfig) as ReturningInsert;
+  await insert.onConflictDoUpdate?.({
+    target: omnidatPadConfig.x121,
+    set: {
+      transport: rows.padConfig.transport,
+      padKind: rows.padConfig.padKind,
+      endpointLabel: rows.padConfig.endpointLabel,
+      status: rows.padConfig.status,
+      profile: rows.padConfig.profile,
+    },
+  });
+  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+}
+
+export async function persistAtmResult(
+  db: OmnidatPersistenceDb | undefined,
+  result: AtmResult,
+) {
+  if (!db || !databasePersistenceEnabled()) return;
+  const rows = projectAtmPersistenceRows(result);
+  const accountId = await upsertBillingAccount(db, rows.billingAccount);
+  const atmInsert = db.insert(omnidatShadyBucksAtm).values({
+    ...rows.atm,
+    settlementAccountId: accountId,
+  }) as ReturningInsert;
+
+  await atmInsert.onConflictDoUpdate?.({
+    target: omnidatShadyBucksAtm.terminalX121,
+    set: {
+      terminalId: rows.atm.terminalId,
+      locationLabel: rows.atm.locationLabel,
+      status: rows.atm.status,
+      activationCodeHash: rows.atm.activationCodeHash,
+    },
+  });
+  await db.insert(omnidatBillingLedgerEntry).values({
+    ...rows.ledgerEntry,
+    accountId,
+  });
+  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+}
+
+export async function persistXotCommandResult(
+  db: OmnidatPersistenceDb | undefined,
+  input: {
+    sourceX121: string;
+    command: string;
+    result: XotResult;
+  },
+) {
+  if (!db || !databasePersistenceEnabled()) return;
+  await db
+    .insert(omnidatAuditEvent)
+    .values(projectXotCommandPersistenceRows(input).auditEvent);
+}
+
 export async function persistAuditEvent(
   db: OmnidatPersistenceDb | undefined,
   auditEvent: InsertValue<typeof omnidatAuditEvent>,

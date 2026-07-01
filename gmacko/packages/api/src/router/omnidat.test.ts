@@ -114,7 +114,10 @@ describe("omnidat tRPC router", () => {
 
   it("records durable audit events when database persistence is enabled", async () => {
     process.env.OMNIDAT_PERSISTENCE = "database";
-    const values = vi.fn(async () => undefined);
+    let id = 0;
+    const returning = vi.fn(async () => [{ id: `row-${++id}` }]);
+    const onConflictDoUpdate = vi.fn(() => ({ returning }));
+    const values = vi.fn(() => ({ onConflictDoUpdate, returning }));
     const db = {
       insert: vi.fn(() => ({
         values,

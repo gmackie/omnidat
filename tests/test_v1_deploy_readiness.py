@@ -15,8 +15,18 @@ class V1DeployReadinessTests(unittest.TestCase):
         )
         self.assertEqual(config["vars"]["APP_ENV"], "production")
         self.assertEqual(config["vars"]["APP_URL"], "https://omnidat.gmac.io")
+        self.assertEqual(config["vars"]["OMNIDAT_PERSISTENCE"], "database")
         self.assertEqual(config["vars"]["OMNIDAT_DB_SCHEMA"], "omnidat")
         self.assertEqual(config["vars"]["DATABASE_PROVIDER"], "postgres-shared-fryos-v1")
+        self.assertEqual(
+            config["hyperdrive"],
+            [
+                {
+                    "binding": "HYPERDRIVE",
+                    "id": "0bd753e5676f4195ac6047e9dd531bf3",
+                },
+            ],
+        )
 
     def test_worker_is_not_a_provisional_static_shell(self):
         worker = Path("worker/omnidat-worker.mjs").read_text()

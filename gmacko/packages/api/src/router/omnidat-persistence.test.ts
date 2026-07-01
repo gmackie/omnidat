@@ -1,4 +1,12 @@
 import {
+  omnidatAuditEvent,
+  omnidatBillingAccount,
+  omnidatBillingLedgerEntry,
+  omnidatPadConfig,
+  omnidatProvisioningRequest,
+  omnidatShadyBucksAtm,
+} from "@omnidat/db/schema";
+import {
   configurePad,
   executeXotCommand,
   provisionCampsiteService,
@@ -8,11 +16,35 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  persistAtmResult,
+  persistPadResult,
+  persistProvisioningResult,
+  persistXotCommandResult,
   projectAtmPersistenceRows,
   projectPadPersistenceRows,
   projectProvisioningPersistenceRows,
   projectXotCommandPersistenceRows,
 } from "./omnidat-persistence";
+
+function createFakeDb() {
+  const writes: Array<{ table: unknown; value: unknown }> = [];
+  let id = 0;
+  const returning = async () => [{ id: `row-${++id}` }];
+  return {
+    writes,
+    db: {
+      insert: (table: unknown) => ({
+        values: (value: unknown) => {
+          writes.push({ table, value });
+          return {
+            onConflictDoUpdate: () => ({ returning }),
+            returning,
+          };
+        },
+      }),
+    },
+  };
+}
 
 describe("OMNIDAT persistence projections", () => {
   beforeEach(() => {
@@ -91,5 +123,61 @@ describe("OMNIDAT persistence projections", () => {
     expect(atmRows.ledgerEntry.externalReceiptId).toBe(atm.receiptId);
     expect(commandRows.auditEvent.eventType).toBe("xot.command");
     expect(commandRows.auditEvent.details.status).toBe("ok");
+  });
+
+  it("persists full operations rows when database persistence is enabled", async () => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+    const { db, writes } = createFakeDb();
+    const provisioned = provisionCampsiteService({
+      campsiteName: "Camp Durable",
+      namespace: "camp",
+      contact: "durable@example.test",
+      appName: "Durable Bulletin",
+      appKind: "message-board",
+      transport: "wifi",
+    });
+    const pad = configurePad({
+      x121: provisioned.assignment.assignedX121,
+      transport: "xot",
+      padKind: "xot-terminal",
+      endpointLabel: "Camp Durable terminal",
+    });
+    const atm = setupAtmTerminal({
+      terminalId: "DURABLE-ATM-1",
+      settlementAccountId: "SB-ATM-EX88-100",
+      locationLabel: "Camp Durable cashier",
+    });
+    const command = executeXotCommand({
+      sourceX121: provisioned.assignment.assignedX121,
+      command: `CALL ${provisioned.assignment.assignedX121}`,
+    });
+
+    await persistProvisioningResult(db, provisioned);
+    await persistPadResult(db, pad);
+    await persistAtmResult(db, atm);
+    await persistXotCommandResult(db, {
+      sourceX121: provisioned.assignment.assignedX121,
+      command: `CALL ${provisioned.assignment.assignedX121}`,
+      result: command,
+    });
+
+    expect(writes.map((write) => write.table)).toEqual(
+      expect.arrayContaining([
+        omnidatBillingAccount,
+        omnidatProvisioningRequest,
+        omnidatBillingLedgerEntry,
+        omnidatPadConfig,
+        omnidatShadyBucksAtm,
+        omnidatAuditEvent,
+      ]),
+    );
+    expect(
+      writes.some(
+        (write) =>
+          write.table === omnidatPadConfig &&
+          (write.value as { x121?: string }).x121 ===
+            provisioned.assignment.assignedX121,
+      ),
+    ).toBe(true);
   });
 });

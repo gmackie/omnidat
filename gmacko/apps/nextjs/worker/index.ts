@@ -21,6 +21,9 @@ interface Env {
       };
     };
   };
+  HYPERDRIVE?: {
+    connectionString: string;
+  };
 }
 
 interface ExecutionContext {
@@ -36,6 +39,10 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
+    if (env.HYPERDRIVE?.connectionString) {
+      process.env.DATABASE_URL = env.HYPERDRIVE.connectionString;
+    }
+
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {

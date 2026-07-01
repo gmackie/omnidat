@@ -127,6 +127,10 @@ class GmackoV1AppTests(unittest.TestCase):
         self.assertTrue((app_root / "worker/index.ts").exists())
         self.assertTrue((app_root / "src/cloudflare-env.ts").exists())
 
+        worker = (app_root / "worker/index.ts").read_text()
+        self.assertIn("HYPERDRIVE", worker)
+        self.assertIn("process.env.DATABASE_URL = env.HYPERDRIVE.connectionString", worker)
+
     def test_worker_telemetry_barrel_excludes_node_only_initializer(self):
         telemetry_index = Path("gmacko/packages/telemetry/src/index.ts").read_text()
         instrumentation = Path("gmacko/apps/nextjs/src/instrumentation.ts").read_text()
@@ -142,6 +146,8 @@ class GmackoV1AppTests(unittest.TestCase):
 
         self.assertIn("function getDb()", client)
         self.assertIn("new Proxy", client)
+        self.assertIn('process.env.NODE_ENV === "production"', client)
+        self.assertIn("return createDb();", client)
         self.assertNotIn('if (!process.env.DATABASE_URL) {\n  throw new Error("Missing DATABASE_URL environment variable");\n}', client)
 
 

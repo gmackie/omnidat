@@ -15,11 +15,10 @@ import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
 import {
-  persistAuditEvent,
-  projectAtmPersistenceRows,
-  projectPadPersistenceRows,
-  projectProvisioningPersistenceRows,
-  projectXotCommandPersistenceRows,
+  persistAtmResult,
+  persistPadResult,
+  persistProvisioningResult,
+  persistXotCommandResult,
   type OmnidatPersistenceDb,
 } from "./omnidat-persistence";
 
@@ -132,10 +131,7 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = provisionCampsiteService(input);
-      await persistAuditEvent(
-        (ctx as { db?: OmnidatPersistenceDb }).db,
-        projectProvisioningPersistenceRows(result).auditEvent,
-      );
+      await persistProvisioningResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
       return result;
     }),
 
@@ -156,10 +152,7 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = configurePad(input);
-      await persistAuditEvent(
-        (ctx as { db?: OmnidatPersistenceDb }).db,
-        projectPadPersistenceRows(result).auditEvent,
-      );
+      await persistPadResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
       return result;
     }),
 
@@ -174,10 +167,7 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = setupAtmTerminal(input);
-      await persistAuditEvent(
-        (ctx as { db?: OmnidatPersistenceDb }).db,
-        projectAtmPersistenceRows(result).auditEvent,
-      );
+      await persistAtmResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
       return result;
     }),
 
@@ -190,10 +180,10 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = executeXotCommand(input);
-      await persistAuditEvent(
-        (ctx as { db?: OmnidatPersistenceDb }).db,
-        projectXotCommandPersistenceRows({ ...input, result }).auditEvent,
-      );
+      await persistXotCommandResult((ctx as { db?: OmnidatPersistenceDb }).db, {
+        ...input,
+        result,
+      });
       return result;
     }),
 } satisfies TRPCRouterRecord;

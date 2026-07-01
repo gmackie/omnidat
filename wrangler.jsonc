@@ -9,9 +9,16 @@
       "custom_domain": true
     }
   ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "0bd753e5676f4195ac6047e9dd531bf3"
+    }
+  ],
   "vars": {
     "APP_ENV": "production",
     "APP_URL": "https://omnidat.gmac.io",
+    "OMNIDAT_PERSISTENCE": "database",
     "OMNIDAT_DB_SCHEMA": "omnidat",
     "DATABASE_PROVIDER": "postgres-shared-fryos-v1"
   }

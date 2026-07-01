@@ -32,6 +32,10 @@ function createDb() {
 }
 
 function getDb() {
+  if (process.env.NODE_ENV === "production") {
+    return createDb();
+  }
+
   globalForDb.drizzleDb ??= createDb();
   return globalForDb.drizzleDb;
 }
