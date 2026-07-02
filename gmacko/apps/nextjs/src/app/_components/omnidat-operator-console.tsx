@@ -25,12 +25,23 @@ export function OmnidatOperatorConsole() {
   const [assignedX121, setAssignedX121] = useState("311088020184");
   const [terminalCommand, setTerminalCommand] = useState("DIR CAMP");
   const [pickupName, setPickupName] = useState("Packet Window 3");
-  const [shadybucksAccountId, setShadybucksAccountId] = useState("SB-CAMP-LAMINAR-001");
+  const [shadybucksAccountId, setShadybucksAccountId] = useState(
+    "SB-CAMP-LAMINAR-001",
+  );
   const [selectedFoodItems, setSelectedFoodItems] = useState(["NOODLE-CUP"]);
   const [passportId, setPassportId] = useState("PASS-04271");
   const [badgeId, setBadgeId] = useState("FIELD-COURIER");
   const [passportOperatorId, setPassportOperatorId] = useState("OP-EX88");
-  const [passportEvidence, setPassportEvidence] = useState("Filed an X.25 packet receipt.");
+  const [passportEvidence, setPassportEvidence] = useState(
+    "Filed an X.25 packet receipt.",
+  );
+  const [isoAmount, setIsoAmount] = useState("19");
+  const [isoProcessingCode, setIsoProcessingCode] = useState<
+    "000000" | "010000" | "210000" | "310000" | "920000"
+  >("000000");
+  const [isoTerminalId, setIsoTerminalId] = useState("ATM-EX88-001");
+  const [isoRetrievalReference, setIsoRetrievalReference] =
+    useState("000000000019");
 
   const verify = useMutation(
     trpc.omnidat.verifyProvisioning.mutationOptions({
@@ -83,6 +94,12 @@ export function OmnidatOperatorConsole() {
         void queryClient.invalidateQueries();
       },
       onError: () => toast.error("Passport stamp failed"),
+    }),
+  );
+
+  const iso8583 = useMutation(
+    trpc.omnidat.iso8583Transaction.mutationOptions({
+      onError: () => toast.error("ISO 8583 transaction failed"),
     }),
   );
 
@@ -179,8 +196,8 @@ export function OmnidatOperatorConsole() {
         <div className="mt-6 rounded border border-[#5c4a32] bg-[#17130d] p-4">
           <h2 className="text-xl font-bold">Provisioning Verification</h2>
           <p className="mt-2 text-sm leading-6 text-[#d9cbb0]">
-            Submit a test call through the seeded Exchange 88 adapter and print a
-            terminal receipt for the camp operator.
+            Submit a test call through the seeded Exchange 88 adapter and print
+            a terminal receipt for the camp operator.
           </p>
           <Button
             className="mt-4"
@@ -328,10 +345,13 @@ STATUS AWAITING MENU SELECTION`}
                 className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
                 key={order.id}
               >
-                <p className="font-mono text-sm text-[#9ed783]">{order.lineTicket}</p>
+                <p className="font-mono text-sm text-[#9ed783]">
+                  {order.lineTicket}
+                </p>
                 <p className="mt-1 font-semibold">{order.pickupName}</p>
                 <p className="mt-2 text-xs uppercase text-[#c0a36e]">
-                  {order.status} / {order.total} {order.currency} / {order.estimatedWaitMinutes} min
+                  {order.status} / {order.total} {order.currency} /{" "}
+                  {order.estimatedWaitMinutes} min
                 </p>
               </div>
             ))}
@@ -340,14 +360,118 @@ STATUS AWAITING MENU SELECTION`}
 
         <div className="rounded border border-[#4f3920] bg-[#211d15] p-5">
           <h2 className="text-2xl font-bold">ShadyBucks Account</h2>
-          <p className="mt-2 font-mono text-sm text-[#9ed783]">{atm.data?.x121}</p>
+          <p className="mt-2 font-mono text-sm text-[#9ed783]">
+            {atm.data?.x121}
+          </p>
+          <p className="mt-2 font-mono text-xs uppercase text-[#c0a36e]">
+            {atm.data?.iso8583?.protocol ?? "ISO8583-1987-SHADYBUCKS-X25"}
+          </p>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#d9cbb0]">
             {(atm.data?.setupChecklist ?? []).map((item) => (
-              <li className="rounded border border-[#5c4a32] bg-[#17130d] p-3" key={item}>
+              <li
+                className="rounded border border-[#5c4a32] bg-[#17130d] p-3"
+                key={item}
+              >
                 {item}
               </li>
             ))}
           </ul>
+          <div className="mt-4 grid gap-2 text-xs md:grid-cols-2">
+            {(atm.data?.iso8583?.fields ?? [])
+              .filter((field) => [2, 3, 4, 37, 39, 41, 52].includes(field.bit))
+              .map((field) => (
+                <div
+                  className="rounded border border-[#5c4a32] bg-[#17130d] p-3"
+                  key={field.bit}
+                >
+                  <p className="font-mono text-[#9ed783]">
+                    DE{String(field.bit).padStart(3, "0")} / {field.format} /{" "}
+                    {field.length}
+                  </p>
+                  <p className="mt-1 text-[#d9cbb0]">{field.name}</p>
+                  <p className="mt-1 uppercase text-[#c0a36e]">
+                    {field.sensitive ? "sensitive" : field.dataType}
+                  </p>
+                </div>
+              ))}
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-2 text-sm">
+              Processing Code
+              <select
+                className="h-10 rounded-md border bg-background px-3"
+                value={isoProcessingCode}
+                onChange={(event) =>
+                  setIsoProcessingCode(
+                    event.target.value as
+                      | "000000"
+                      | "010000"
+                      | "210000"
+                      | "310000"
+                      | "920000",
+                  )
+                }
+              >
+                <option value="000000">000000 purchase</option>
+                <option value="010000">010000 withdrawal</option>
+                <option value="210000">210000 deposit</option>
+                <option value="310000">310000 balance inquiry</option>
+                <option value="920000">920000 network management</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              Amount
+              <Input
+                value={isoAmount}
+                onChange={(event) => setIsoAmount(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              Terminal ID
+              <Input
+                value={isoTerminalId}
+                onChange={(event) => setIsoTerminalId(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              Retrieval Reference
+              <Input
+                value={isoRetrievalReference}
+                onChange={(event) =>
+                  setIsoRetrievalReference(event.target.value)
+                }
+              />
+            </label>
+          </div>
+          <Button
+            className="mt-4"
+            disabled={iso8583.isPending}
+            onClick={() =>
+              iso8583.mutate({
+                mti: "0200",
+                processingCode: isoProcessingCode,
+                amount: Number.parseFloat(isoAmount) || 0.01,
+                accountId: shadybucksAccountId,
+                terminalId: isoTerminalId,
+                retrievalReference: isoRetrievalReference,
+              })
+            }
+          >
+            Send ISO 8583
+          </Button>
+          <pre className="mt-4 min-h-40 overflow-x-auto rounded bg-black p-4 font-mono text-sm leading-6 text-[#8ee36c]">
+            {iso8583.data
+              ? `${iso8583.data.transcript}
+
+${iso8583.data.packedRequest}
+${iso8583.data.packedResponse}`
+              : `CALL 311088030100
+ISO8583 0200
+DE003=${isoProcessingCode}
+DE004=${String(Math.round((Number.parseFloat(isoAmount) || 0) * 100)).padStart(12, "0")}
+DE037=${isoRetrievalReference}
+STATUS AWAITING ATM MESSAGE`}
+          </pre>
         </div>
 
         <div className="rounded border border-[#4f3920] bg-[#211d15] p-5">
@@ -404,18 +528,22 @@ BADGE ${badgeId}
 STATUS AWAITING EVIDENCE`}
           </pre>
           <div className="mt-4 grid gap-3">
-            {(operations.data?.passportStamps ?? []).slice(0, 3).map((stamp) => (
-              <div
-                className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
-                key={stamp.stampId}
-              >
-                <p className="font-mono text-sm text-[#9ed783]">{stamp.stampId}</p>
-                <p className="mt-1 font-semibold">{stamp.passportId}</p>
-                <p className="mt-2 text-xs uppercase text-[#c0a36e]">
-                  {stamp.badgeId} / {stamp.status} / {stamp.receiptId}
-                </p>
-              </div>
-            ))}
+            {(operations.data?.passportStamps ?? [])
+              .slice(0, 3)
+              .map((stamp) => (
+                <div
+                  className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
+                  key={stamp.stampId}
+                >
+                  <p className="font-mono text-sm text-[#9ed783]">
+                    {stamp.stampId}
+                  </p>
+                  <p className="mt-1 font-semibold">{stamp.passportId}</p>
+                  <p className="mt-2 text-xs uppercase text-[#c0a36e]">
+                    {stamp.badgeId} / {stamp.status} / {stamp.receiptId}
+                  </p>
+                </div>
+              ))}
           </div>
         </div>
 

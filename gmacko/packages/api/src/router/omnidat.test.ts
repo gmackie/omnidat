@@ -1,4 +1,3 @@
-import { resetOmnidatOperationalState } from "@omnidat/operator-core/omnidat";
 import {
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
@@ -6,6 +5,7 @@ import {
   omnidatProvisioningRequest,
   omnidatShadyBucksAtm,
 } from "@omnidat/db/schema";
+import { resetOmnidatOperationalState } from "@omnidat/operator-core/omnidat";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../root";
@@ -119,6 +119,46 @@ describe("omnidat tRPC router", () => {
     expect(bill.transcript).toContain("BALANCE");
   });
 
+  it("exposes detailed ISO 8583 support for ShadyBucks ATM transactions", async () => {
+    const atm = await caller.omnidat.atmProtocol();
+    const iso = await (
+      caller.omnidat as unknown as {
+        iso8583Transaction: (input: {
+          mti: "0200";
+          processingCode: "000000";
+          amount: number;
+          accountId: string;
+          terminalId: string;
+          retrievalReference: string;
+        }) => Promise<{
+          protocol: string;
+          responseMti: string;
+          responseCode: string;
+          packedRequest: string;
+          transcript: string;
+        }>;
+      }
+    ).iso8583Transaction({
+      mti: "0200",
+      processingCode: "000000",
+      amount: 19,
+      accountId: "SB-CAMP-LAMINAR-001",
+      terminalId: "ATM-EX88-001",
+      retrievalReference: "000000000019",
+    });
+
+    expect(atm.iso8583?.fields.map((field) => field.bit)).toContain(39);
+    expect(atm.iso8583?.messageTypes.map((message) => message.mti)).toContain(
+      "0200",
+    );
+    expect(iso.protocol).toBe("ISO8583-1987-SHADYBUCKS-X25");
+    expect(iso.responseMti).toBe("0210");
+    expect(iso.responseCode).toBe("00");
+    expect(iso.packedRequest).toContain("DE004=000000001900");
+    expect(iso.packedRequest).not.toContain("PIN");
+    expect(iso.transcript).toContain("ISO8583 0200 -> 0210");
+  });
+
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
     const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;
@@ -195,8 +235,9 @@ describe("omnidat tRPC router", () => {
   });
 
   it("stamps an activity passport with merit badge evidence and durable persistence", async () => {
-    const stampProcedure = (caller.omnidat as { stampActivityPassport?: unknown })
-      .stampActivityPassport;
+    const stampProcedure = (
+      caller.omnidat as { stampActivityPassport?: unknown }
+    ).stampActivityPassport;
 
     expect(typeof stampProcedure).toBe("function");
 
@@ -219,9 +260,11 @@ describe("omnidat tRPC router", () => {
       evidence: "Delivered a packet form across camp.",
     });
     const operations = await caller.omnidat.operations();
-    const passportStamps = (operations as unknown as {
-      passportStamps: Array<{ stampId: string; badgeId: string }>;
-    }).passportStamps;
+    const passportStamps = (
+      operations as unknown as {
+        passportStamps: Array<{ stampId: string; badgeId: string }>;
+      }
+    ).passportStamps;
 
     expect(stamp.stampId).toMatch(/^STAMP-/);
     expect(stamp.receiptId).toMatch(/^RCPT-PASS-/);
@@ -287,14 +330,16 @@ describe("omnidat tRPC router", () => {
     };
     const persistentCaller = appRouter.createCaller({ db } as never);
 
-    const provisioned = await persistentCaller.omnidat.provisionCampsiteService({
-      campsiteName: "Camp Durable",
-      namespace: "camp",
-      contact: "durable@example.test",
-      appName: "Durable Bulletin",
-      appKind: "message-board",
-      transport: "wifi",
-    });
+    const provisioned = await persistentCaller.omnidat.provisionCampsiteService(
+      {
+        campsiteName: "Camp Durable",
+        namespace: "camp",
+        contact: "durable@example.test",
+        appName: "Durable Bulletin",
+        appKind: "message-board",
+        transport: "wifi",
+      },
+    );
     await persistentCaller.omnidat.configurePad({
       x121: provisioned.assignment.assignedX121,
       transport: "xot",
@@ -404,7 +449,11 @@ describe("omnidat tRPC router", () => {
     expect(operations.ledger[0]?.receiptId).toBe("RCPT-PV-029999");
     expect(operations.pads[0]?.endpointLabel).toBe("Camp Database terminal");
     expect(noc.services.map((service) => service.slug)).toContain("directory");
-    expect(noc.circuits.map((circuit) => circuit.x121)).toContain("311088029999");
-    expect(noc.circuits.map((circuit) => circuit.x121)).toContain("311088039999");
+    expect(noc.circuits.map((circuit) => circuit.x121)).toContain(
+      "311088029999",
+    );
+    expect(noc.circuits.map((circuit) => circuit.x121)).toContain(
+      "311088039999",
+    );
   });
 });

@@ -5,6 +5,7 @@ import {
   buildProvisioningTranscript,
   configurePad,
   executeXotCommand,
+  getIso8583ProtocolProfile,
   getOperationalState,
   omnidatBillingAccounts,
   omnidatCircuitMetrics,
@@ -13,6 +14,7 @@ import {
   provisionCampsiteService,
   resetOmnidatOperationalState,
   setupAtmTerminal,
+  simulateIso8583Transaction,
 } from "../omnidat";
 
 describe("OMNIDAT operational model", () => {
@@ -31,9 +33,9 @@ describe("OMNIDAT operational model", () => {
     );
     expect(atm?.x121).toBe("311088030100");
     expect(atm?.verbs.map((verb) => verb.name)).toContain("ATM.SETUP");
-    expect(atm?.verbs.find((verb) => verb.name === "WITHDRAW")?.outputs).toContain(
-      "authorizationCode",
-    );
+    expect(
+      atm?.verbs.find((verb) => verb.name === "WITHDRAW")?.outputs,
+    ).toContain("authorizationCode");
   });
 
   it("defines ShadyBucks accounts, ATM settlement, food menu, and circuit metrics", () => {
@@ -103,7 +105,9 @@ describe("OMNIDAT operational model", () => {
     const state = getOperationalState();
 
     expect(provisioned.assignment.assignedX121).toMatch(/^31108802\d{4}$/);
-    expect(provisioned.billing.ledgerEntry.memo).toContain("X.121 provisioning");
+    expect(provisioned.billing.ledgerEntry.memo).toContain(
+      "X.121 provisioning",
+    );
     expect(pad.profile).toContain(`XOT HOST omnidat.gmac.io`);
     expect(call.transcript).toContain("CONNECT OSCILLATOR BULLETIN BOARD");
     expect(directory.transcript).toContain(provisioned.assignment.assignedX121);
@@ -136,5 +140,32 @@ describe("OMNIDAT operational model", () => {
     expect(call.transcript).toContain("CONNECT SHADYBUCKS ATM OSC-ATM-1");
     expect(call.transcript).toContain("VERBS BALANCE, WITHDRAW, DEPOSIT");
     expect(status.transcript).toContain(`STATUS ${atm.terminalX121} UP xot`);
+  });
+
+  it("models ISO 8583 ATM messages with redacted packed fields over X.25", () => {
+    const profile = getIso8583ProtocolProfile();
+    const purchase = simulateIso8583Transaction({
+      mti: "0200",
+      processingCode: "000000",
+      amount: 42,
+      accountId: "SB-CAMP-LAMINAR-001",
+      terminalId: "ATM-EX88-001",
+      retrievalReference: "123456789012",
+    });
+
+    expect(profile.protocol).toBe("ISO8583-1987-SHADYBUCKS-X25");
+    expect(profile.fields.map((field) => field.bit)).toContain(3);
+    expect(profile.fields.find((field) => field.bit === 52)?.sensitive).toBe(
+      true,
+    );
+    expect(purchase.responseMti).toBe("0210");
+    expect(purchase.responseCode).toBe("00");
+    expect(purchase.authorizationCode).toMatch(/^SB\d{4}$/);
+    expect(purchase.packedRequest).toContain("MTI=0200");
+    expect(purchase.packedRequest).toContain("DE003=000000");
+    expect(purchase.packedRequest).toContain("DE004=000000004200");
+    expect(purchase.packedRequest).not.toContain("PIN");
+    expect(purchase.transcript).toContain("CALL 311088030100");
+    expect(purchase.transcript).toContain("ISO8583 0200 -> 0210");
   });
 });

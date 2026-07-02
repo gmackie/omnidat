@@ -16,6 +16,43 @@ export type OmnidatServiceVerb = {
   outputs: string[];
 };
 
+export type Iso8583FieldDefinition = {
+  bit: number;
+  name: string;
+  format: "fixed" | "llvar" | "lllvar";
+  length: number;
+  dataType: "n" | "ans" | "b";
+  requiredFor: string[];
+  sensitive: boolean;
+};
+
+export type Iso8583MessageType = {
+  mti: "0100" | "0110" | "0200" | "0210" | "0400" | "0410" | "0800" | "0810";
+  name: string;
+  direction: "request" | "response";
+};
+
+export type Iso8583TransactionInput = {
+  mti: "0100" | "0200" | "0400" | "0800";
+  processingCode: "000000" | "010000" | "310000" | "210000" | "920000";
+  amount: number;
+  accountId: string;
+  terminalId: string;
+  retrievalReference: string;
+};
+
+export type Iso8583TransactionResult = {
+  protocol: string;
+  requestMti: string;
+  responseMti: string;
+  processingCode: string;
+  responseCode: "00" | "12" | "51" | "91";
+  authorizationCode: string;
+  packedRequest: string;
+  packedResponse: string;
+  transcript: string;
+};
+
 export type OmnidatServiceDefinition = {
   slug: string;
   name: string;
@@ -89,7 +126,12 @@ export type OmnidatPadConfig = {
   id: string;
   x121: string;
   transport: string;
-  padKind: "meshcore-pad" | "meshtastic-pad" | "wifi-terminal" | "pots-pad" | "xot-terminal";
+  padKind:
+    | "meshcore-pad"
+    | "meshtastic-pad"
+    | "wifi-terminal"
+    | "pots-pad"
+    | "xot-terminal";
   endpointLabel: string;
   status: "configured" | "testing" | "disabled";
   profile: string;
@@ -98,12 +140,169 @@ export type OmnidatPadConfig = {
 export type OmnidatBillingLedgerEntry = {
   id: string;
   accountId: string;
-  entryKind: "provisioning-fee" | "atm-activation" | "food-order" | "adjustment";
+  entryKind:
+    | "provisioning-fee"
+    | "atm-activation"
+    | "food-order"
+    | "adjustment";
   amount: number;
   currency: "SHDY";
   memo: string;
   receiptId: string;
 };
+
+export const iso8583MessageTypes: Iso8583MessageType[] = [
+  { mti: "0100", name: "Authorization request", direction: "request" },
+  { mti: "0110", name: "Authorization response", direction: "response" },
+  { mti: "0200", name: "Financial transaction request", direction: "request" },
+  {
+    mti: "0210",
+    name: "Financial transaction response",
+    direction: "response",
+  },
+  { mti: "0400", name: "Reversal advice request", direction: "request" },
+  { mti: "0410", name: "Reversal advice response", direction: "response" },
+  { mti: "0800", name: "Network management request", direction: "request" },
+  { mti: "0810", name: "Network management response", direction: "response" },
+];
+
+export const iso8583FieldDefinitions: Iso8583FieldDefinition[] = [
+  {
+    bit: 2,
+    name: "Primary account number token",
+    format: "llvar",
+    length: 19,
+    dataType: "n",
+    requiredFor: ["0100", "0200"],
+    sensitive: true,
+  },
+  {
+    bit: 3,
+    name: "Processing code",
+    format: "fixed",
+    length: 6,
+    dataType: "n",
+    requiredFor: ["0100", "0200", "0400"],
+    sensitive: false,
+  },
+  {
+    bit: 4,
+    name: "Transaction amount",
+    format: "fixed",
+    length: 12,
+    dataType: "n",
+    requiredFor: ["0100", "0200", "0400"],
+    sensitive: false,
+  },
+  {
+    bit: 7,
+    name: "Transmission date and time",
+    format: "fixed",
+    length: 10,
+    dataType: "n",
+    requiredFor: ["0100", "0200", "0400", "0800"],
+    sensitive: false,
+  },
+  {
+    bit: 11,
+    name: "System trace audit number",
+    format: "fixed",
+    length: 6,
+    dataType: "n",
+    requiredFor: ["0100", "0200", "0400", "0800"],
+    sensitive: false,
+  },
+  {
+    bit: 12,
+    name: "Local transaction time",
+    format: "fixed",
+    length: 6,
+    dataType: "n",
+    requiredFor: ["0100", "0200"],
+    sensitive: false,
+  },
+  {
+    bit: 13,
+    name: "Local transaction date",
+    format: "fixed",
+    length: 4,
+    dataType: "n",
+    requiredFor: ["0100", "0200"],
+    sensitive: false,
+  },
+  {
+    bit: 37,
+    name: "Retrieval reference number",
+    format: "fixed",
+    length: 12,
+    dataType: "ans",
+    requiredFor: ["0100", "0200", "0400"],
+    sensitive: false,
+  },
+  {
+    bit: 38,
+    name: "Authorization identification response",
+    format: "fixed",
+    length: 6,
+    dataType: "ans",
+    requiredFor: ["0110", "0210", "0410"],
+    sensitive: false,
+  },
+  {
+    bit: 39,
+    name: "Response code",
+    format: "fixed",
+    length: 2,
+    dataType: "ans",
+    requiredFor: ["0110", "0210", "0410", "0810"],
+    sensitive: false,
+  },
+  {
+    bit: 41,
+    name: "Card acceptor terminal identification",
+    format: "fixed",
+    length: 8,
+    dataType: "ans",
+    requiredFor: ["0100", "0200", "0400", "0800"],
+    sensitive: false,
+  },
+  {
+    bit: 42,
+    name: "Card acceptor identification code",
+    format: "fixed",
+    length: 15,
+    dataType: "ans",
+    requiredFor: ["0100", "0200", "0400"],
+    sensitive: false,
+  },
+  {
+    bit: 49,
+    name: "Transaction currency code",
+    format: "fixed",
+    length: 3,
+    dataType: "n",
+    requiredFor: ["0100", "0200", "0400"],
+    sensitive: false,
+  },
+  {
+    bit: 52,
+    name: "PIN data block",
+    format: "fixed",
+    length: 16,
+    dataType: "b",
+    requiredFor: ["0100", "0200"],
+    sensitive: true,
+  },
+  {
+    bit: 70,
+    name: "Network management information code",
+    format: "fixed",
+    length: 3,
+    dataType: "n",
+    requiredFor: ["0800", "0810"],
+    sensitive: false,
+  },
+];
 
 export type OmnidatAuditEvent = {
   id: string;
@@ -129,7 +328,11 @@ export type OmnidatOperationalState = {
 export const omnidatDirectoryEntries: OmnidatDirectoryEntry[] = [
   { address: "010001", name: "OMNIDAT FIELD OFFICE", kind: "office" },
   { address: "010110", name: "PACKET CLEARING DIRECTORY", kind: "directory" },
-  { address: "020184", name: "CAMP LAMINAR MESSAGE DESK", kind: "campsite-app" },
+  {
+    address: "020184",
+    name: "CAMP LAMINAR MESSAGE DESK",
+    kind: "campsite-app",
+  },
   { address: "020501", name: "MILIWAYS ORDER ENTRY", kind: "campsite-app" },
   { address: "030021", name: "PASSPORT LOG ENTRY", kind: "campsite-app" },
   { address: "030088", name: "BADGE CLAIMS COUNTER", kind: "campsite-app" },
@@ -139,19 +342,23 @@ export const omnidatDirectoryEntries: OmnidatDirectoryEntry[] = [
 export const omnidatTransportProfiles: OmnidatTransportProfile[] = [
   {
     name: "MeshCore / Meshtastic gateway",
-    description: "Camp-local LoRa terminals bridge packet directory traffic into the OMNIDAT clearing network.",
+    description:
+      "Camp-local LoRa terminals bridge packet directory traffic into the OMNIDAT clearing network.",
   },
   {
     name: "Wi-Fi terminal",
-    description: "Browser and terminal clients connect through camp Wi-Fi when radio links are impractical.",
+    description:
+      "Browser and terminal clients connect through camp Wi-Fi when radio links are impractical.",
   },
   {
     name: "POTS or ShadyTel interconnect",
-    description: "Dial-up style terminal access keeps the historical carrier ritual visible.",
+    description:
+      "Dial-up style terminal access keeps the historical carrier ritual visible.",
   },
   {
     name: "Hosted OMNIDAT circuit",
-    description: "Small camps can run on shared ShadyTel/OMNIDAT infrastructure until they bring hardware.",
+    description:
+      "Small camps can run on shared ShadyTel/OMNIDAT infrastructure until they bring hardware.",
   },
 ];
 
@@ -165,8 +372,18 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
     status: "up",
     reachable: true,
     verbs: [
-      { name: "DIR", description: "List services by namespace.", inputs: ["namespace"], outputs: ["entries", "x121", "serviceName"] },
-      { name: "LOOKUP", description: "Resolve one X.121 service.", inputs: ["x121"], outputs: ["service", "verbs", "status"] },
+      {
+        name: "DIR",
+        description: "List services by namespace.",
+        inputs: ["namespace"],
+        outputs: ["entries", "x121", "serviceName"],
+      },
+      {
+        name: "LOOKUP",
+        description: "Resolve one X.121 service.",
+        inputs: ["x121"],
+        outputs: ["service", "verbs", "status"],
+      },
     ],
   },
   {
@@ -178,10 +395,30 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
     status: "up",
     reachable: true,
     verbs: [
-      { name: "MENU", description: "Return active menu, prices, and line status.", inputs: ["serviceId"], outputs: ["items", "prices", "waitLines"] },
-      { name: "QUOTE", description: "Quote order total in ShadyBucks.", inputs: ["itemIds", "shadybucksAccountId"], outputs: ["total", "currency", "estimatedWait"] },
-      { name: "ORDER.CREATE", description: "Create an order and line ticket.", inputs: ["itemIds", "pickupName", "shadybucksAccountId"], outputs: ["orderId", "lineTicket", "receiptId"] },
-      { name: "ORDER.STATUS", description: "Check order progress.", inputs: ["orderId"], outputs: ["status", "window", "estimatedWait"] },
+      {
+        name: "MENU",
+        description: "Return active menu, prices, and line status.",
+        inputs: ["serviceId"],
+        outputs: ["items", "prices", "waitLines"],
+      },
+      {
+        name: "QUOTE",
+        description: "Quote order total in ShadyBucks.",
+        inputs: ["itemIds", "shadybucksAccountId"],
+        outputs: ["total", "currency", "estimatedWait"],
+      },
+      {
+        name: "ORDER.CREATE",
+        description: "Create an order and line ticket.",
+        inputs: ["itemIds", "pickupName", "shadybucksAccountId"],
+        outputs: ["orderId", "lineTicket", "receiptId"],
+      },
+      {
+        name: "ORDER.STATUS",
+        description: "Check order progress.",
+        inputs: ["orderId"],
+        outputs: ["status", "window", "estimatedWait"],
+      },
     ],
   },
   {
@@ -193,8 +430,18 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
     status: "up",
     reachable: true,
     verbs: [
-      { name: "STAMP", description: "File activity evidence.", inputs: ["badge", "operatorId", "evidence"], outputs: ["stampId", "meritClaimStatus"] },
-      { name: "CLAIM.STATUS", description: "Check merit claim review.", inputs: ["stampId"], outputs: ["status", "reviewer", "receiptId"] },
+      {
+        name: "STAMP",
+        description: "File activity evidence.",
+        inputs: ["badge", "operatorId", "evidence"],
+        outputs: ["stampId", "meritClaimStatus"],
+      },
+      {
+        name: "CLAIM.STATUS",
+        description: "Check merit claim review.",
+        inputs: ["stampId"],
+        outputs: ["status", "reviewer", "receiptId"],
+      },
     ],
   },
   {
@@ -206,10 +453,42 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
     status: "up",
     reachable: true,
     verbs: [
-      { name: "ATM.SETUP", description: "Activate an ATM terminal on the X.25 network.", inputs: ["terminalId", "settlementAccountId", "x121"], outputs: ["atmId", "activationCode", "receiptId"] },
-      { name: "BALANCE", description: "Read account balance.", inputs: ["shadybucksAccountId"], outputs: ["availableBalance", "currency"] },
-      { name: "WITHDRAW", description: "Authorize a withdrawal.", inputs: ["shadybucksAccountId", "amount"], outputs: ["receiptId", "authorizationCode"] },
-      { name: "DEPOSIT", description: "Post a deposit.", inputs: ["shadybucksAccountId", "amount"], outputs: ["receiptId", "postedBalance"] },
+      {
+        name: "ATM.SETUP",
+        description: "Activate an ATM terminal on the X.25 network.",
+        inputs: ["terminalId", "settlementAccountId", "x121"],
+        outputs: ["atmId", "activationCode", "receiptId"],
+      },
+      {
+        name: "BALANCE",
+        description: "Read account balance.",
+        inputs: ["shadybucksAccountId"],
+        outputs: ["availableBalance", "currency"],
+      },
+      {
+        name: "WITHDRAW",
+        description: "Authorize a withdrawal.",
+        inputs: ["shadybucksAccountId", "amount"],
+        outputs: ["receiptId", "authorizationCode"],
+      },
+      {
+        name: "DEPOSIT",
+        description: "Post a deposit.",
+        inputs: ["shadybucksAccountId", "amount"],
+        outputs: ["receiptId", "postedBalance"],
+      },
+      {
+        name: "ISO8583.SEND",
+        description: "Send a redacted ISO 8583 ATM message over X.25.",
+        inputs: [
+          "mti",
+          "processingCode",
+          "amount",
+          "terminalId",
+          "retrievalReference",
+        ],
+        outputs: ["responseMti", "responseCode", "authorizationCode"],
+      },
     ],
   },
   {
@@ -221,8 +500,18 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
     status: "degraded",
     reachable: true,
     verbs: [
-      { name: "PING", description: "Measure PAD path health.", inputs: ["transport"], outputs: ["latencyMs", "packetLoss", "status"] },
-      { name: "TRACE", description: "Trace transport path to destination.", inputs: ["destinationX121"], outputs: ["hops", "transportPath"] },
+      {
+        name: "PING",
+        description: "Measure PAD path health.",
+        inputs: ["transport"],
+        outputs: ["latencyMs", "packetLoss", "status"],
+      },
+      {
+        name: "TRACE",
+        description: "Trace transport path to destination.",
+        inputs: ["destinationX121"],
+        outputs: ["hops", "transportPath"],
+      },
     ],
   },
 ];
@@ -249,10 +538,38 @@ export const omnidatBillingAccounts: OmnidatBillingAccount[] = [
 ];
 
 export const omnidatCircuitMetrics: OmnidatCircuitMetric[] = [
-  { x121: "311088010110", service: "Packet Clearing Directory", status: "up", latencyMs: 42, transport: "cloudflare-worker", packetLoss: 0 },
-  { x121: "311088020501", service: "Miliways Order Entry", status: "up", latencyMs: 88, transport: "meshcore-pad", packetLoss: 0.01 },
-  { x121: "311088030100", service: "ShadyBucks ATM PAD", status: "up", latencyMs: 74, transport: "shadytel-hosted", packetLoss: 0 },
-  { x121: "311088040777", service: "Radio Gateway Status", status: "degraded", latencyMs: 240, transport: "meshtastic-pad", packetLoss: 0.08 },
+  {
+    x121: "311088010110",
+    service: "Packet Clearing Directory",
+    status: "up",
+    latencyMs: 42,
+    transport: "cloudflare-worker",
+    packetLoss: 0,
+  },
+  {
+    x121: "311088020501",
+    service: "Miliways Order Entry",
+    status: "up",
+    latencyMs: 88,
+    transport: "meshcore-pad",
+    packetLoss: 0.01,
+  },
+  {
+    x121: "311088030100",
+    service: "ShadyBucks ATM PAD",
+    status: "up",
+    latencyMs: 74,
+    transport: "shadytel-hosted",
+    packetLoss: 0,
+  },
+  {
+    x121: "311088040777",
+    service: "Radio Gateway Status",
+    status: "degraded",
+    latencyMs: 240,
+    transport: "meshtastic-pad",
+    packetLoss: 0.08,
+  },
 ];
 
 export const omnidatProvisioningRequests: OmnidatProvisioningRequest[] = [
@@ -267,9 +584,24 @@ export const omnidatProvisioningRequests: OmnidatProvisioningRequest[] = [
 ];
 
 export const omnidatFoodMenu: OmnidatFoodMenuItem[] = [
-  { itemId: "NOODLE-CUP", name: "Noodle Cup", priceShadyBucks: 7, available: true },
-  { itemId: "TEA-THERMOS", name: "Thermos Tea", priceShadyBucks: 4, available: true },
-  { itemId: "NIGHT-PLATE", name: "Night Plate", priceShadyBucks: 13, available: false },
+  {
+    itemId: "NOODLE-CUP",
+    name: "Noodle Cup",
+    priceShadyBucks: 7,
+    available: true,
+  },
+  {
+    itemId: "TEA-THERMOS",
+    name: "Thermos Tea",
+    priceShadyBucks: 4,
+    available: true,
+  },
+  {
+    itemId: "NIGHT-PLATE",
+    name: "Night Plate",
+    priceShadyBucks: 13,
+    available: false,
+  },
 ];
 
 function createInitialOperationalState(): OmnidatOperationalState {
@@ -377,7 +709,12 @@ function nextX121() {
   return `31108802${suffix}`;
 }
 
-function appendAudit(eventType: string, subjectKind: string, subjectId: string, details: Record<string, string | number | boolean>) {
+function appendAudit(
+  eventType: string,
+  subjectKind: string,
+  subjectId: string,
+  details: Record<string, string | number | boolean>,
+) {
   state().auditEvents.unshift({
     id: `AUDIT-${String(state().auditEvents.length + 1).padStart(4, "0")}`,
     eventType,
@@ -399,6 +736,137 @@ function nextFoodTicket() {
 function nextPassportStampId() {
   const current = state();
   return `STAMP-${String(current.passportStamps.length + 1).padStart(5, "0")}`;
+}
+
+function responseMtiFor(mti: Iso8583TransactionInput["mti"]) {
+  return {
+    "0100": "0110",
+    "0200": "0210",
+    "0400": "0410",
+    "0800": "0810",
+  }[mti] as Iso8583TransactionResult["responseMti"];
+}
+
+function cents(amount: number) {
+  return String(Math.round(amount * 100)).padStart(12, "0");
+}
+
+function terminalId(value: string) {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 8)
+    .padEnd(8, "0");
+}
+
+function traceNumber(reference: string) {
+  const digits = reference.replace(/\D/g, "");
+  return (digits || "1").slice(-6).padStart(6, "0");
+}
+
+function authorizationCode(reference: string) {
+  return `SB${traceNumber(reference).slice(-4)}`;
+}
+
+function redactedAccountToken(accountId: string) {
+  const suffix = accountId
+    .replace(/[^A-Z0-9]/gi, "")
+    .slice(-4)
+    .padStart(4, "0");
+  return `TOKEN********${suffix}`;
+}
+
+function packIsoFields(fields: Record<number, string>) {
+  return Object.entries(fields)
+    .sort(([left], [right]) => Number(left) - Number(right))
+    .map(([bit, value]) => `DE${bit.padStart(3, "0")}=${value}`)
+    .join("|");
+}
+
+export function getIso8583ProtocolProfile() {
+  return {
+    protocol: "ISO8583-1987-SHADYBUCKS-X25",
+    x121: "311088030100",
+    transport: "x25-pad",
+    encoding:
+      "ASCII field envelope with binary bitmap represented by field list",
+    security: [
+      "PAN values are tokenized before entering OMNIDAT logs.",
+      "PIN blocks are accepted only as redacted HSM references.",
+      "Packed message displays suppress all sensitive field values.",
+    ],
+    messageTypes: iso8583MessageTypes.map((message) => ({ ...message })),
+    fields: iso8583FieldDefinitions.map((field) => ({ ...field })),
+    processingCodes: [
+      { code: "000000", name: "purchase" },
+      { code: "010000", name: "cash-withdrawal" },
+      { code: "210000", name: "deposit" },
+      { code: "310000", name: "balance-inquiry" },
+      { code: "920000", name: "network-management" },
+    ],
+  };
+}
+
+export function simulateIso8583Transaction(
+  input: Iso8583TransactionInput,
+): Iso8583TransactionResult {
+  const account = state().billingAccounts.find(
+    (entry) => entry.accountId === input.accountId,
+  );
+  const responseCode: Iso8583TransactionResult["responseCode"] = account
+    ? input.amount <= Math.max(account.balance, 0)
+      ? "00"
+      : "51"
+    : "12";
+  const auth =
+    responseCode === "00"
+      ? authorizationCode(input.retrievalReference)
+      : "DECLIN";
+  const requestFields: Record<number, string> = {
+    2: redactedAccountToken(input.accountId),
+    3: input.processingCode,
+    4: cents(input.amount),
+    7: "0101000000",
+    11: traceNumber(input.retrievalReference),
+    37: input.retrievalReference.padStart(12, "0").slice(-12),
+    41: terminalId(input.terminalId),
+    42: "SHADYBUCKS0001",
+    49: "999",
+    52: "[REDACTED-HSM-BLOCK]",
+  };
+  const responseFields: Record<number, string> = {
+    3: input.processingCode,
+    4: cents(input.amount),
+    11: requestFields[11] ?? "000001",
+    37: requestFields[37] ?? input.retrievalReference,
+    38: auth,
+    39: responseCode,
+    41: requestFields[41] ?? terminalId(input.terminalId),
+    49: "999",
+  };
+  const responseMti = responseMtiFor(input.mti);
+
+  return {
+    protocol: "ISO8583-1987-SHADYBUCKS-X25",
+    requestMti: input.mti,
+    responseMti,
+    processingCode: input.processingCode,
+    responseCode,
+    authorizationCode: auth,
+    packedRequest: `MTI=${input.mti}|${packIsoFields(requestFields)}`,
+    packedResponse: `MTI=${responseMti}|${packIsoFields(responseFields)}`,
+    transcript: [
+      "CALL 311088030100",
+      "CONNECT SHADYBUCKS ATM PAD",
+      `ISO8583 ${input.mti} -> ${responseMti}`,
+      `PROC ${input.processingCode}`,
+      `AMOUNT ${cents(input.amount)} SHDY`,
+      `RRN ${input.retrievalReference}`,
+      `RC ${responseCode}`,
+      `AUTH ${auth}`,
+    ].join("\n"),
+  };
 }
 
 export function provisionCampsiteService(input: {
@@ -572,7 +1040,8 @@ export function configurePad(input: {
   if (circuit) {
     circuit.transport = input.transport;
     circuit.status = "up";
-    circuit.latencyMs = input.padKind === "xot-terminal" ? 38 : circuit.latencyMs;
+    circuit.latencyMs =
+      input.padKind === "xot-terminal" ? 38 : circuit.latencyMs;
     circuit.packetLoss = 0;
   }
 
@@ -777,9 +1246,10 @@ export function stampActivityPassport(input: {
 
 function serviceDirectory(namespace?: string) {
   const current = state();
-  const services = namespace?.toLowerCase() === "camp"
-    ? current.services.filter((service) => service.owner !== "OMNIDAT")
-    : current.services;
+  const services =
+    namespace?.toLowerCase() === "camp"
+      ? current.services.filter((service) => service.owner !== "OMNIDAT")
+      : current.services;
   return services
     .map((service) => `${service.x121}  ${service.name}  ${service.status}`)
     .join("\n");
@@ -796,7 +1266,8 @@ export function executeXotCommand(input: {
   let transcript: string;
 
   if (normalizedVerb === "HELP" || normalizedVerb === "?") {
-    transcript = "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCOUNT>";
+    transcript =
+      "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCOUNT>";
   } else if (normalizedVerb === "DIR") {
     transcript = serviceDirectory(args[0]);
   } else if (normalizedVerb === "LOOKUP" || normalizedVerb === "CALL") {
@@ -821,11 +1292,16 @@ export function executeXotCommand(input: {
     const x121 = args[0] ?? input.sourceX121;
     const pad = current.pads.find((entry) => entry.x121 === x121);
     transcript = pad
-      ? [`PAD ${x121} ${pad.status.toUpperCase()} ${pad.padKind}`, pad.profile].join("\n")
+      ? [
+          `PAD ${x121} ${pad.status.toUpperCase()} ${pad.padKind}`,
+          pad.profile,
+        ].join("\n")
       : `PAD ${x121} NOT CONFIGURED`;
   } else if (normalizedVerb === "BILL") {
     const accountId = args[0] ?? "";
-    const account = current.billingAccounts.find((entry) => entry.accountId === accountId);
+    const account = current.billingAccounts.find(
+      (entry) => entry.accountId === accountId,
+    );
     transcript = account
       ? `BILL ${account.accountId} BALANCE ${account.balance} ${account.currency}`
       : `BILL ${accountId} UNKNOWN`;
@@ -839,9 +1315,10 @@ export function executeXotCommand(input: {
   });
 
   return {
-    status: transcript.startsWith("ERROR") || transcript.includes("UNKNOWN")
-      ? "error"
-      : "ok",
+    status:
+      transcript.startsWith("ERROR") || transcript.includes("UNKNOWN")
+        ? "error"
+        : "ok",
     transcript,
   };
 }

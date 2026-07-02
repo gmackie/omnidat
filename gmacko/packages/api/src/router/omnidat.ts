@@ -4,12 +4,14 @@ import {
   configurePad,
   createFoodOrder,
   executeXotCommand,
+  getIso8583ProtocolProfile,
   getOperationalState,
   omnidatBillingAccounts,
   omnidatFoodMenu,
   omnidatServiceDefinitions,
   provisionCampsiteService,
   setupAtmTerminal,
+  simulateIso8583Transaction,
   stampActivityPassport,
 } from "@omnidat/operator-core/omnidat";
 import type { TRPCRouterRecord } from "@trpc/server";
@@ -17,14 +19,14 @@ import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
 import {
+  loadPersistentOperationalState,
+  type OmnidatPersistenceDb,
   persistAtmResult,
   persistFoodOrderResult,
   persistPadResult,
   persistPassportStampResult,
   persistProvisioningResult,
   persistXotCommandResult,
-  loadPersistentOperationalState,
-  type OmnidatPersistenceDb,
 } from "./omnidat-persistence";
 
 export const omnidatRouter = {
@@ -65,13 +67,12 @@ export const omnidatRouter = {
   network: publicProcedure.query(() => buildNetworkSnapshot()),
 
   services: publicProcedure.query(async ({ ctx }) => ({
-    services:
-      (
-        (await loadPersistentOperationalState(
-          (ctx as { db?: OmnidatPersistenceDb }).db,
-          getOperationalState(),
-        )) ?? getOperationalState()
-      ).services,
+    services: (
+      (await loadPersistentOperationalState(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        getOperationalState(),
+      )) ?? getOperationalState()
+    ).services,
   })),
 
   noc: publicProcedure.query(async ({ ctx }) => {
@@ -95,29 +96,30 @@ export const omnidatRouter = {
 
   billing: publicProcedure.query(async ({ ctx }) => ({
     provider: "ShadyBucks",
-    accounts:
-      (
-        (await loadPersistentOperationalState(
-          (ctx as { db?: OmnidatPersistenceDb }).db,
-          getOperationalState(),
-        )) ?? getOperationalState()
-      ).billingAccounts,
+    accounts: (
+      (await loadPersistentOperationalState(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        getOperationalState(),
+      )) ?? getOperationalState()
+    ).billingAccounts,
   })),
 
-  operations: publicProcedure.query(async ({ ctx }) => (
-    (await loadPersistentOperationalState(
-      (ctx as { db?: OmnidatPersistenceDb }).db,
-      getOperationalState(),
-    )) ?? getOperationalState()
-  )),
+  operations: publicProcedure.query(
+    async ({ ctx }) =>
+      (await loadPersistentOperationalState(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        getOperationalState(),
+      )) ?? getOperationalState(),
+  ),
 
   foodProtocol: publicProcedure.query(() => ({
     protocol: "OMNIDAT-FOOD-1",
     x121: "311088020501",
     menu: omnidatFoodMenu,
     verbs:
-      omnidatServiceDefinitions.find((service) => service.slug === "food-service")
-        ?.verbs ?? [],
+      omnidatServiceDefinitions.find(
+        (service) => service.slug === "food-service",
+      )?.verbs ?? [],
     waitLines: [
       {
         lineId: "WINDOW-3",
@@ -138,8 +140,10 @@ export const omnidatRouter = {
       "Print activation receipt for the camp operator",
     ],
     verbs:
-      omnidatServiceDefinitions.find((service) => service.slug === "shadybucks-atm")
-        ?.verbs ?? [],
+      omnidatServiceDefinitions.find(
+        (service) => service.slug === "shadybucks-atm",
+      )?.verbs ?? [],
+    iso8583: getIso8583ProtocolProfile(),
   })),
 
   verifyProvisioning: publicProcedure
@@ -165,7 +169,10 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = provisionCampsiteService(input);
-      await persistProvisioningResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistProvisioningResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+      );
       return result;
     }),
 
@@ -215,7 +222,10 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = createFoodOrder(input);
-      await persistFoodOrderResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistFoodOrderResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+      );
       return result;
     }),
 
@@ -230,9 +240,31 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = stampActivityPassport(input);
-      await persistPassportStampResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistPassportStampResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+      );
       return result;
     }),
+
+  iso8583Transaction: publicProcedure
+    .input(
+      z.object({
+        mti: z.enum(["0100", "0200", "0400", "0800"]),
+        processingCode: z.enum([
+          "000000",
+          "010000",
+          "310000",
+          "210000",
+          "920000",
+        ]),
+        amount: z.number().positive(),
+        accountId: z.string().min(1),
+        terminalId: z.string().min(1),
+        retrievalReference: z.string().min(1).max(12),
+      }),
+    )
+    .mutation(({ input }) => simulateIso8583Transaction(input)),
 
   xotCommand: publicProcedure
     .input(
