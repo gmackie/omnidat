@@ -7,6 +7,7 @@ import {
   executeXotCommand,
   getIso8583ProtocolProfile,
   getOperationalState,
+  getVintageTerminalProgramPack,
   omnidatBillingAccounts,
   omnidatCircuitMetrics,
   omnidatFoodMenu,
@@ -210,5 +211,65 @@ describe("OMNIDAT operational model", () => {
       subjectKind: "terminal",
       subjectId: "VF-TR330-NITEMARKT-01",
     });
+  });
+
+  it("defines a Verifone TCL program pack for ShadyBank sale, refund, and batch flows", () => {
+    const pack = getVintageTerminalProgramPack();
+
+    expect(pack.sourceBasis.map((source) => source.shortName)).toEqual(
+      expect.arrayContaining([
+        "TCL Programmer's Manual",
+        "TCLOAD Reference Manual",
+        "Omni 3200 Reference Manual",
+        "ShadyBank API server",
+      ]),
+    );
+    expect(pack.supportedFamilies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          family: "TRANZ_330_380_TCL",
+          models: ["TRANZ 330", "TRANZ 380"],
+          primaryRuntime: "VeriFone TCL",
+        }),
+        expect.objectContaining({
+          family: "OMNI_3200_ZONTALK",
+          downloadMethods: expect.arrayContaining([
+            "direct-zontalk",
+            "telephone-zontalk",
+          ]),
+        }),
+      ]),
+    );
+    expect(pack.capabilities).toEqual(
+      expect.arrayContaining([
+        "track1-track2-cardreader",
+        "keypad-amount-entry",
+        "internal-pots-modem",
+        "receipt-printer",
+        "tcLoad-direct-download",
+        "zontalk-telephone-download",
+      ]),
+    );
+    expect(pack.hostBindings.sale).toMatchObject({
+      x121: "311088002010",
+      shadyBankEndpoints: ["/api/authorize", "/api/capture"],
+      paymentInputs: ["track2", "pan+otp", "nfc_token"],
+    });
+    expect(pack.hostBindings.refund.shadyBankEndpoints).toContain(
+      "/api/reverse",
+    );
+    expect(pack.hostBindings.credit.shadyBankEndpoints).toContain(
+      "/api/credit",
+    );
+    expect(pack.programs.sale.tcl).toContain("OMNIDAT SALE");
+    expect(pack.programs.sale.tcl).toContain("DIAL 8810");
+    expect(pack.programs.sale.hostMessage).toContain("POS.SALE");
+    expect(pack.programs.batchClose.hostMessage).toContain("POS.CLOSE-BATCH");
+    expect(pack.deployment.runbook).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("TCLOAD direct download"),
+        expect.stringContaining("ZONTALK telephone download"),
+      ]),
+    );
   });
 });

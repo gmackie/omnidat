@@ -50,7 +50,14 @@ test.describe("OMNIDAT Console", () => {
     await expect(
       page.getByRole("button", { name: "Dial POS Sale" }),
     ).toBeVisible();
-    await expect(page.getByText("DIAL 8810")).toBeVisible();
+    await expect(
+      page.locator("pre").filter({ hasText: "STATUS AWAITING MERCHANT SALE" }),
+    ).toContainText("DIAL 8810");
+    await expect(
+      page.getByRole("heading", { name: "VeriFone TCL Program Pack" }),
+    ).toBeVisible();
+    await expect(page.getByText("TCLOAD direct download")).toBeVisible();
+    await expect(page.getByText("/api/authorize")).toBeVisible();
 
     await page.getByRole("button", { name: "Dial POS Sale" }).click();
     const receipt = page

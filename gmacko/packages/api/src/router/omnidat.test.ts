@@ -277,6 +277,43 @@ describe("omnidat tRPC router", () => {
     expect(operations.ledger[0]?.entryKind).toBe("pos-network-fee");
   });
 
+  it("exposes the vintage Verifone terminal program pack", async () => {
+    const pack = await (
+      caller.omnidat as unknown as {
+        vintageTerminalProgramPack: () => Promise<{
+          version: string;
+          sourceBasis: { shortName: string }[];
+          capabilities: string[];
+          hostBindings: {
+            sale: {
+              x121: string;
+              shadyBankEndpoints: string[];
+            };
+          };
+          programs: {
+            sale: {
+              tcl: string;
+              hostMessage: string;
+            };
+          };
+        }>;
+      }
+    ).vintageTerminalProgramPack();
+
+    expect(pack.version).toBe("OMNIDAT-VF-TCL-2028.1");
+    expect(pack.sourceBasis.map((source) => source.shortName)).toContain(
+      "TCL Programmer's Manual",
+    );
+    expect(pack.capabilities).toContain("internal-pots-modem");
+    expect(pack.hostBindings.sale.x121).toBe("311088002010");
+    expect(pack.hostBindings.sale.shadyBankEndpoints).toEqual([
+      "/api/authorize",
+      "/api/capture",
+    ]);
+    expect(pack.programs.sale.tcl).toContain("DIAL 8810");
+    expect(pack.programs.sale.hostMessage).toContain("POS.SALE");
+  });
+
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
     const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;

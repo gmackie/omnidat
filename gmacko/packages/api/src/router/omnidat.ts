@@ -6,6 +6,7 @@ import {
   executeXotCommand,
   getIso8583ProtocolProfile,
   getOperationalState,
+  getVintageTerminalProgramPack,
   omnidatBillingAccounts,
   omnidatFoodMenu,
   omnidatServiceDefinitions,
@@ -194,6 +195,10 @@ export const omnidatRouter = {
       )?.verbs ?? [],
     iso8583: getIso8583ProtocolProfile(),
   })),
+
+  vintageTerminalProgramPack: publicProcedure.query(() =>
+    getVintageTerminalProgramPack(),
+  ),
 
   shadyBankStatus: publicProcedure.query(({ ctx }) => ({
     profile: getShadyBankIntegrationProfile(shadyBankConfig(ctx)),

@@ -15,6 +15,9 @@ export function OmnidatOperatorConsole() {
   const services = useQuery(trpc.omnidat.services.queryOptions());
   const food = useQuery(trpc.omnidat.foodProtocol.queryOptions());
   const atm = useQuery(trpc.omnidat.atmProtocol.queryOptions());
+  const terminalProgramPack = useQuery(
+    trpc.omnidat.vintageTerminalProgramPack.queryOptions(),
+  );
   const shadyBank = useQuery(trpc.omnidat.shadyBankStatus.queryOptions());
   const operations = useQuery(trpc.omnidat.operations.queryOptions());
   const [campsiteName, setCampsiteName] = useState("Camp Laminar");
@@ -513,6 +516,72 @@ SALE ${Number.parseFloat(isoAmount || "0").toFixed(2)} SHDY
 NOTE ${vintageNoteSerial || "NONE"}
 STATUS AWAITING MERCHANT SALE`}
             </pre>
+          </div>
+          <div className="mt-5 rounded border border-[#5c4a32] bg-[#17130d] p-4">
+            <h3 className="text-xl font-bold">VeriFone TCL Program Pack</h3>
+            <p className="mt-2 font-mono text-xs uppercase text-[#c0a36e]">
+              {terminalProgramPack.data?.version ?? "OMNIDAT-VF-TCL-2028.1"} /{" "}
+              {terminalProgramPack.data?.network.dialAccess ?? "POTS 8810"} /{" "}
+              {terminalProgramPack.data?.network.posX121 ?? "311088002010"}
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {(terminalProgramPack.data?.supportedFamilies ?? []).map(
+                (family) => (
+                  <div
+                    className="rounded border border-[#5c4a32] bg-black/25 p-3"
+                    key={family.family}
+                  >
+                    <p className="font-mono text-sm text-[#9ed783]">
+                      {family.family}
+                    </p>
+                    <p className="mt-1 text-sm">{family.models.join(", ")}</p>
+                    <p className="mt-2 text-xs uppercase text-[#c0a36e]">
+                      {family.primaryRuntime}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-[#d9cbb0]">
+                      {family.downloadMethods.join(" / ")}
+                    </p>
+                  </div>
+                ),
+              )}
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {Object.entries(terminalProgramPack.data?.hostBindings ?? {}).map(
+                ([key, binding]) => (
+                  <div
+                    className="rounded border border-[#5c4a32] bg-black/25 p-3"
+                    key={key}
+                  >
+                    <p className="font-mono text-sm text-[#9ed783]">
+                      {binding.verb}
+                    </p>
+                    <p className="mt-1 font-mono text-xs">{binding.x121}</p>
+                    <p className="mt-2 text-xs leading-5 text-[#d9cbb0]">
+                      {binding.shadyBankEndpoints.join(" ")}
+                    </p>
+                  </div>
+                ),
+              )}
+            </div>
+            <pre className="mt-4 overflow-x-auto rounded bg-black p-4 font-mono text-xs leading-5 text-[#8ee36c]">
+              {terminalProgramPack.data?.programs.sale.tcl ??
+                `; OMNIDAT SALE
+DISPLAY "OMNIDAT SALE"
+DIAL 8810
+SEND POS.SALE`}
+            </pre>
+            <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#d9cbb0]">
+              {(terminalProgramPack.data?.deployment.runbook ?? []).map(
+                (step) => (
+                  <li
+                    className="rounded border border-[#5c4a32] bg-black/25 p-3"
+                    key={step}
+                  >
+                    {step}
+                  </li>
+                ),
+              )}
+            </ul>
           </div>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#d9cbb0]">
             {(atm.data?.setupChecklist ?? []).map((item) => (

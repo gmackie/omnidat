@@ -137,6 +137,54 @@ export type OmnidatPadConfig = {
   profile: string;
 };
 
+export type VintageTerminalFamily = {
+  family: "TRANZ_330_380_TCL" | "OMNI_3200_ZONTALK";
+  models: string[];
+  primaryRuntime: "VeriFone TCL" | "Omni application SRAM";
+  downloadMethods: string[];
+  notes: string[];
+};
+
+export type VintageTerminalProgram = {
+  name: string;
+  target: string;
+  tcl: string;
+  hostMessage: string;
+};
+
+export type VintageTerminalProgramPack = {
+  version: string;
+  network: {
+    dialAccess: string;
+    posX121: string;
+    settlementRail: string;
+  };
+  sourceBasis: {
+    shortName: string;
+    detail: string;
+    locator: string;
+  }[];
+  supportedFamilies: VintageTerminalFamily[];
+  capabilities: string[];
+  hostBindings: Record<
+    "sale" | "refund" | "credit" | "batchClose",
+    {
+      verb: string;
+      x121: string;
+      shadyBankEndpoints: string[];
+      paymentInputs: string[];
+    }
+  >;
+  programs: Record<
+    "sale" | "refund" | "credit" | "batchClose",
+    VintageTerminalProgram
+  >;
+  deployment: {
+    configMemory: Record<string, string>;
+    runbook: string[];
+  };
+};
+
 export type OmnidatBillingLedgerEntry = {
   id: string;
   accountId: string;
@@ -835,6 +883,214 @@ export function getIso8583ProtocolProfile() {
       { code: "310000", name: "balance-inquiry" },
       { code: "920000", name: "network-management" },
     ],
+  };
+}
+
+const vintageTerminalProgramPack: VintageTerminalProgramPack = {
+  version: "OMNIDAT-VF-TCL-2028.1",
+  network: {
+    dialAccess: "POTS 8810",
+    posX121: "311088002010",
+    settlementRail: "ShadyBank ShadyBucks merchant API",
+  },
+  sourceBasis: [
+    {
+      shortName: "TCL Programmer's Manual",
+      detail:
+        "VeriFone TCL dial terminals include Tranz 330/380 internal modems, cardreader/keypad input, host communication control strings, and custom prompt/application flow.",
+      locator:
+        "/tmp/omnidat-verifone-docs/tranz330-tcl-program-guide.pdf pages 15-22 OCR",
+    },
+    {
+      shortName: "TCLOAD Reference Manual",
+      detail:
+        "TCLOAD is the direct loading path for TCL files and deployment artifacts on Tranz-class terminals.",
+      locator: "/tmp/omnidat-verifone-docs/tranz330-tcl-load-guide.pdf",
+    },
+    {
+      shortName: "Omni 3200 Reference Manual",
+      detail:
+        "Omni 3200 supports direct and telephone application downloads, ZONTALK/VeriTalk workflows, SRAM application storage, and remote diagnostics.",
+      locator: "/tmp/omnidat-verifone-docs/omni3200-reference.pdf",
+    },
+    {
+      shortName: "ShadyBank API server",
+      detail:
+        "Merchant settlement uses bearer-token POST forms for authorize, capture, void, reverse, and credit operations.",
+      locator: "/Volumes/dev/shady/shadybank/src/apiserver.py",
+    },
+  ],
+  supportedFamilies: [
+    {
+      family: "TRANZ_330_380_TCL",
+      models: ["TRANZ 330", "TRANZ 380"],
+      primaryRuntime: "VeriFone TCL",
+      downloadMethods: ["tcLoad-direct-download", "zontalk-telephone-download"],
+      notes: [
+        "Preferred for the historically accurate dial POS slice.",
+        "Use the internal POTS modem for sale authorization calls.",
+      ],
+    },
+    {
+      family: "OMNI_3200_ZONTALK",
+      models: ["Omni 3200", "Omni 3750"],
+      primaryRuntime: "Omni application SRAM",
+      downloadMethods: ["direct-zontalk", "telephone-zontalk"],
+      notes: [
+        "Use as the newer fallback family when available terminals are not TCL-based.",
+        "Keep host messages identical so the OMNIDAT FEP does not fork by hardware.",
+      ],
+    },
+  ],
+  capabilities: [
+    "track1-track2-cardreader",
+    "keypad-amount-entry",
+    "internal-pots-modem",
+    "receipt-printer",
+    "tcLoad-direct-download",
+    "zontalk-telephone-download",
+    "terminal-id-memory",
+    "clerk-code-entry",
+  ],
+  hostBindings: {
+    sale: {
+      verb: "POS.SALE",
+      x121: "311088002010",
+      shadyBankEndpoints: ["/api/authorize", "/api/capture"],
+      paymentInputs: ["track2", "pan+otp", "nfc_token"],
+    },
+    refund: {
+      verb: "POS.REFUND",
+      x121: "311088002010",
+      shadyBankEndpoints: ["/api/reverse"],
+      paymentInputs: ["auth_code"],
+    },
+    credit: {
+      verb: "POS.CREDIT",
+      x121: "311088002010",
+      shadyBankEndpoints: ["/api/credit"],
+      paymentInputs: ["track2", "pan", "nfc_token"],
+    },
+    batchClose: {
+      verb: "POS.CLOSE-BATCH",
+      x121: "311088002010",
+      shadyBankEndpoints: ["/api/transactions", "/api/authorizations"],
+      paymentInputs: ["terminalId", "clerkCode"],
+    },
+  },
+  programs: {
+    sale: {
+      name: "OMNIDAT SALE",
+      target: "TRANZ 330/380 TCL",
+      tcl: [
+        "; OMNIDAT SALE",
+        "; Prompt clerk, read track data, dial OMNIDAT, print receipt.",
+        'DISPLAY "OMNIDAT SALE"',
+        "INPUT AMOUNT",
+        "INPUT CLERK",
+        "READ CARD TRACK2",
+        "DIAL 8810",
+        "SEND POS.SALE",
+        "PRINT RECEIPT",
+      ].join("\n"),
+      hostMessage:
+        "POS.SALE|terminalId|clerkCode|amount|track2|noteSerial|retrievalReference",
+    },
+    refund: {
+      name: "OMNIDAT REFUND",
+      target: "TRANZ 330/380 TCL",
+      tcl: [
+        "; OMNIDAT REFUND",
+        'DISPLAY "OMNIDAT REFUND"',
+        "INPUT AUTHCODE",
+        "DIAL 8810",
+        "SEND POS.REFUND",
+        "PRINT RECEIPT",
+      ].join("\n"),
+      hostMessage: "POS.REFUND|terminalId|clerkCode|authCode",
+    },
+    credit: {
+      name: "OMNIDAT CREDIT",
+      target: "TRANZ 330/380 TCL",
+      tcl: [
+        "; OMNIDAT CREDIT",
+        'DISPLAY "OMNIDAT CREDIT"',
+        "INPUT AMOUNT",
+        "READ CARD TRACK2",
+        "DIAL 8810",
+        "SEND POS.CREDIT",
+        "PRINT RECEIPT",
+      ].join("\n"),
+      hostMessage: "POS.CREDIT|terminalId|clerkCode|amount|track2",
+    },
+    batchClose: {
+      name: "OMNIDAT CLOSE",
+      target: "TRANZ 330/380 TCL",
+      tcl: [
+        "; OMNIDAT CLOSE",
+        'DISPLAY "CLOSE BATCH"',
+        "INPUT CLERK",
+        "DIAL 8810",
+        "SEND POS.CLOSE-BATCH",
+        "PRINT TOTALS",
+      ].join("\n"),
+      hostMessage: "POS.CLOSE-BATCH|terminalId|clerkCode|batchSequence",
+    },
+  },
+  deployment: {
+    configMemory: {
+      hostDialNumber: "8810",
+      terminalId: "assigned by OMNIDAT provisioning",
+      hostX121: "311088002010",
+      merchantToken: "stored at OMNIDAT FEP, never in terminal TCL",
+    },
+    runbook: [
+      "Enroll terminal profile in OMNIDAT and bind terminal ID to a ShadyBucks merchant account.",
+      "Load TRANZ 330/380 program with TCLOAD direct download during bench setup.",
+      "Set host dial number to ShadyTel extension 8810 and verify CONNECT 2400.",
+      "Use ZONTALK telephone download for field updates when direct serial access is not available.",
+      "Run POS.SALE for 0.01 SHDY, capture ShadyBank auth code, then print activation receipt.",
+    ],
+  },
+};
+
+export function getVintageTerminalProgramPack() {
+  return {
+    ...vintageTerminalProgramPack,
+    network: { ...vintageTerminalProgramPack.network },
+    sourceBasis: vintageTerminalProgramPack.sourceBasis.map((source) => ({
+      ...source,
+    })),
+    supportedFamilies: vintageTerminalProgramPack.supportedFamilies.map(
+      (family) => ({
+        ...family,
+        models: [...family.models],
+        downloadMethods: [...family.downloadMethods],
+        notes: [...family.notes],
+      }),
+    ),
+    capabilities: [...vintageTerminalProgramPack.capabilities],
+    hostBindings: Object.fromEntries(
+      Object.entries(vintageTerminalProgramPack.hostBindings).map(
+        ([key, binding]) => [
+          key,
+          {
+            ...binding,
+            shadyBankEndpoints: [...binding.shadyBankEndpoints],
+            paymentInputs: [...binding.paymentInputs],
+          },
+        ],
+      ),
+    ) as VintageTerminalProgramPack["hostBindings"],
+    programs: Object.fromEntries(
+      Object.entries(vintageTerminalProgramPack.programs).map(
+        ([key, program]) => [key, { ...program }],
+      ),
+    ) as VintageTerminalProgramPack["programs"],
+    deployment: {
+      configMemory: { ...vintageTerminalProgramPack.deployment.configMemory },
+      runbook: [...vintageTerminalProgramPack.deployment.runbook],
+    },
   };
 }
 
