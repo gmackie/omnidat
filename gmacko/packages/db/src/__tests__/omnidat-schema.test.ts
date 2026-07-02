@@ -15,6 +15,7 @@ import {
   omnidatNetworkMetric,
   omnidatNocIncident,
   omnidatPadConfig,
+  omnidatPassportStamp,
   omnidatPdfProfile,
   omnidatProvisioningRequest,
   omnidatSecurityCredential,
@@ -83,6 +84,9 @@ describe("OMNIDAT X.25 operational schema", () => {
     expect(omnidatShadyBucksAtm.terminalX121).toBeDefined();
     expect(omnidatFoodMenuItem.priceAmount).toBeDefined();
     expect(omnidatFoodOrder.lineTicket).toBeDefined();
+    expect(omnidatPassportStamp.passportId).toBeDefined();
+    expect(omnidatPassportStamp.badgeId).toBeDefined();
+    expect(omnidatPassportStamp.stampId).toBeDefined();
 
     expect(uniqueNames(omnidatBillingAccount)).toContain(
       "omnidat_billing_account_provider_external_unique",
@@ -92,6 +96,9 @@ describe("OMNIDAT X.25 operational schema", () => {
     );
     expect(uniqueNames(omnidatPadConfig)).toContain(
       "omnidat_pad_config_x121_unique",
+    );
+    expect(uniqueNames(omnidatPassportStamp)).toContain(
+      "omnidat_passport_stamp_stamp_id_unique",
     );
   });
 

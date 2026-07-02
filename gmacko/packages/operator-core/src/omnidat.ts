@@ -74,6 +74,17 @@ export type OmnidatFoodOrder = {
   receiptId: string;
 };
 
+export type OmnidatPassportStamp = {
+  id: string;
+  passportId: string;
+  badgeId: string;
+  operatorId: string;
+  evidence: string;
+  stampId: string;
+  receiptId: string;
+  status: "filed" | "under-review" | "approved" | "rejected";
+};
+
 export type OmnidatPadConfig = {
   id: string;
   x121: string;
@@ -110,6 +121,7 @@ export type OmnidatOperationalState = {
   ledger: OmnidatBillingLedgerEntry[];
   pads: OmnidatPadConfig[];
   foodOrders: OmnidatFoodOrder[];
+  passportStamps: OmnidatPassportStamp[];
   auditEvents: OmnidatAuditEvent[];
   nextCampAddress: number;
 };
@@ -299,6 +311,7 @@ function createInitialOperationalState(): OmnidatOperationalState {
       },
     ],
     foodOrders: [],
+    passportStamps: [],
     auditEvents: [
       {
         id: "AUDIT-BOOT",
@@ -340,6 +353,7 @@ export function getOperationalState() {
     ledger: current.ledger.map((entry) => ({ ...entry })),
     pads: current.pads.map((pad) => ({ ...pad })),
     foodOrders: current.foodOrders.map((order) => ({ ...order })),
+    passportStamps: current.passportStamps.map((stamp) => ({ ...stamp })),
     auditEvents: current.auditEvents.map((event) => ({
       ...event,
       details: { ...event.details },
@@ -380,6 +394,11 @@ function accountIdFor(campsiteName: string) {
 function nextFoodTicket() {
   const current = state();
   return `MW-${String(current.foodOrders.length + 1).padStart(4, "0")}`;
+}
+
+function nextPassportStampId() {
+  const current = state();
+  return `STAMP-${String(current.passportStamps.length + 1).padStart(5, "0")}`;
 }
 
 export function provisionCampsiteService(input: {
@@ -709,6 +728,49 @@ export function createFoodOrder(input: {
       `BILL ${account.accountId} -${total} SHDY`,
       `RECEIPT ${receiptId}`,
       `WAIT ${order.estimatedWaitMinutes} MIN`,
+    ].join("\n"),
+  };
+}
+
+export function stampActivityPassport(input: {
+  passportId: string;
+  badgeId: string;
+  operatorId: string;
+  evidence: string;
+}) {
+  const current = state();
+  const stampId = nextPassportStampId();
+  const receiptId = `RCPT-PASS-${stampId.slice(-5)}`;
+  const stamp: OmnidatPassportStamp = {
+    id: stampId,
+    passportId: input.passportId.trim(),
+    badgeId: input.badgeId.trim().toUpperCase(),
+    operatorId: input.operatorId.trim(),
+    evidence: input.evidence.trim(),
+    stampId,
+    receiptId,
+    status: "filed",
+  };
+
+  current.passportStamps.unshift(stamp);
+  appendAudit("passport.stamped", "passport", stamp.passportId, {
+    badgeId: stamp.badgeId,
+    operatorId: stamp.operatorId,
+    stampId,
+  });
+
+  return {
+    ...stamp,
+    meritClaimStatus: stamp.status,
+    transcript: [
+      "CALL 311088030021",
+      "CONNECT PASSPORT LOG ENTRY",
+      `STAMP ${stamp.passportId}`,
+      `BADGE ${stamp.badgeId}`,
+      `OPERATOR ${stamp.operatorId}`,
+      `STAMP-ID ${stamp.stampId}`,
+      `RECEIPT ${stamp.receiptId}`,
+      "STATUS FILED",
     ].join("\n"),
   };
 }

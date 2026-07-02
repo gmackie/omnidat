@@ -4,6 +4,7 @@ import {
   omnidatBillingLedgerEntry,
   omnidatFoodOrder,
   omnidatPadConfig,
+  omnidatPassportStamp,
   omnidatProvisioningRequest,
   omnidatShadyBucksAtm,
 } from "@omnidat/db/schema";
@@ -16,10 +17,12 @@ import type {
   OmnidatCircuitMetric,
   OmnidatFoodOrder,
   OmnidatPadConfig,
+  OmnidatPassportStamp,
   OmnidatProvisioningRequest,
   OmnidatServiceDefinition,
   provisionCampsiteService,
   setupAtmTerminal,
+  stampActivityPassport,
 } from "@omnidat/operator-core/omnidat";
 import { createHash } from "node:crypto";
 
@@ -28,6 +31,7 @@ type PadResult = ReturnType<typeof configurePad>;
 type AtmResult = ReturnType<typeof setupAtmTerminal>;
 type XotResult = ReturnType<typeof executeXotCommand>;
 type FoodOrderResult = ReturnType<typeof createFoodOrder>;
+type PassportStampResult = ReturnType<typeof stampActivityPassport>;
 type OmnidatOperationalSnapshot = {
   services: OmnidatServiceDefinition[];
   circuits: OmnidatCircuitMetric[];
@@ -36,6 +40,7 @@ type OmnidatOperationalSnapshot = {
   ledger: OmnidatBillingLedgerEntry[];
   pads: OmnidatPadConfig[];
   foodOrders: OmnidatFoodOrder[];
+  passportStamps: OmnidatPassportStamp[];
   auditEvents: Array<{
     id: string;
     eventType: string;
@@ -219,6 +224,31 @@ export function projectFoodOrderPersistenceRows(result: FoodOrderResult) {
   };
 }
 
+export function projectPassportStampPersistenceRows(result: PassportStampResult) {
+  return {
+    passportStamp: {
+      passportId: result.passportId,
+      badgeId: result.badgeId,
+      operatorId: result.operatorId,
+      evidence: result.evidence,
+      stampId: result.stampId,
+      receiptId: result.receiptId,
+      status: result.status,
+    } satisfies InsertValue<typeof omnidatPassportStamp>,
+    auditEvent: {
+      eventType: "passport.stamped",
+      subjectKind: "passport",
+      subjectId: result.passportId,
+      details: {
+        badgeId: result.badgeId,
+        operatorId: result.operatorId,
+        stampId: result.stampId,
+        receiptId: result.receiptId,
+      },
+    } satisfies InsertValue<typeof omnidatAuditEvent>,
+  };
+}
+
 export function databasePersistenceEnabled() {
   return process.env.OMNIDAT_PERSISTENCE === "database";
 }
@@ -332,6 +362,17 @@ type FoodOrderRow = {
   estimatedWaitMinutes?: number | null;
 };
 
+type PassportStampRow = {
+  id?: string;
+  passportId?: string | null;
+  badgeId?: string | null;
+  operatorId?: string | null;
+  evidence?: string | null;
+  stampId?: string | null;
+  receiptId?: string | null;
+  status?: string | null;
+};
+
 export async function loadPersistentOperationalState(
   db: OmnidatPersistenceDb | undefined,
   seed: OmnidatOperationalSnapshot,
@@ -345,6 +386,7 @@ export async function loadPersistentOperationalState(
     padRows,
     atmRows,
     foodOrderRows,
+    passportStampRows,
   ] = await Promise.all([
     selectRows<ProvisioningRow>(db, omnidatProvisioningRequest),
     selectRows<BillingAccountRow>(db, omnidatBillingAccount),
@@ -352,6 +394,7 @@ export async function loadPersistentOperationalState(
     selectRows<PadRow>(db, omnidatPadConfig),
     selectRows<AtmRow>(db, omnidatShadyBucksAtm),
     selectRows<FoodOrderRow>(db, omnidatFoodOrder),
+    selectRows<PassportStampRow>(db, omnidatPassportStamp),
   ]);
 
   const provisioningRequests = provisioningRows
@@ -422,6 +465,23 @@ export async function loadPersistentOperationalState(
         receiptId: `RCPT-FOOD-${(row.lineTicket ?? "").slice(-4)}`,
       };
     });
+
+  const passportStamps = passportStampRows
+    .filter((row) => row.stampId)
+    .map((row): OmnidatPassportStamp => ({
+      id: row.id ?? row.stampId ?? "STAMP-PERSISTED",
+      passportId: row.passportId ?? "",
+      badgeId: row.badgeId ?? "",
+      operatorId: row.operatorId ?? "",
+      evidence: row.evidence ?? "",
+      stampId: row.stampId ?? "",
+      receiptId: row.receiptId ?? `RCPT-PASS-${(row.stampId ?? "").slice(-5)}`,
+      status: row.status === "under-review" ||
+        row.status === "approved" ||
+        row.status === "rejected"
+        ? row.status
+        : "filed",
+    }));
 
   const padCircuits = pads.map((pad): OmnidatCircuitMetric => ({
     x121: pad.x121,
@@ -513,6 +573,8 @@ export async function loadPersistentOperationalState(
     ledger: ledger.length > 0 ? ledger : seed.ledger,
     pads: pads.length > 0 ? pads : seed.pads,
     foodOrders: foodOrders.length > 0 ? foodOrders : seed.foodOrders,
+    passportStamps:
+      passportStamps.length > 0 ? passportStamps : seed.passportStamps,
   };
 }
 
@@ -646,6 +708,17 @@ export async function persistFoodOrderResult(
     ...rows.ledgerEntry,
     accountId,
   });
+  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+}
+
+export async function persistPassportStampResult(
+  db: OmnidatPersistenceDb | undefined,
+  result: PassportStampResult,
+) {
+  if (!db || !databasePersistenceEnabled()) return;
+  const rows = projectPassportStampPersistenceRows(result);
+
+  await db.insert(omnidatPassportStamp).values(rows.passportStamp);
   await db.insert(omnidatAuditEvent).values(rows.auditEvent);
 }
 

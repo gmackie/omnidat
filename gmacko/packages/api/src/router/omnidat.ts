@@ -10,6 +10,7 @@ import {
   omnidatServiceDefinitions,
   provisionCampsiteService,
   setupAtmTerminal,
+  stampActivityPassport,
 } from "@omnidat/operator-core/omnidat";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
@@ -19,6 +20,7 @@ import {
   persistAtmResult,
   persistFoodOrderResult,
   persistPadResult,
+  persistPassportStampResult,
   persistProvisioningResult,
   persistXotCommandResult,
   loadPersistentOperationalState,
@@ -214,6 +216,21 @@ export const omnidatRouter = {
     .mutation(async ({ ctx, input }) => {
       const result = createFoodOrder(input);
       await persistFoodOrderResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      return result;
+    }),
+
+  stampActivityPassport: publicProcedure
+    .input(
+      z.object({
+        passportId: z.string().min(1),
+        badgeId: z.string().min(1),
+        operatorId: z.string().min(1),
+        evidence: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = stampActivityPassport(input);
+      await persistPassportStampResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
       return result;
     }),
 

@@ -329,6 +329,20 @@ export const omnidatFoodOrder = omnidatNamespace.table("omnidat_food_order", (t)
   unique("omnidat_food_order_line_ticket_unique").on(table.lineTicket),
 ]);
 
+export const omnidatPassportStamp = omnidatNamespace.table("omnidat_passport_stamp", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  passportId: t.varchar({ length: 120 }).notNull(),
+  badgeId: t.varchar({ length: 120 }).notNull(),
+  operatorId: t.varchar({ length: 120 }).notNull(),
+  evidence: t.text().notNull(),
+  stampId: t.varchar({ length: 120 }).notNull(),
+  receiptId: t.varchar({ length: 120 }).notNull(),
+  status: t.varchar({ length: 32 }).notNull().default("filed"),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+}), (table) => [
+  unique("omnidat_passport_stamp_stamp_id_unique").on(table.stampId),
+]);
+
 export const omnidatInfraEndpoint = omnidatNamespace.table("omnidat_infra_endpoint", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   networkId: t

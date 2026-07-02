@@ -194,6 +194,86 @@ describe("omnidat tRPC router", () => {
     );
   });
 
+  it("stamps an activity passport with merit badge evidence and durable persistence", async () => {
+    const stampProcedure = (caller.omnidat as { stampActivityPassport?: unknown })
+      .stampActivityPassport;
+
+    expect(typeof stampProcedure).toBe("function");
+
+    const stamp = await (
+      stampProcedure as (input: {
+        passportId: string;
+        badgeId: string;
+        operatorId: string;
+        evidence: string;
+      }) => Promise<{
+        stampId: string;
+        receiptId: string;
+        meritClaimStatus: string;
+        transcript: string;
+      }>
+    )({
+      passportId: "PASS-04271",
+      badgeId: "FIELD-COURIER",
+      operatorId: "OP-EX88",
+      evidence: "Delivered a packet form across camp.",
+    });
+    const operations = await caller.omnidat.operations();
+    const passportStamps = (operations as unknown as {
+      passportStamps: Array<{ stampId: string; badgeId: string }>;
+    }).passportStamps;
+
+    expect(stamp.stampId).toMatch(/^STAMP-/);
+    expect(stamp.receiptId).toMatch(/^RCPT-PASS-/);
+    expect(stamp.meritClaimStatus).toBe("filed");
+    expect(stamp.transcript).toContain("CONNECT PASSPORT LOG ENTRY");
+    expect(passportStamps[0]).toMatchObject({
+      stampId: stamp.stampId,
+      badgeId: "FIELD-COURIER",
+    });
+
+    process.env.OMNIDAT_PERSISTENCE = "database";
+    const values = vi.fn(() => ({}));
+    const persistentCaller = appRouter.createCaller({
+      db: {
+        insert: vi.fn(() => ({
+          values,
+        })),
+      },
+    } as never);
+    const persistentStamp = (
+      persistentCaller.omnidat as unknown as {
+        stampActivityPassport: (input: {
+          passportId: string;
+          badgeId: string;
+          operatorId: string;
+          evidence: string;
+        }) => Promise<unknown>;
+      }
+    ).stampActivityPassport;
+    await persistentStamp({
+      passportId: "PASS-02024",
+      badgeId: "PACKET-NOTARY",
+      operatorId: "OP-DURABLE",
+      evidence: "Filed a witnessed X.25 network receipt.",
+    });
+
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        passportId: "PASS-02024",
+        badgeId: "PACKET-NOTARY",
+        status: "filed",
+      }),
+    );
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "passport.stamped",
+        subjectKind: "passport",
+        subjectId: "PASS-02024",
+      }),
+    );
+  });
+
   it("records durable audit events when database persistence is enabled", async () => {
     process.env.OMNIDAT_PERSISTENCE = "database";
     let id = 0;

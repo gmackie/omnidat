@@ -27,6 +27,10 @@ export function OmnidatOperatorConsole() {
   const [pickupName, setPickupName] = useState("Packet Window 3");
   const [shadybucksAccountId, setShadybucksAccountId] = useState("SB-CAMP-LAMINAR-001");
   const [selectedFoodItems, setSelectedFoodItems] = useState(["NOODLE-CUP"]);
+  const [passportId, setPassportId] = useState("PASS-04271");
+  const [badgeId, setBadgeId] = useState("FIELD-COURIER");
+  const [passportOperatorId, setPassportOperatorId] = useState("OP-EX88");
+  const [passportEvidence, setPassportEvidence] = useState("Filed an X.25 packet receipt.");
 
   const verify = useMutation(
     trpc.omnidat.verifyProvisioning.mutationOptions({
@@ -69,6 +73,16 @@ export function OmnidatOperatorConsole() {
         void queryClient.invalidateQueries();
       },
       onError: () => toast.error("Food order failed"),
+    }),
+  );
+
+  const passportStamp = useMutation(
+    trpc.omnidat.stampActivityPassport.mutationOptions({
+      onSuccess: () => {
+        toast.success("Activity passport stamped");
+        void queryClient.invalidateQueries();
+      },
+      onError: () => toast.error("Passport stamp failed"),
     }),
   );
 
@@ -334,6 +348,75 @@ STATUS AWAITING MENU SELECTION`}
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="rounded border border-[#4f3920] bg-[#211d15] p-5">
+          <h2 className="text-2xl font-bold">Activity Passport</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-2 text-sm">
+              Passport ID
+              <Input
+                value={passportId}
+                onChange={(event) => setPassportId(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              Badge ID
+              <Input
+                value={badgeId}
+                onChange={(event) => setBadgeId(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              Operator ID
+              <Input
+                value={passportOperatorId}
+                onChange={(event) => setPassportOperatorId(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              Evidence
+              <Input
+                value={passportEvidence}
+                onChange={(event) => setPassportEvidence(event.target.value)}
+              />
+            </label>
+          </div>
+          <Button
+            className="mt-4"
+            disabled={passportStamp.isPending}
+            onClick={() =>
+              passportStamp.mutate({
+                passportId,
+                badgeId,
+                operatorId: passportOperatorId,
+                evidence: passportEvidence,
+              })
+            }
+          >
+            Stamp Passport
+          </Button>
+          <pre className="mt-4 min-h-28 overflow-x-auto rounded bg-black p-4 font-mono text-sm leading-6 text-[#8ee36c]">
+            {passportStamp.data?.transcript ??
+              `CALL 311088030021
+STAMP ${passportId}
+BADGE ${badgeId}
+STATUS AWAITING EVIDENCE`}
+          </pre>
+          <div className="mt-4 grid gap-3">
+            {(operations.data?.passportStamps ?? []).slice(0, 3).map((stamp) => (
+              <div
+                className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
+                key={stamp.stampId}
+              >
+                <p className="font-mono text-sm text-[#9ed783]">{stamp.stampId}</p>
+                <p className="mt-1 font-semibold">{stamp.passportId}</p>
+                <p className="mt-2 text-xs uppercase text-[#c0a36e]">
+                  {stamp.badgeId} / {stamp.status} / {stamp.receiptId}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="rounded border border-[#4f3920] bg-[#211d15] p-5">
