@@ -10,12 +10,22 @@ export type ShadyBankClientConfig = {
   fetch?: typeof fetch;
 };
 
-export type ShadyBankPurchaseInput = {
+type ShadyBankPanPurchaseInput = {
   amount: number;
   pan: string;
   otp?: string;
   description?: string;
 };
+
+type ShadyBankTrack2PurchaseInput = {
+  amount: number;
+  track2: string;
+  description?: string;
+};
+
+export type ShadyBankPurchaseInput =
+  | ShadyBankPanPurchaseInput
+  | ShadyBankTrack2PurchaseInput;
 
 export type ShadyBankPurchaseResult = {
   authCode: string;
@@ -84,6 +94,10 @@ function redactPan(value: string) {
   return `************${suffix}`;
 }
 
+function track2Pan(track2: string) {
+  return track2.match(/;(?<pan>\d{8,19})=/)?.groups?.pan ?? track2;
+}
+
 async function readResponseText(response: Response) {
   const text = await response.text();
   return text.trim();
@@ -139,9 +153,17 @@ export function createShadyBankClient(config: ShadyBankClientConfig = {}) {
     ): Promise<ShadyBankPurchaseResult> {
       const authorizeBody = new URLSearchParams({
         amount: amountString(input.amount),
-        pan: input.pan,
       });
-      if (input.otp) {
+      const paymentLine =
+        "track2" in input
+          ? `TRACK2 ${redactPan(track2Pan(input.track2))}`
+          : `PAN ${redactPan(input.pan)}`;
+      if ("track2" in input) {
+        authorizeBody.set("track2", input.track2);
+      } else {
+        authorizeBody.set("pan", input.pan);
+      }
+      if ("otp" in input && input.otp) {
         authorizeBody.set("otp", input.otp);
       }
 
@@ -165,7 +187,7 @@ export function createShadyBankClient(config: ShadyBankClientConfig = {}) {
         captureEndpoint: "/api/capture",
         transcript: [
           "SHADYBANK POST /api/authorize",
-          `PAN ${redactPan(input.pan)}`,
+          paymentLine,
           `AMOUNT ${amountString(input.amount)} SHDY`,
           `AUTH ${authCode}`,
           "SHADYBANK POST /api/capture",

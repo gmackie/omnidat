@@ -193,6 +193,44 @@ describe("omnidat tRPC router", () => {
     expect(settlement.transcript).not.toContain("4242424242424242");
   });
 
+  it("settles ISO 8583 purchases with Shady Bank track-2 card data", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("751860", { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const integrationCaller = appRouter.createCaller({
+      shadyBank: {
+        baseUrl: "http://192.168.97.4:8080",
+        merchantToken: "merchant-token",
+        fetch,
+      },
+    } as never);
+
+    const settlement = await integrationCaller.omnidat.iso8583ShadyBankPurchase(
+      {
+        amount: 19.25,
+        track2: ";4111111111111111=2901123123456?",
+        terminalId: "ATM-EX88-001",
+        retrievalReference: "000000000020",
+      } as never,
+    );
+
+    expect(settlement.responseCode).toBe("00");
+    expect(settlement.shadyBank.authCode).toBe("751860");
+    expect(settlement.packedResponse).toContain("DE038=751860");
+    expect(settlement.packedResponse).toContain("DE039=00");
+    expect(settlement.transcript).toContain("TRACK2 ************1111");
+    expect(settlement.transcript).toContain("RC 00");
+    expect(settlement.transcript).toContain("AUTH 751860");
+    expect(settlement.transcript).not.toContain("AUTH DECLIN");
+    expect(settlement.transcript).not.toContain("4111111111111111");
+    expect(
+      ((fetch.mock.calls[0]?.[1] as RequestInit).body as URLSearchParams).get(
+        "track2",
+      ),
+    ).toBe(";4111111111111111=2901123123456?");
+  });
+
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
     const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;

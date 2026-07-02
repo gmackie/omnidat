@@ -77,4 +77,37 @@ describe("Shady Bank HTTP integration", () => {
       ),
     ).toBe("654321");
   });
+
+  it("authorizes and captures a track-2 purchase without sending PAN credentials", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("751860", { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createShadyBankClient({
+      baseUrl: "http://192.168.97.4:8080",
+      merchantToken: "merchant-token",
+      fetch,
+    });
+
+    const result = await client.authorizeAndCapture({
+      amount: 19.25,
+      track2: ";4111111111111111=2901123123456?",
+      description: "OMNIDAT X.25 ISO8583 0200 ATM-EX88-001",
+    });
+
+    expect(result.authCode).toBe("751860");
+    expect(result.captured).toBe(true);
+    expect(result.transcript).toContain("TRACK2 ************1111");
+    expect(result.transcript).not.toContain("4111111111111111");
+    expect(
+      ((fetch.mock.calls[0]?.[1] as RequestInit).body as URLSearchParams).get(
+        "track2",
+      ),
+    ).toBe(";4111111111111111=2901123123456?");
+    expect(
+      ((fetch.mock.calls[0]?.[1] as RequestInit).body as URLSearchParams).get(
+        "pan",
+      ),
+    ).toBeNull();
+  });
 });

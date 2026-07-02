@@ -43,6 +43,40 @@ function shadyBankConfig(ctx: unknown): ShadyBankClientConfig {
   );
 }
 
+function panFromTrack2(track2: string) {
+  return track2.match(/;(?<pan>\d{8,19})=/)?.groups?.pan ?? track2;
+}
+
+const iso8583ShadyBankPurchaseInput = z
+  .object({
+    amount: z.number().positive(),
+    pan: z.string().min(8).max(19).optional(),
+    otp: z.string().min(1).optional(),
+    track2: z.string().min(1).optional(),
+    terminalId: z.string().min(1),
+    retrievalReference: z.string().min(1).max(12),
+  })
+  .refine((input) => Boolean(input.pan || input.track2), {
+    message: "PAN or track-2 card data is required",
+  });
+
+function settleIsoResponseWithShadyBankAuth(
+  iso: ReturnType<typeof simulateIso8583Transaction>,
+  authCode: string,
+) {
+  return {
+    ...iso,
+    responseCode: "00" as const,
+    authorizationCode: authCode,
+    packedResponse: iso.packedResponse
+      .replace(/DE038=[^|]*/, `DE038=${authCode}`)
+      .replace(/DE039=[^|]*/, "DE039=00"),
+    transcript: iso.transcript
+      .replace(/^RC .*/m, "RC 00")
+      .replace(/^AUTH .*/m, `AUTH ${authCode}`),
+  };
+}
+
 export const omnidatRouter = {
   dashboard: publicProcedure.query(async ({ ctx }) => {
     const operationalState =
@@ -285,38 +319,35 @@ export const omnidatRouter = {
     .mutation(({ input }) => simulateIso8583Transaction(input)),
 
   iso8583ShadyBankPurchase: publicProcedure
-    .input(
-      z.object({
-        amount: z.number().positive(),
-        pan: z.string().min(8).max(19),
-        otp: z.string().min(1).optional(),
-        terminalId: z.string().min(1),
-        retrievalReference: z.string().min(1).max(12),
-      }),
-    )
+    .input(iso8583ShadyBankPurchaseInput)
     .mutation(async ({ ctx, input }) => {
+      const cardReference =
+        input.track2 ? panFromTrack2(input.track2) : (input.pan ?? "");
       const iso = simulateIso8583Transaction({
         mti: "0200",
         processingCode: "000000",
         amount: input.amount,
-        accountId: `PAN-${input.pan.slice(-4)}`,
+        accountId: `PAN-${cardReference.slice(-4)}`,
         terminalId: input.terminalId,
         retrievalReference: input.retrievalReference,
       });
       const client = createShadyBankClient(shadyBankConfig(ctx));
       const shadyBank = await client.authorizeAndCapture({
         amount: input.amount,
-        pan: input.pan,
-        otp: input.otp,
+        ...(input.track2
+          ? { track2: input.track2 }
+          : { pan: input.pan ?? "", otp: input.otp }),
         description: `OMNIDAT X.25 ISO8583 0200 ${input.terminalId}`,
       });
+      const settledIso = settleIsoResponseWithShadyBankAuth(
+        iso,
+        shadyBank.authCode,
+      );
 
       return {
-        ...iso,
-        responseCode: "00" as const,
-        authorizationCode: shadyBank.authCode,
+        ...settledIso,
         shadyBank,
-        transcript: [iso.transcript, shadyBank.transcript].join("\n"),
+        transcript: [settledIso.transcript, shadyBank.transcript].join("\n"),
       };
     }),
 

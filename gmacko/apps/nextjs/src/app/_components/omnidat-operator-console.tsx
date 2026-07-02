@@ -45,6 +45,9 @@ export function OmnidatOperatorConsole() {
     useState("000000000019");
   const [shadyBankPan, setShadyBankPan] = useState("4242424242424242");
   const [shadyBankOtp, setShadyBankOtp] = useState("123456");
+  const [shadyBankTrack2, setShadyBankTrack2] = useState(
+    ";4111111111111111=2901123123456?",
+  );
 
   const verify = useMutation(
     trpc.omnidat.verifyProvisioning.mutationOptions({
@@ -489,6 +492,13 @@ STATUS AWAITING MENU SELECTION`}
                 onChange={(event) => setShadyBankOtp(event.target.value)}
               />
             </label>
+            <label className="grid gap-2 text-sm md:col-span-2">
+              Track 2
+              <Input
+                value={shadyBankTrack2}
+                onChange={(event) => setShadyBankTrack2(event.target.value)}
+              />
+            </label>
           </div>
           <Button
             className="mt-4"
@@ -497,13 +507,22 @@ STATUS AWAITING MENU SELECTION`}
             }
             variant="outline"
             onClick={() =>
-              shadyBankPurchase.mutate({
-                amount: Number.parseFloat(isoAmount) || 0.01,
-                pan: shadyBankPan,
-                otp: shadyBankOtp || undefined,
-                terminalId: isoTerminalId,
-                retrievalReference: isoRetrievalReference,
-              })
+              shadyBankPurchase.mutate(
+                shadyBankTrack2
+                  ? {
+                      amount: Number.parseFloat(isoAmount) || 0.01,
+                      track2: shadyBankTrack2,
+                      terminalId: isoTerminalId,
+                      retrievalReference: isoRetrievalReference,
+                    }
+                  : {
+                      amount: Number.parseFloat(isoAmount) || 0.01,
+                      pan: shadyBankPan,
+                      otp: shadyBankOtp || undefined,
+                      terminalId: isoTerminalId,
+                      retrievalReference: isoRetrievalReference,
+                    },
+              )
             }
           >
             Settle via Shady Bank
