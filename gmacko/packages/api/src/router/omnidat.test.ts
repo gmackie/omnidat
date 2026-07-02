@@ -159,6 +159,40 @@ describe("omnidat tRPC router", () => {
     expect(iso.transcript).toContain("ISO8583 0200 -> 0210");
   });
 
+  it("settles ISO 8583 purchases through the real Shady Bank HTTP contract", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("246810", { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const integrationCaller = appRouter.createCaller({
+      shadyBank: {
+        baseUrl: "http://127.0.0.1:8021",
+        merchantToken: "merchant-token",
+        fetch,
+      },
+    } as never);
+
+    const status = await integrationCaller.omnidat.shadyBankStatus();
+    const settlement = await integrationCaller.omnidat.iso8583ShadyBankPurchase(
+      {
+        amount: 19,
+        pan: "4242424242424242",
+        otp: "123456",
+        terminalId: "ATM-EX88-001",
+        retrievalReference: "000000000019",
+      },
+    );
+
+    expect(status.profile.sourceRepo).toBe("/Volumes/dev/shady/shadybank");
+    expect(status.profile.configured).toBe(true);
+    expect(settlement.responseCode).toBe("00");
+    expect(settlement.responseMti).toBe("0210");
+    expect(settlement.shadyBank.authCode).toBe("246810");
+    expect(settlement.shadyBank.captured).toBe(true);
+    expect(settlement.transcript).toContain("SHADYBANK POST /api/authorize");
+    expect(settlement.transcript).not.toContain("4242424242424242");
+  });
+
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
     const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;

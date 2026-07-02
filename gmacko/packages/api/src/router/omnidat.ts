@@ -28,6 +28,20 @@ import {
   persistProvisioningResult,
   persistXotCommandResult,
 } from "./omnidat-persistence";
+import {
+  createShadyBankClient,
+  getShadyBankIntegrationProfile,
+  type ShadyBankClientConfig,
+} from "./shadybank-client";
+
+function shadyBankConfig(ctx: unknown): ShadyBankClientConfig {
+  return (
+    (ctx as { shadyBank?: ShadyBankClientConfig }).shadyBank ?? {
+      baseUrl: process.env.SHADYBANK_API_URL,
+      merchantToken: process.env.SHADYBANK_MERCHANT_TOKEN,
+    }
+  );
+}
 
 export const omnidatRouter = {
   dashboard: publicProcedure.query(async ({ ctx }) => {
@@ -144,6 +158,10 @@ export const omnidatRouter = {
         (service) => service.slug === "shadybucks-atm",
       )?.verbs ?? [],
     iso8583: getIso8583ProtocolProfile(),
+  })),
+
+  shadyBankStatus: publicProcedure.query(({ ctx }) => ({
+    profile: getShadyBankIntegrationProfile(shadyBankConfig(ctx)),
   })),
 
   verifyProvisioning: publicProcedure
@@ -265,6 +283,42 @@ export const omnidatRouter = {
       }),
     )
     .mutation(({ input }) => simulateIso8583Transaction(input)),
+
+  iso8583ShadyBankPurchase: publicProcedure
+    .input(
+      z.object({
+        amount: z.number().positive(),
+        pan: z.string().min(8).max(19),
+        otp: z.string().min(1).optional(),
+        terminalId: z.string().min(1),
+        retrievalReference: z.string().min(1).max(12),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const iso = simulateIso8583Transaction({
+        mti: "0200",
+        processingCode: "000000",
+        amount: input.amount,
+        accountId: `PAN-${input.pan.slice(-4)}`,
+        terminalId: input.terminalId,
+        retrievalReference: input.retrievalReference,
+      });
+      const client = createShadyBankClient(shadyBankConfig(ctx));
+      const shadyBank = await client.authorizeAndCapture({
+        amount: input.amount,
+        pan: input.pan,
+        otp: input.otp,
+        description: `OMNIDAT X.25 ISO8583 0200 ${input.terminalId}`,
+      });
+
+      return {
+        ...iso,
+        responseCode: "00" as const,
+        authorizationCode: shadyBank.authCode,
+        shadyBank,
+        transcript: [iso.transcript, shadyBank.transcript].join("\n"),
+      };
+    }),
 
   xotCommand: publicProcedure
     .input(

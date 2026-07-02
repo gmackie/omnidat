@@ -1,10 +1,10 @@
+import handler from "vinext/server/app-router-entry";
+import type { ImageConfig } from "vinext/server/image-optimization";
 import {
   DEFAULT_DEVICE_SIZES,
   DEFAULT_IMAGE_SIZES,
   handleImageOptimization,
 } from "vinext/server/image-optimization";
-import type { ImageConfig } from "vinext/server/image-optimization";
-import handler from "vinext/server/app-router-entry";
 
 interface Env {
   APP_ENV?: "development" | "staging" | "production";
@@ -24,6 +24,8 @@ interface Env {
   HYPERDRIVE?: {
     connectionString: string;
   };
+  SHADYBANK_API_URL?: string;
+  SHADYBANK_MERCHANT_TOKEN?: string;
 }
 
 interface ExecutionContext {
@@ -41,6 +43,12 @@ export default {
   ): Promise<Response> {
     if (env.HYPERDRIVE?.connectionString) {
       process.env.DATABASE_URL = env.HYPERDRIVE.connectionString;
+    }
+    if (env.SHADYBANK_API_URL) {
+      process.env.SHADYBANK_API_URL = env.SHADYBANK_API_URL;
+    }
+    if (env.SHADYBANK_MERCHANT_TOKEN) {
+      process.env.SHADYBANK_MERCHANT_TOKEN = env.SHADYBANK_MERCHANT_TOKEN;
     }
 
     const url = new URL(request.url);

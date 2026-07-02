@@ -21,6 +21,8 @@ export const env = createEnv({
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORG: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
+    SHADYBANK_API_URL: z.string().url().optional(),
+    SHADYBANK_MERCHANT_TOKEN: z.string().optional(),
   },
 
   /**

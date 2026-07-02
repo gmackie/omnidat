@@ -15,6 +15,7 @@ export function OmnidatOperatorConsole() {
   const services = useQuery(trpc.omnidat.services.queryOptions());
   const food = useQuery(trpc.omnidat.foodProtocol.queryOptions());
   const atm = useQuery(trpc.omnidat.atmProtocol.queryOptions());
+  const shadyBank = useQuery(trpc.omnidat.shadyBankStatus.queryOptions());
   const operations = useQuery(trpc.omnidat.operations.queryOptions());
   const [campsiteName, setCampsiteName] = useState("Camp Laminar");
   const [contact, setContact] = useState("operator@camp.example");
@@ -42,6 +43,8 @@ export function OmnidatOperatorConsole() {
   const [isoTerminalId, setIsoTerminalId] = useState("ATM-EX88-001");
   const [isoRetrievalReference, setIsoRetrievalReference] =
     useState("000000000019");
+  const [shadyBankPan, setShadyBankPan] = useState("4242424242424242");
+  const [shadyBankOtp, setShadyBankOtp] = useState("123456");
 
   const verify = useMutation(
     trpc.omnidat.verifyProvisioning.mutationOptions({
@@ -100,6 +103,12 @@ export function OmnidatOperatorConsole() {
   const iso8583 = useMutation(
     trpc.omnidat.iso8583Transaction.mutationOptions({
       onError: () => toast.error("ISO 8583 transaction failed"),
+    }),
+  );
+
+  const shadyBankPurchase = useMutation(
+    trpc.omnidat.iso8583ShadyBankPurchase.mutationOptions({
+      onError: () => toast.error("Shady Bank settlement failed"),
     }),
   );
 
@@ -366,6 +375,12 @@ STATUS AWAITING MENU SELECTION`}
           <p className="mt-2 font-mono text-xs uppercase text-[#c0a36e]">
             {atm.data?.iso8583?.protocol ?? "ISO8583-1987-SHADYBUCKS-X25"}
           </p>
+          <p className="mt-1 font-mono text-xs uppercase text-[#c0a36e]">
+            Shady Bank{" "}
+            {shadyBank.data?.profile.configured
+              ? "merchant link armed"
+              : "merchant link pending"}
+          </p>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#d9cbb0]">
             {(atm.data?.setupChecklist ?? []).map((item) => (
               <li
@@ -459,17 +474,57 @@ STATUS AWAITING MENU SELECTION`}
           >
             Send ISO 8583
           </Button>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-2 text-sm">
+              Card PAN
+              <Input
+                value={shadyBankPan}
+                onChange={(event) => setShadyBankPan(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              OTP
+              <Input
+                value={shadyBankOtp}
+                onChange={(event) => setShadyBankOtp(event.target.value)}
+              />
+            </label>
+          </div>
+          <Button
+            className="mt-4"
+            disabled={
+              shadyBankPurchase.isPending || !shadyBank.data?.profile.configured
+            }
+            variant="outline"
+            onClick={() =>
+              shadyBankPurchase.mutate({
+                amount: Number.parseFloat(isoAmount) || 0.01,
+                pan: shadyBankPan,
+                otp: shadyBankOtp || undefined,
+                terminalId: isoTerminalId,
+                retrievalReference: isoRetrievalReference,
+              })
+            }
+          >
+            Settle via Shady Bank
+          </Button>
           <pre className="mt-4 min-h-40 overflow-x-auto rounded bg-black p-4 font-mono text-sm leading-6 text-[#8ee36c]">
-            {iso8583.data
-              ? `${iso8583.data.transcript}
+            {shadyBankPurchase.data
+              ? `${shadyBankPurchase.data.transcript}
+
+${shadyBankPurchase.data.packedRequest}
+${shadyBankPurchase.data.packedResponse}`
+              : iso8583.data
+                ? `${iso8583.data.transcript}
 
 ${iso8583.data.packedRequest}
 ${iso8583.data.packedResponse}`
-              : `CALL 311088030100
+                : `CALL 311088030100
 ISO8583 0200
 DE003=${isoProcessingCode}
 DE004=${String(Math.round((Number.parseFloat(isoAmount) || 0) * 100)).padStart(12, "0")}
 DE037=${isoRetrievalReference}
+SHADYBANK ${shadyBank.data?.profile.baseUrl ?? "UNCONFIGURED"}
 STATUS AWAITING ATM MESSAGE`}
           </pre>
         </div>
