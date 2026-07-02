@@ -20,7 +20,7 @@
   ],
   "license": "MIT",
   "scripts": {
-    "build": "tsup src/index.ts src/omnidat.ts --format esm --dts",
+    "build": "rm -rf dist && tsup src/index.ts src/omnidat.ts --format esm && tsc -p tsconfig.build.json",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "dev": "tsup src/index.ts src/omnidat.ts --format esm --watch --dts",
     "format": "biome check .",

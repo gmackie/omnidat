@@ -40,6 +40,28 @@ test.describe("Navigation", () => {
   });
 });
 
+test.describe("OMNIDAT Console", () => {
+  test("should expose vintage dial POS controls", async ({ page }) => {
+    await page.goto("/console");
+
+    await expect(
+      page.getByRole("heading", { name: "Vintage Dial POS" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Dial POS Sale" }),
+    ).toBeVisible();
+    await expect(page.getByText("DIAL 8810")).toBeVisible();
+
+    await page.getByRole("button", { name: "Dial POS Sale" }).click();
+    const receipt = page
+      .locator("pre")
+      .filter({ hasText: "OMNIDAT POS RECEIPT" });
+    await expect(receipt).toBeVisible();
+    await expect(receipt).toContainText("APPROVED");
+    await expect(receipt).toContainText("CALL 311088002010");
+  });
+});
+
 test.describe("Accessibility", () => {
   test("should not have any automatically detectable accessibility issues on home page", async ({
     page,

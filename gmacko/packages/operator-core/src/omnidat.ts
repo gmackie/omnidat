@@ -144,6 +144,7 @@ export type OmnidatBillingLedgerEntry = {
     | "provisioning-fee"
     | "atm-activation"
     | "food-order"
+    | "pos-network-fee"
     | "adjustment";
   amount: number;
   currency: "SHDY";
@@ -488,6 +489,35 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
           "retrievalReference",
         ],
         outputs: ["responseMti", "responseCode", "authorizationCode"],
+      },
+    ],
+  },
+  {
+    slug: "shadybucks-pos",
+    name: "ShadyBucks POS Authorization",
+    x121: "311088002010",
+    owner: "ShadyBucks Settlement Office",
+    category: "billing",
+    status: "up",
+    reachable: true,
+    verbs: [
+      {
+        name: "POS.SALE",
+        description: "Authorize a vintage dial terminal sale.",
+        inputs: ["terminalId", "amount", "merchantAccountId", "clerkCode"],
+        outputs: ["authorizationCode", "responseCode", "receiptId"],
+      },
+      {
+        name: "POS.REDEEM-NOTE",
+        description: "Redeem a bearer instrument at a merchant terminal.",
+        inputs: ["terminalId", "amount", "noteSerial"],
+        outputs: ["authorizationCode", "receiptId"],
+      },
+      {
+        name: "POS.CLOSE-BATCH",
+        description: "Close a terminal or clerk batch.",
+        inputs: ["terminalId", "clerkCode"],
+        outputs: ["batchId", "settlementStatus"],
       },
     ],
   },
@@ -865,6 +895,125 @@ export function simulateIso8583Transaction(
       `RRN ${input.retrievalReference}`,
       `RC ${responseCode}`,
       `AUTH ${auth}`,
+    ].join("\n"),
+  };
+}
+
+export function processVintagePosSale(input: {
+  terminalId: string;
+  terminalModel:
+    | "VERIFONE_TRANZ_330"
+    | "VERIFONE_TRANZ_380"
+    | "VERIFONE_OMNI_3200"
+    | "VERIFONE_OMNI_3750"
+    | "UNKNOWN_DIAL_POS";
+  merchantAccountId: string;
+  clerkCode?: string;
+  amount: number;
+  feePolicyId: string;
+  noteSerial?: string;
+  retrievalReference: string;
+}) {
+  const current = state();
+  const terminalIdValue = input.terminalId.trim().toUpperCase();
+  const merchant = current.billingAccounts.find(
+    (account) => account.accountId === input.merchantAccountId,
+  );
+  if (!merchant) {
+    throw new Error(`Unknown merchant account: ${input.merchantAccountId}`);
+  }
+
+  const feeAmount = input.feePolicyId === "OFFICIAL_EVENT_WAIVED" ? 0 : 0.25;
+  const hostX121 = "311088002010";
+  const x121Origin = "311088040001";
+  const receiptId = `RCPT-POS-${input.retrievalReference.slice(-6)}`;
+  const iso = simulateIso8583Transaction({
+    mti: "0200",
+    processingCode: "000000",
+    amount: input.amount,
+    accountId: merchant.accountId,
+    terminalId: terminalIdValue,
+    retrievalReference: input.retrievalReference,
+  });
+  const status = iso.responseCode === "00" ? "approved" : "declined";
+  const ledgerEntry: OmnidatBillingLedgerEntry = {
+    id: `LEDGER-${receiptId}`,
+    accountId: merchant.accountId,
+    entryKind: "pos-network-fee",
+    amount: -feeAmount,
+    currency: "SHDY",
+    memo: `OMNIDAT dial POS network fee for ${terminalIdValue}`,
+    receiptId,
+  };
+
+  if (feeAmount > 0) {
+    merchant.balance -= feeAmount;
+  }
+  current.ledger.unshift(ledgerEntry);
+  appendAudit(`pos.sale.${status}`, "terminal", terminalIdValue, {
+    amount: input.amount,
+    merchantAccountId: merchant.accountId,
+    clerkCode: input.clerkCode ?? "",
+    feePolicyId: input.feePolicyId,
+    responseCode: iso.responseCode,
+  });
+
+  const noteLine = input.noteSerial ? `NOTE ${input.noteSerial}` : "NOTE NONE";
+  const clerkLine = input.clerkCode ? `CLERK ${input.clerkCode}` : "CLERK NONE";
+  const transcript = [
+    "DIAL 8810",
+    "CONNECT 2400",
+    `ORIGIN ${x121Origin}`,
+    `CALL ${hostX121}`,
+    "CONNECT SHADYBUCKS POS AUTHORIZATION",
+    `TERMINAL ${terminalIdValue}`,
+    `MODEL ${input.terminalModel}`,
+    clerkLine,
+    `SALE ${input.amount.toFixed(2)} SHDY`,
+    noteLine,
+    `FEE POLICY ${input.feePolicyId}`,
+    `NETWORK FEE ${feeAmount.toFixed(2)} SHDY`,
+    `RC ${iso.responseCode}`,
+    `AUTH ${iso.authorizationCode}`,
+    `RECEIPT ${receiptId}`,
+  ].join("\n");
+
+  return {
+    status,
+    hostX121,
+    terminal: {
+      id: terminalIdValue,
+      model: input.terminalModel,
+      x121Origin,
+      accessMethod: "pots-dial" as const,
+    },
+    clerkSession: input.clerkCode
+      ? {
+          clerkCode: input.clerkCode,
+          mode: "staffed" as const,
+        }
+      : null,
+    merchantAccount: merchant,
+    fee: {
+      policyId: input.feePolicyId,
+      amount: feeAmount,
+      currency: "SHDY" as const,
+      payer: "merchant" as const,
+      ledgerEntry,
+    },
+    iso,
+    transcript,
+    receipt: [
+      "OMNIDAT POS RECEIPT",
+      `TERMINAL ${terminalIdValue}`,
+      `MERCHANT ${merchant.accountId}`,
+      input.clerkCode ? `CLERK ${input.clerkCode}` : "CLERK NONE",
+      `AMOUNT ${input.amount.toFixed(2)} SHDY`,
+      input.noteSerial ? `NOTE ${input.noteSerial}` : "NOTE NONE",
+      status.toUpperCase(),
+      `AUTH ${iso.authorizationCode}`,
+      `NETWORK FEE ${feeAmount.toFixed(2)} SHDY`,
+      `RECEIPT ${receiptId}`,
     ].join("\n"),
   };
 }

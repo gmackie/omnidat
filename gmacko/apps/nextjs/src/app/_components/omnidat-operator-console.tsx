@@ -48,6 +48,22 @@ export function OmnidatOperatorConsole() {
   const [shadyBankTrack2, setShadyBankTrack2] = useState(
     ";4111111111111111=2901123123456?",
   );
+  const [vintageTerminalId, setVintageTerminalId] = useState(
+    "VF-TR330-NITEMARKT-01",
+  );
+  const [vintageTerminalModel, setVintageTerminalModel] = useState<
+    | "VERIFONE_TRANZ_330"
+    | "VERIFONE_TRANZ_380"
+    | "VERIFONE_OMNI_3200"
+    | "VERIFONE_OMNI_3750"
+    | "UNKNOWN_DIAL_POS"
+  >("VERIFONE_TRANZ_330");
+  const [vintageClerkCode, setVintageClerkCode] = useState("042");
+  const [vintageNoteSerial, setVintageNoteSerial] =
+    useState("SBMO-2028-000123-7");
+  const [vintageFeePolicy, setVintageFeePolicy] = useState(
+    "MERCHANT_POS_MERCHANT_PAYS",
+  );
   const shadyBankLinkStatus =
     shadyBank.data?.profile.merchantLinkStatus ?? "api-url-missing";
 
@@ -114,6 +130,16 @@ export function OmnidatOperatorConsole() {
   const shadyBankPurchase = useMutation(
     trpc.omnidat.iso8583ShadyBankPurchase.mutationOptions({
       onError: () => toast.error("Shady Bank settlement failed"),
+    }),
+  );
+
+  const vintagePosSale = useMutation(
+    trpc.omnidat.vintagePosSale.mutationOptions({
+      onSuccess: () => {
+        toast.success("Dial POS sale approved");
+        void queryClient.invalidateQueries();
+      },
+      onError: () => toast.error("Dial POS sale failed"),
     }),
   );
 
@@ -386,6 +412,108 @@ STATUS AWAITING MENU SELECTION`}
               ? "merchant link armed"
               : "merchant link pending"}
           </p>
+          <div className="mt-5 rounded border border-[#5c4a32] bg-[#17130d] p-4">
+            <h3 className="text-xl font-bold">Vintage Dial POS</h3>
+            <p className="mt-2 font-mono text-xs uppercase text-[#c0a36e]">
+              POTS 8810 / X.121 311088002010 / Verifone TCL-era terminal
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="grid gap-2 text-sm">
+                Terminal ID
+                <Input
+                  value={vintageTerminalId}
+                  onChange={(event) => setVintageTerminalId(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                Terminal Model
+                <select
+                  className="h-10 rounded-md border bg-background px-3"
+                  value={vintageTerminalModel}
+                  onChange={(event) =>
+                    setVintageTerminalModel(
+                      event.target.value as
+                        | "VERIFONE_TRANZ_330"
+                        | "VERIFONE_TRANZ_380"
+                        | "VERIFONE_OMNI_3200"
+                        | "VERIFONE_OMNI_3750"
+                        | "UNKNOWN_DIAL_POS",
+                    )
+                  }
+                >
+                  <option value="VERIFONE_TRANZ_330">TRANZ 330</option>
+                  <option value="VERIFONE_TRANZ_380">TRANZ 380</option>
+                  <option value="VERIFONE_OMNI_3200">Omni 3200</option>
+                  <option value="VERIFONE_OMNI_3750">Omni 3750</option>
+                  <option value="UNKNOWN_DIAL_POS">Unknown dial POS</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm">
+                Clerk Code
+                <Input
+                  value={vintageClerkCode}
+                  onChange={(event) => setVintageClerkCode(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                Bearer Note Serial
+                <Input
+                  value={vintageNoteSerial}
+                  onChange={(event) => setVintageNoteSerial(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2 text-sm md:col-span-2">
+                Fee Policy
+                <select
+                  className="h-10 rounded-md border bg-background px-3"
+                  value={vintageFeePolicy}
+                  onChange={(event) => setVintageFeePolicy(event.target.value)}
+                >
+                  <option value="MERCHANT_POS_MERCHANT_PAYS">
+                    merchant pays network fee
+                  </option>
+                  <option value="OPEN_ATM_OPERATOR_PAYS">
+                    operator pays network fee
+                  </option>
+                  <option value="OFFICIAL_EVENT_WAIVED">
+                    official event waived
+                  </option>
+                </select>
+              </label>
+            </div>
+            <Button
+              className="mt-4"
+              disabled={vintagePosSale.isPending}
+              onClick={() =>
+                vintagePosSale.mutate({
+                  terminalId: vintageTerminalId,
+                  terminalModel: vintageTerminalModel,
+                  merchantAccountId: shadybucksAccountId,
+                  clerkCode: vintageClerkCode || undefined,
+                  amount: Number.parseFloat(isoAmount) || 0.01,
+                  feePolicyId: vintageFeePolicy,
+                  noteSerial: vintageNoteSerial || undefined,
+                  retrievalReference: isoRetrievalReference,
+                })
+              }
+            >
+              Dial POS Sale
+            </Button>
+            <pre className="mt-4 min-h-40 overflow-x-auto rounded bg-black p-4 font-mono text-sm leading-6 text-[#8ee36c]">
+              {vintagePosSale.data
+                ? `${vintagePosSale.data.transcript}
+
+${vintagePosSale.data.receipt}`
+                : `DIAL 8810
+CONNECT 2400
+CALL 311088002010
+TERMINAL ${vintageTerminalId}
+CLERK ${vintageClerkCode || "NONE"}
+SALE ${Number.parseFloat(isoAmount || "0").toFixed(2)} SHDY
+NOTE ${vintageNoteSerial || "NONE"}
+STATUS AWAITING MERCHANT SALE`}
+            </pre>
+          </div>
           <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#d9cbb0]">
             {(atm.data?.setupChecklist ?? []).map((item) => (
               <li

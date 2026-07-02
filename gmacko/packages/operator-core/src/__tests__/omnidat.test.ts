@@ -11,6 +11,7 @@ import {
   omnidatCircuitMetrics,
   omnidatFoodMenu,
   omnidatServiceDefinitions,
+  processVintagePosSale,
   provisionCampsiteService,
   resetOmnidatOperationalState,
   setupAtmTerminal,
@@ -167,5 +168,47 @@ describe("OMNIDAT operational model", () => {
     expect(purchase.packedRequest).not.toContain("PIN");
     expect(purchase.transcript).toContain("CALL 311088030100");
     expect(purchase.transcript).toContain("ISO8583 0200 -> 0210");
+  });
+
+  it("processes a vintage dial POS sale with terminal and clerk accountability", () => {
+    resetOmnidatOperationalState();
+
+    const sale = processVintagePosSale({
+      terminalId: "VF-TR330-NITEMARKT-01",
+      terminalModel: "VERIFONE_TRANZ_330",
+      merchantAccountId: "SB-CAMP-LAMINAR-001",
+      clerkCode: "042",
+      amount: 13,
+      feePolicyId: "MERCHANT_POS_MERCHANT_PAYS",
+      noteSerial: "SBMO-2028-000123-7",
+      retrievalReference: "000000000313",
+    });
+    const state = getOperationalState();
+
+    expect(sale.status).toBe("approved");
+    expect(sale.hostX121).toBe("311088002010");
+    expect(sale.terminal.x121Origin).toBe("311088040001");
+    expect(sale.terminal.model).toBe("VERIFONE_TRANZ_330");
+    expect(sale.clerkSession?.clerkCode).toBe("042");
+    expect(sale.fee.amount).toBe(0.25);
+    expect(sale.iso.responseCode).toBe("00");
+    expect(sale.iso.authorizationCode).toMatch(/^SB\d{4}$/);
+    expect(sale.transcript).toContain("DIAL 8810");
+    expect(sale.transcript).toContain("CONNECT 2400");
+    expect(sale.transcript).toContain("CALL 311088002010");
+    expect(sale.transcript).toContain("NOTE SBMO-2028-000123-7");
+    expect(sale.transcript).toContain("CLERK 042");
+    expect(sale.receipt).toContain("OMNIDAT POS RECEIPT");
+    expect(sale.receipt).toContain("APPROVED");
+    expect(state.ledger[0]).toMatchObject({
+      entryKind: "pos-network-fee",
+      amount: -0.25,
+      accountId: "SB-CAMP-LAMINAR-001",
+    });
+    expect(state.auditEvents[0]).toMatchObject({
+      eventType: "pos.sale.approved",
+      subjectKind: "terminal",
+      subjectId: "VF-TR330-NITEMARKT-01",
+    });
   });
 });

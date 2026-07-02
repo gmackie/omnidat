@@ -9,6 +9,7 @@ import {
   omnidatBillingAccounts,
   omnidatFoodMenu,
   omnidatServiceDefinitions,
+  processVintagePosSale,
   provisionCampsiteService,
   setupAtmTerminal,
   simulateIso8583Transaction,
@@ -321,8 +322,9 @@ export const omnidatRouter = {
   iso8583ShadyBankPurchase: publicProcedure
     .input(iso8583ShadyBankPurchaseInput)
     .mutation(async ({ ctx, input }) => {
-      const cardReference =
-        input.track2 ? panFromTrack2(input.track2) : (input.pan ?? "");
+      const cardReference = input.track2
+        ? panFromTrack2(input.track2)
+        : (input.pan ?? "");
       const iso = simulateIso8583Transaction({
         mti: "0200",
         processingCode: "000000",
@@ -350,6 +352,27 @@ export const omnidatRouter = {
         transcript: [settledIso.transcript, shadyBank.transcript].join("\n"),
       };
     }),
+
+  vintagePosSale: publicProcedure
+    .input(
+      z.object({
+        terminalId: z.string().min(1),
+        terminalModel: z.enum([
+          "VERIFONE_TRANZ_330",
+          "VERIFONE_TRANZ_380",
+          "VERIFONE_OMNI_3200",
+          "VERIFONE_OMNI_3750",
+          "UNKNOWN_DIAL_POS",
+        ]),
+        merchantAccountId: z.string().min(1),
+        clerkCode: z.string().min(1).optional(),
+        amount: z.number().positive(),
+        feePolicyId: z.string().min(1),
+        noteSerial: z.string().min(1).optional(),
+        retrievalReference: z.string().min(1).max(12),
+      }),
+    )
+    .mutation(({ input }) => processVintagePosSale(input)),
 
   xotCommand: publicProcedure
     .input(

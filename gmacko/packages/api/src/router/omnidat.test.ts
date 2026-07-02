@@ -231,6 +231,52 @@ describe("omnidat tRPC router", () => {
     ).toBe(";4111111111111111=2901123123456?");
   });
 
+  it("runs a vintage Verifone-style dial POS sale through the OMNIDAT FEP", async () => {
+    const sale = await (
+      caller.omnidat as unknown as {
+        vintagePosSale: (input: {
+          terminalId: string;
+          terminalModel: "VERIFONE_TRANZ_330";
+          merchantAccountId: string;
+          clerkCode: string;
+          amount: number;
+          feePolicyId: string;
+          noteSerial: string;
+          retrievalReference: string;
+        }) => Promise<{
+          status: string;
+          hostX121: string;
+          terminal: { x121Origin: string };
+          fee: { amount: number; policyId: string };
+          iso: { responseCode: string };
+          transcript: string;
+          receipt: string;
+        }>;
+      }
+    ).vintagePosSale({
+      terminalId: "VF-TR330-NITEMARKT-01",
+      terminalModel: "VERIFONE_TRANZ_330",
+      merchantAccountId: "SB-CAMP-LAMINAR-001",
+      clerkCode: "042",
+      amount: 13,
+      feePolicyId: "MERCHANT_POS_MERCHANT_PAYS",
+      noteSerial: "SBMO-2028-000123-7",
+      retrievalReference: "000000000313",
+    });
+    const operations = await caller.omnidat.operations();
+
+    expect(sale.status).toBe("approved");
+    expect(sale.hostX121).toBe("311088002010");
+    expect(sale.terminal.x121Origin).toBe("311088040001");
+    expect(sale.fee.policyId).toBe("MERCHANT_POS_MERCHANT_PAYS");
+    expect(sale.fee.amount).toBe(0.25);
+    expect(sale.iso.responseCode).toBe("00");
+    expect(sale.transcript).toContain("DIAL 8810");
+    expect(sale.transcript).toContain("CONNECT SHADYBUCKS POS AUTHORIZATION");
+    expect(sale.receipt).toContain("OMNIDAT POS RECEIPT");
+    expect(operations.ledger[0]?.entryKind).toBe("pos-network-fee");
+  });
+
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
     const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;
