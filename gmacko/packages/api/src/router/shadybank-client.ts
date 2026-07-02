@@ -98,6 +98,19 @@ function track2Pan(track2: string) {
   return track2.match(/;(?<pan>\d{8,19})=/)?.groups?.pan ?? track2;
 }
 
+function merchantLinkStatus(
+  baseUrl: string | undefined,
+  merchantToken: string | undefined,
+) {
+  if (!baseUrl) {
+    return "api-url-missing";
+  }
+  if (!merchantToken) {
+    return "merchant-token-missing";
+  }
+  return "ready";
+}
+
 async function readResponseText(response: Response) {
   const text = await response.text();
   return text.trim();
@@ -118,6 +131,7 @@ export function getShadyBankIntegrationProfile(
     sourceRepo,
     baseUrl: baseUrl ?? null,
     merchantAuth: merchantToken ? "bearer-token" : "missing",
+    merchantLinkStatus: merchantLinkStatus(baseUrl, merchantToken),
     endpoints,
   };
 }

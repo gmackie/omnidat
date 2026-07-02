@@ -28,6 +28,17 @@ describe("Shady Bank HTTP integration", () => {
     );
   });
 
+  it("reports public Shady Bank URL with missing merchant token as a partial integration", () => {
+    const profile = getShadyBankIntegrationProfile({
+      baseUrl: "https://bucks.shady.tel",
+    });
+
+    expect(profile.configured).toBe(false);
+    expect(profile.baseUrl).toBe("https://bucks.shady.tel");
+    expect(profile.merchantAuth).toBe("missing");
+    expect(profile.merchantLinkStatus).toBe("merchant-token-missing");
+  });
+
   it("authorizes and captures a purchase against the Shady Bank merchant API", async () => {
     const fetch = vi
       .fn()

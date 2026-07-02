@@ -48,6 +48,8 @@ export function OmnidatOperatorConsole() {
   const [shadyBankTrack2, setShadyBankTrack2] = useState(
     ";4111111111111111=2901123123456?",
   );
+  const shadyBankLinkStatus =
+    shadyBank.data?.profile.merchantLinkStatus ?? "api-url-missing";
 
   const verify = useMutation(
     trpc.omnidat.verifyProvisioning.mutationOptions({
@@ -544,7 +546,8 @@ DE003=${isoProcessingCode}
 DE004=${String(Math.round((Number.parseFloat(isoAmount) || 0) * 100)).padStart(12, "0")}
 DE037=${isoRetrievalReference}
 SHADYBANK ${shadyBank.data?.profile.baseUrl ?? "UNCONFIGURED"}
-STATUS AWAITING ATM MESSAGE`}
+MERCHANT ${shadyBankLinkStatus.toUpperCase()}
+STATUS ${shadyBankLinkStatus === "ready" ? "AWAITING ATM MESSAGE" : "AWAITING MERCHANT TOKEN"}`}
           </pre>
         </div>
 
