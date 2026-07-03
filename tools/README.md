@@ -170,6 +170,19 @@ Packet Clearing, queue, and activity events, and is intended to test the
 Raspberry Pi Asterisk + SIP OmniTel bench before real USB modem and VeriFone
 hardware is attached.
 
+Launch the visual TUI simulator:
+
+```sh
+./scripts/verifone-tui
+```
+
+Print a deterministic visual frame for a specific flow:
+
+```sh
+./scripts/verifone-tui --demo sale
+./scripts/verifone-tui --demo food
+```
+
 ## Field Office App Platform
 
 List activity badges:

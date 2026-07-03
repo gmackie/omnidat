@@ -22,6 +22,7 @@
     "build:db": "./scripts/build-db",
     "render": "./scripts/render-artifacts",
     "status": "./scripts/status",
-    "verifone:sim": "./scripts/verifone-sim"
+    "verifone:sim": "./scripts/verifone-sim",
+    "verifone:tui": "./scripts/verifone-tui"
   }
 }

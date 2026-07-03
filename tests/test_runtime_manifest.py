@@ -20,6 +20,7 @@ class RuntimeManifestTests(unittest.TestCase):
         self.assertEqual(package["scripts"]["health"], "curl -fsS http://127.0.0.1:8828/api/health")
         self.assertEqual(package["scripts"]["test:worker"], "node --test tests/worker/*.test.mjs")
         self.assertEqual(package["scripts"]["test"], "python -m unittest discover -s tests && npm run test:worker --silent")
+        self.assertEqual(package["scripts"]["verifone:tui"], "./scripts/verifone-tui")
 
     def test_wrangler_manifest_targets_omnidat_custom_domain(self):
         manifest = json.loads(Path("wrangler.jsonc").read_text())

@@ -57,6 +57,20 @@ Run the VeriFone simulator from the OMNIDAT repo:
 ./scripts/verifone-sim update OMNIDAT.DTZ
 ```
 
+For a visual bench display, launch the TUI:
+
+```sh
+./scripts/verifone-tui
+```
+
+For screenshots, docs, or non-interactive checks, render one deterministic
+screen:
+
+```sh
+./scripts/verifone-tui --demo sale
+./scripts/verifone-tui --demo food
+```
+
 Expected sale behavior:
 
 ```text
