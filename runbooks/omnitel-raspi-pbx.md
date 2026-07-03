@@ -52,6 +52,9 @@ Run the VeriFone simulator from the OMNIDAT repo:
 ```sh
 ./scripts/verifone-sim sale 12.50 SBQR-TEST-0001
 ./scripts/verifone-sim --terminal VF-FIELD-01 directory miliways
+./scripts/verifone-sim --terminal VF-FOOD-01 food PASS-04271 tea --quantity 2
+./scripts/verifone-sim --terminal VF-PASS-01 passport PASS-04271 "CALL TEST LOOP"
+./scripts/verifone-sim update OMNIDAT.DTZ
 ```
 
 Expected sale behavior:
@@ -70,6 +73,33 @@ DIAL 8812
 CONNECT 2400
 DIR|311088010110|miliways
 COMPLETE
+```
+
+Expected food order behavior:
+
+```text
+DIAL 8813
+CONNECT 2400
+ORDER.CREATE|311088020501|PASS-04271|tea|2
+TICKET MLY-000001
+```
+
+Expected passport behavior:
+
+```text
+DIAL 8814
+CONNECT 2400
+STAMP|311088030021|PASS-04271|CALL TEST LOOP
+CLEARED
+```
+
+Expected update behavior:
+
+```text
+DIAL 8811
+CONNECT 2400
+APP.UPDATE|311088002020|OMNIDAT.DTZ
+DOWNLOAD READY
 ```
 
 ## USB Modem Notes

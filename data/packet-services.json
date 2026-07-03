@@ -96,6 +96,18 @@
     "description": "Provisioning desk for miscellaneous vendor POS terminals"
   },
   {
+    "address": "020501",
+    "name": "MILIWAYS FOOD ORDERS",
+    "access_class": "PUBLIC",
+    "description": "Miliways menu, order, and line status service"
+  },
+  {
+    "address": "030021",
+    "name": "ACTIVITY PASSPORT STAMPS",
+    "access_class": "PUBLIC",
+    "description": "Activity passport and merit badge stamp clearing"
+  },
+  {
     "address": "000099",
     "name": "TEST LOOP",
     "access_class": "PUBLIC",

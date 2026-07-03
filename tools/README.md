@@ -157,9 +157,18 @@ Run a field terminal directory lookup:
 ./scripts/verifone-sim --terminal VF-FIELD-01 directory miliways
 ```
 
-The simulator uses `data/verifone-simulator-profile.json`, emits terminal and
-Packet Clearing events, and is intended to test the Raspberry Pi Asterisk + SIP
-OmniTel bench before real USB modem and VeriFone hardware is attached.
+Run food, passport, and update paths:
+
+```sh
+./scripts/verifone-sim --terminal VF-FOOD-01 food PASS-04271 tea --quantity 2
+./scripts/verifone-sim --terminal VF-PASS-01 passport PASS-04271 "CALL TEST LOOP"
+./scripts/verifone-sim update OMNIDAT.DTZ
+```
+
+The simulator uses `data/verifone-simulator-profile.json`, emits terminal,
+Packet Clearing, queue, and activity events, and is intended to test the
+Raspberry Pi Asterisk + SIP OmniTel bench before real USB modem and VeriFone
+hardware is attached.
 
 ## Field Office App Platform
 
