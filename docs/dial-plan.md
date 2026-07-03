@@ -24,10 +24,10 @@ and service hardware.
 8809  test modem / echo / diagnostics
 
 8810  OMNIDAT Packet Clearing main PAD hunt group
-8811  authenticated PAD
-8812  public guest PAD
-8813  X.25 directory
-8814  OMNIDAT Media Vault catalog
+8811  terminal updates / ZONTALK / TCLOAD
+8812  Nightmarkt directory
+8813  Miliways food orders and line status
+8814  activity passport and merit badge stamps
 8815  OMNIDAT Media Vault request line
 
 8816  ShadyRoulette main
@@ -63,4 +63,3 @@ line-based behavior. Hunt numbers are the user-facing defaults.
 The PRI handoff should deliver enough called-number digits for the PBX to route
 internally. Preferred behavior is full `8800-8823` delivery. If ShadyTel sends
 only trailing digits, the PBX dial plan must normalize those digits at ingress.
-

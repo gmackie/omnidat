@@ -122,7 +122,7 @@ licensed operator control.
 
 ## Integrations
 
-- `8814`: catalog by phone.
+- Packet address `000004`: catalog and queue status from PAD/Packet Clearing.
 - `8815`: request line by phone.
 - BBS: browse catalog, queue tape, check now-playing.
 - X.25 terminal UI: catalog, queue, and service status.

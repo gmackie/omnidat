@@ -14,6 +14,9 @@ Files:
   services.
 - `transport-profiles.sample.json`: planned access transports for terminal,
   modem, Wi-Fi/TCP, MeshCore, Meshtastic, hosted node, and remote node paths.
+- `telephony-peers.sample.json`: ShadyTel and OmniTel lab interconnect peers.
+- `verifone-simulator-profile.json`: terminal app dial numbers, X.121
+  addresses, and Raspberry Pi USB modem lab assumptions.
 - `campsite-apps.sample.json`: provisional and official campsite packet app
   records.
 - `activity-passports.sample.json`: sample passport/handle identities for

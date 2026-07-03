@@ -16,10 +16,10 @@ aligned as the design changes.
 | 8808 | File Drop | host/modem | File transfer service |
 | 8809 | Test Modem | PBX/modem | Echo and diagnostics |
 | 8810 | Packet Clearing | PAD/X.25 | Main PAD hunt group |
-| 8811 | Authenticated PAD | PAD/X.25 | Account-required PAD |
-| 8812 | Guest PAD | PAD/X.25 | Public guest PAD |
-| 8813 | X.25 Directory | PAD/X.25 | Directory service |
-| 8814 | Media Vault Catalog | media-vault | Catalog by phone |
+| 8811 | Terminal Updates | PAD/X.25 | ZONTALK and TCLOAD terminal update access |
+| 8812 | Nightmarkt Directory | PAD/X.25 | Vendor and camp packet directory terminal access |
+| 8813 | Miliways Food | PAD/X.25 | Menu, order, and line status terminal access |
+| 8814 | Activity Passport | PAD/X.25 | Activity passport and merit badge stamp terminal access |
 | 8815 | Media Vault Request | media-vault | Playback request line |
 | 8816 | ShadyRoulette | telephony app | Main roulette line |
 | 8817 | ShadyRoulette Overflow | telephony app | Overflow/test room |

@@ -21,6 +21,7 @@
     "validate": "./scripts/validate-data",
     "build:db": "./scripts/build-db",
     "render": "./scripts/render-artifacts",
-    "status": "./scripts/status"
+    "status": "./scripts/status",
+    "verifone:sim": "./scripts/verifone-sim"
   }
 }

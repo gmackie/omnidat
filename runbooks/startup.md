@@ -31,7 +31,11 @@ Place or simulate calls:
 8802  BBS hunt group
 8805  modem pool
 8810  Packet Clearing
-8814  Media Vault catalog
+8811  terminal updates
+8812  Nightmarkt directory
+8813  Miliways food
+8814  activity passport
+8815  Media Vault request
 8818  fax receive
 8819  print desk/trouble
 8820  direct modem line 1
@@ -59,4 +63,3 @@ Place or simulate calls:
 - Set `8801` announcement to current operating state.
 - Mark unavailable services in maintenance mode.
 - Initial operator signs printed startup sheet.
-

@@ -1,0 +1,65 @@
+{
+  "profile_id": "omnidat-verifone-lab",
+  "terminal_family": "TRANZ_330_380_TCL",
+  "lab_host": "raspberry-pi-asterisk",
+  "default_baud": 2400,
+  "line_coding": "8N1",
+  "default_endpoint": "PAD-01",
+  "default_pos_account": "ACCT-VENDOR-DEMO",
+  "required_hardware": [
+    "raspberry-pi",
+    "usb-modem-bank",
+    "asterisk-pjsip",
+    "analog-line-splitter-or-fxs-adapter"
+  ],
+  "programs": {
+    "sale": {
+      "app": "OMNISALE.TCL",
+      "dial_number": "8810",
+      "x121": "311088002010",
+      "packet_service": "000011"
+    },
+    "refund": {
+      "app": "OMNIREFUND.TCL",
+      "dial_number": "8810",
+      "x121": "311088002010",
+      "packet_service": "000011"
+    },
+    "credit": {
+      "app": "OMNICREDIT.TCL",
+      "dial_number": "8810",
+      "x121": "311088002010",
+      "packet_service": "000011"
+    },
+    "close": {
+      "app": "OMNICLOSE.TCL",
+      "dial_number": "8810",
+      "x121": "311088002010",
+      "packet_service": "000013"
+    },
+    "update": {
+      "app": "OMNIUPDATE.TCL",
+      "dial_number": "8811",
+      "x121": "311088002020",
+      "packet_service": "000014"
+    },
+    "directory": {
+      "app": "OMNIDIR.TCL",
+      "dial_number": "8812",
+      "x121": "311088010110",
+      "packet_service": "000001"
+    },
+    "food": {
+      "app": "OMNIFOOD.TCL",
+      "dial_number": "8813",
+      "x121": "311088020501",
+      "packet_service": "020501"
+    },
+    "passport": {
+      "app": "OMNIPASS.TCL",
+      "dial_number": "8814",
+      "x121": "311088030021",
+      "packet_service": "030021"
+    }
+  }
+}

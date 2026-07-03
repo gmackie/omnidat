@@ -44,8 +44,8 @@ print, media vault, and operator behavior.
 - `8802`: BBS.
 - `8805`: modem pool.
 - `8810`: X.25/PAD services.
-- `8814-8815`: Media Vault catalog and request line.
+- `8811-8814`: terminal update, directory, food, and activity passport PAD services.
+- `8815`: Media Vault request line.
 - `8818`: fax receive.
 - `8819`: print desk and trouble line.
 - `8820-8823`: direct modem/PAD lines.
-

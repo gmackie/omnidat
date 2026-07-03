@@ -113,9 +113,9 @@ See [Field Office Network Plan](field-office-network-plan.md) and
 | TrustDesk | PBX/operator | `8800`, `8819` |
 | OMNIDAT Online | BBS hosts | `8802-8804`, modem pool |
 | Modem Pool | PBX/data gateways | `8805`, `8820-8821` |
-| Packet Clearing | PAD/X.25 hosts | `8810-8813`, `8822-8823` |
+| Packet Clearing | PAD/X.25 hosts | `8810-8814`, `8822-8823` |
 | Merchant Carrier | Packet Clearing/PBX/data gateways | packet services, terminal circuits |
-| Media Vault | media-vault service | `8814-8815`, BBS, X.25 |
+| Media Vault | media-vault service | `8815`, BBS, X.25 packet address `000004` |
 | Document Services | operator/print/fax | `8818-8819`, BBS, X.25 |
 | ShadyRoulette | telephony app | `8816-8817` |
 

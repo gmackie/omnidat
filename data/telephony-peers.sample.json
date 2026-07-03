@@ -1,0 +1,22 @@
+[
+  {
+    "peer_id": "omnitel",
+    "display_name": "OmniTel",
+    "role": "bootstrap-shadytel-peer",
+    "ingress_trunk": "pjsip/omnitel-lab",
+    "number_block": "8800-8823",
+    "sip_contact": "sip:127.0.0.1:5063",
+    "lab_hardware": "Raspberry Pi running Asterisk with a USB modem bank for analog terminal lines",
+    "notes": "Local bootstrapped ShadyTel-style peer, similar to FurryTel at Black Rock, used before real ShadyTel interconnect is available."
+  },
+  {
+    "peer_id": "shadytel",
+    "display_name": "ShadyTel",
+    "role": "event-carrier-peer",
+    "ingress_trunk": "pjsip/shadytel-lab",
+    "number_block": "8800-8823",
+    "sip_contact": "sip:127.0.0.1:5062",
+    "lab_hardware": "SIP trunk or PRI gateway handoff",
+    "notes": "Real event carrier peer when ShadyTel routes Exchange 88 to OMNIDAT."
+  }
+]

@@ -143,6 +143,24 @@ Call a registered service:
 The `call` command opens and clears a short simulated PAD session, emitting
 `session.started` and `session.ended` events into `build/events.jsonl`.
 
+## VeriFone Terminal Simulator
+
+Run a Nightmarkt POS sale over the simulated terminal path:
+
+```sh
+./scripts/verifone-sim sale 12.50 SBQR-TEST-0001
+```
+
+Run a field terminal directory lookup:
+
+```sh
+./scripts/verifone-sim --terminal VF-FIELD-01 directory miliways
+```
+
+The simulator uses `data/verifone-simulator-profile.json`, emits terminal and
+Packet Clearing events, and is intended to test the Raspberry Pi Asterisk + SIP
+OmniTel bench before real USB modem and VeriFone hardware is attached.
+
 ## Field Office App Platform
 
 List activity badges:

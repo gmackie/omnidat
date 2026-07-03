@@ -11,9 +11,10 @@ experience.
 
 ```text
 PBX 8810 main PAD hunt group
-PBX 8811 authenticated PAD
-PBX 8812 public guest PAD
-PBX 8813 X.25 directory
+PBX 8811 terminal updates / ZONTALK / TCLOAD
+PBX 8812 Nightmarkt directory
+PBX 8813 Miliways food orders and line status
+PBX 8814 activity passport and merit badge stamps
 PBX 8822 direct PAD line 1
 PBX 8823 direct PAD line 2
 

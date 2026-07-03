@@ -16,7 +16,8 @@ Demo-ready means the system can be shown locally without ShadyTel.
 | Registered account calls `000002` | Session starts and clears |
 | Registered carrier account calls `000011` | POS authorization service connects |
 | NiteMarkt BOH terminal calls `000020` | WMS service connects |
-| Call `8814` | Media Vault catalog/status answers |
+| Call `8814` | Activity Passport terminal service answers |
+| Packet call `000004` | Media Vault catalog/status answers |
 | Submit Media Vault request from PAD | Request appears in queue |
 | Approve request from operator console | Tape simulator enters PLAYING |
 | Complete Media Vault playback | Tape returns to available and vault returns to IDLE |

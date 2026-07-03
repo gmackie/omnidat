@@ -33,7 +33,7 @@ and a failure path.
 | DATA-002 | Packet Clearing must expose a PAD-like prompt. | A caller reaches `PAD>` through `8810` and can call the directory. |
 | DATA-003 | Packet services must expose Media Vault catalog status. | Terminal user can list catalog entries and queue state. |
 | DATA-004 | Data sessions must produce session records. | Modem/PAD session start/end and endpoint appear in logs. |
-| DATA-005 | Public and authenticated access must be separable. | `8812` guest PAD cannot reach registered-only services. |
+| DATA-005 | Public and authenticated access must be separable. | Guest directory access cannot reach registered-only services. |
 | DATA-006 | Packet services must expose carrier addresses for Shadybucks terminals. | Directory includes ATM, POS authorization, merchant proxy, settlement, and terminal management services. |
 | DATA-007 | NiteMarkt BOH/WMS must be a first-class carrier tenant. | Directory includes NiteMarkt WMS, receiving, and stock count services. |
 | DATA-008 | Packet Clearing must reserve namespaces for core, partner, merchant, approved village, open campsite, event, and diagnostic services. | Directory can render services from `000xxx`, `001xxx`, `002xxx`, `010xxx`, `020xxx`, `030xxx`, and `090xxx` ranges with status labels. |
