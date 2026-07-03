@@ -1,6 +1,7 @@
 import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
+  buildVintageTerminalDownloadPackage,
   configurePad,
   createFoodOrder,
   executeXotCommand,
@@ -199,6 +200,16 @@ export const omnidatRouter = {
   vintageTerminalProgramPack: publicProcedure.query(() =>
     getVintageTerminalProgramPack(),
   ),
+
+  vintageTerminalDownloadPackage: publicProcedure
+    .input(
+      z.object({
+        terminalId: z.string().min(1),
+        merchantAccountId: z.string().min(1),
+        family: z.enum(["TRANZ_330_380_TCL", "OMNI_3200_ZONTALK"]),
+      }),
+    )
+    .mutation(({ input }) => buildVintageTerminalDownloadPackage(input)),
 
   shadyBankStatus: publicProcedure.query(({ ctx }) => ({
     profile: getShadyBankIntegrationProfile(shadyBankConfig(ctx)),

@@ -185,6 +185,69 @@ export type VintageTerminalProgramPack = {
   };
 };
 
+export type VintageTerminalPrimitive = {
+  command: string;
+  purpose: string;
+  source: string;
+};
+
+export type VintageTerminalPortProfile = {
+  id: string;
+  direction: "terminal-to-host" | "host-to-terminal";
+  purpose: string;
+  dialNumber: string;
+  x121: string;
+  modem: {
+    nominalBaud: 1200 | 2400 | 9600 | 19200;
+    framing: string;
+  };
+};
+
+export type VintageTerminalDownloadFile = {
+  path: string;
+  mediaType: "text/plain";
+  contents: string;
+};
+
+export type VintageTerminalDownloadPackage = {
+  packageId: string;
+  validationStatus: "bench-validation-required";
+  terminalId: string;
+  merchantAccountId: string;
+  family: VintageTerminalFamily["family"];
+  verifiedTclPrimitives: VintageTerminalPrimitive[];
+  portProfiles: VintageTerminalPortProfile[];
+  shadyBankProtocol: {
+    sale: {
+      authorize: {
+        method: "POST";
+        path: "/api/authorize";
+        fields: string[];
+      };
+      capture: {
+        method: "POST";
+        path: "/api/capture";
+        fields: string[];
+      };
+    };
+    refund: {
+      reverse: {
+        method: "POST";
+        path: "/api/reverse";
+        fields: string[];
+      };
+    };
+    credit: {
+      credit: {
+        method: "POST";
+        path: "/api/credit";
+        fields: string[];
+      };
+    };
+  };
+  files: VintageTerminalDownloadFile[];
+};
+
 export type OmnidatBillingLedgerEntry = {
   id: string;
   accountId: string;
@@ -1091,6 +1154,228 @@ export function getVintageTerminalProgramPack() {
       configMemory: { ...vintageTerminalProgramPack.deployment.configMemory },
       runbook: [...vintageTerminalProgramPack.deployment.runbook],
     },
+  };
+}
+
+const verifiedVintageTclPrimitives: VintageTerminalPrimitive[] = [
+  {
+    command: "+D",
+    purpose: "DTMF tone dial from destination buffer",
+    source: "TCL Programmer's Manual command +D",
+  },
+  {
+    command: "S",
+    purpose: "dial phone number or set multiple-transaction function",
+    source: "TCL Programmer's Manual command S",
+  },
+  {
+    command: "+I",
+    purpose: "modem character input/output",
+    source: "TCL Programmer's Manual command +I",
+  },
+  {
+    command: "E",
+    purpose: "cardreader or keypad input",
+    source: "TCL Programmer's Manual command E",
+  },
+  {
+    command: "+E",
+    purpose: "amount input with decimal placement",
+    source: "TCL Programmer's Manual command +E",
+  },
+  {
+    command: "P",
+    purpose: "display custom prompt",
+    source: "TCL Programmer's Manual command P",
+  },
+  {
+    command: "F",
+    purpose: "display fixed prompt",
+    source: "TCL Programmer's Manual command F",
+  },
+  {
+    command: "N",
+    purpose: "send destination buffer to printer",
+    source: "TCL Programmer's Manual command N",
+  },
+];
+
+function tclSaleProgram(input: {
+  terminalId: string;
+  merchantAccountId: string;
+}) {
+  const hostMessage = [
+    "POS.SALE",
+    input.terminalId,
+    input.merchantAccountId,
+    "{CLERK}",
+    "{AMOUNT}",
+    "{TRACK2}",
+    "{RRN}",
+  ].join("|");
+
+  return [
+    "; OMNIDAT SALE - TRANZ 330/380 TCL bench artifact",
+    "; Uses verified TCL primitives; exact offsets require hardware validation.",
+    "100=OMNIDAT SALE",
+    "101=ENTER AMOUNT",
+    "102=SWIPE OR KEY",
+    "103=DIALING OMNIDAT",
+    "104=APPROVED",
+    "105=DECLINED",
+    "B.3        ; Select destination buffer 3",
+    "G          ; Clear destination buffer",
+    "P100       ; Display custom prompt",
+    "+E4.15     ; Amount input with decimal placement",
+    "R'|'       ; Append OMNIDAT field separator",
+    "P102       ; Display card prompt",
+    "E0.2.40.8  ; Cardreader/keypad numeric input",
+    "R'|'       ; Append field separator",
+    `R'${hostMessage}'`,
+    "R'|'",
+    "R'8810'    ; Host dial number loaded into destination buffer",
+    "S3         ; Go off hook",
+    "+D         ; DTMF tone dial from destination buffer",
+    "+I7        ; Modem I/O with host control characters",
+    "N          ; Send destination buffer to printer",
+  ].join("\n");
+}
+
+function tcLoadManifest(input: {
+  packageId: string;
+  terminalId: string;
+  family: VintageTerminalFamily["family"];
+}) {
+  return [
+    "; OMNIDAT TCLOAD/ZONTALK MANIFEST",
+    `PACKAGE=${input.packageId}`,
+    `TERMINAL=${input.terminalId}`,
+    `FAMILY=${input.family}`,
+    "APP=OMNISALE.TCL",
+    "CONFIG=CONFIG.SYS",
+    "DOWNLOAD_DIRECT=TCLOAD",
+    "DOWNLOAD_TELEPHONE=ZONTALK",
+    "VALIDATION=BENCH_REQUIRED",
+  ].join("\n");
+}
+
+function terminalConfig(input: {
+  terminalId: string;
+  merchantAccountId: string;
+}) {
+  return [
+    "OMNIDAT_TERMINAL_CONFIG=1",
+    `TERMINAL_ID=${input.terminalId}`,
+    `MERCHANT_ACCOUNT=${input.merchantAccountId}`,
+    "HOST_DIAL=8810",
+    "HOST_X121=311088002010",
+    "UPDATE_DIAL=8811",
+    "UPDATE_X121=311088002020",
+    "SHADYBANK_API=https://bucks.shady.tel",
+    "SHADYBANK_TOKEN=FEP_ONLY",
+  ].join("\n");
+}
+
+export function buildVintageTerminalDownloadPackage(input: {
+  terminalId: string;
+  merchantAccountId: string;
+  family: VintageTerminalFamily["family"];
+}): VintageTerminalDownloadPackage {
+  const terminalIdValue = input.terminalId.trim().toUpperCase();
+  const packageId = `${vintageTerminalProgramPack.version}-${terminalIdValue}`;
+
+  return {
+    packageId,
+    validationStatus: "bench-validation-required",
+    terminalId: terminalIdValue,
+    merchantAccountId: input.merchantAccountId,
+    family: input.family,
+    verifiedTclPrimitives: verifiedVintageTclPrimitives.map((primitive) => ({
+      ...primitive,
+    })),
+    portProfiles: [
+      {
+        id: "pots-sale",
+        direction: "terminal-to-host",
+        purpose: "sale/refund/credit authorization",
+        dialNumber: "8810",
+        x121: "311088002010",
+        modem: { nominalBaud: 2400, framing: "8N1 async" },
+      },
+      {
+        id: "zontalk-update",
+        direction: "host-to-terminal",
+        purpose: "telephone application download",
+        dialNumber: "8811",
+        x121: "311088002020",
+        modem: { nominalBaud: 2400, framing: "8N1 async" },
+      },
+    ],
+    shadyBankProtocol: {
+      sale: {
+        authorize: {
+          method: "POST",
+          path: "/api/authorize",
+          fields: ["amount", "track2"],
+        },
+        capture: {
+          method: "POST",
+          path: "/api/capture",
+          fields: ["amount", "auth_code", "description"],
+        },
+      },
+      refund: {
+        reverse: {
+          method: "POST",
+          path: "/api/reverse",
+          fields: ["auth_code", "description"],
+        },
+      },
+      credit: {
+        credit: {
+          method: "POST",
+          path: "/api/credit",
+          fields: ["amount", "track2", "description"],
+        },
+      },
+    },
+    files: [
+      {
+        path: "OMNISALE.TCL",
+        mediaType: "text/plain",
+        contents: tclSaleProgram({
+          terminalId: terminalIdValue,
+          merchantAccountId: input.merchantAccountId,
+        }),
+      },
+      {
+        path: "OMNIDAT.DTZ",
+        mediaType: "text/plain",
+        contents: tcLoadManifest({
+          packageId,
+          terminalId: terminalIdValue,
+          family: input.family,
+        }),
+      },
+      {
+        path: "CONFIG.SYS",
+        mediaType: "text/plain",
+        contents: terminalConfig({
+          terminalId: terminalIdValue,
+          merchantAccountId: input.merchantAccountId,
+        }),
+      },
+      {
+        path: "README.TXT",
+        mediaType: "text/plain",
+        contents: [
+          "OMNIDAT VERIFONE TERMINAL PACKAGE",
+          "Load OMNIDAT.DTZ and OMNISALE.TCL with TCLOAD during bench setup.",
+          "Use ZONTALK telephone download on dial port 8811 for field updates.",
+          "Do not place ShadyBank bearer tokens on terminal media.",
+        ].join("\n"),
+      },
+    ],
   };
 }
 

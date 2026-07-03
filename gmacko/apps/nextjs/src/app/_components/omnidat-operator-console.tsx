@@ -145,6 +145,12 @@ export function OmnidatOperatorConsole() {
       onError: () => toast.error("Dial POS sale failed"),
     }),
   );
+  const vintageTerminalPackage = useMutation(
+    trpc.omnidat.vintageTerminalDownloadPackage.mutationOptions({
+      onSuccess: () => toast.success("Terminal package built"),
+      onError: () => toast.error("Terminal package failed"),
+    }),
+  );
 
   return (
     <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
@@ -569,6 +575,48 @@ STATUS AWAITING MERCHANT SALE`}
 DISPLAY "OMNIDAT SALE"
 DIAL 8810
 SEND POS.SALE`}
+            </pre>
+            <Button
+              className="mt-4"
+              disabled={vintageTerminalPackage.isPending}
+              onClick={() =>
+                vintageTerminalPackage.mutate({
+                  terminalId: vintageTerminalId,
+                  merchantAccountId: shadybucksAccountId,
+                  family: "TRANZ_330_380_TCL",
+                })
+              }
+            >
+              Build Terminal Package
+            </Button>
+            <pre className="mt-4 max-h-96 overflow-x-auto rounded bg-black p-4 font-mono text-xs leading-5 text-[#8ee36c]">
+              {vintageTerminalPackage.data
+                ? [
+                    vintageTerminalPackage.data.packageId,
+                    vintageTerminalPackage.data.validationStatus,
+                    "",
+                    "PORTS",
+                    ...vintageTerminalPackage.data.portProfiles.map(
+                      (port) =>
+                        `${port.id} ${port.direction} ${port.dialNumber} ${port.x121} ${port.modem.nominalBaud}`,
+                    ),
+                    "",
+                    "SHADYBANK",
+                    `${vintageTerminalPackage.data.shadyBankProtocol.sale.authorize.method} ${vintageTerminalPackage.data.shadyBankProtocol.sale.authorize.path}`,
+                    `${vintageTerminalPackage.data.shadyBankProtocol.sale.capture.method} ${vintageTerminalPackage.data.shadyBankProtocol.sale.capture.path}`,
+                    "",
+                    "FILES",
+                    ...vintageTerminalPackage.data.files.flatMap((file) => [
+                      file.path,
+                      file.contents,
+                      "",
+                    ]),
+                  ].join("\n")
+                : `OMNIDAT TERMINAL PACKAGE QUEUE
+OMNISALE.TCL
+OMNIDAT.DTZ
+CONFIG.SYS
+TCLOAD DIRECT / ZONTALK DIAL 8811`}
             </pre>
             <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#d9cbb0]">
               {(terminalProgramPack.data?.deployment.runbook ?? []).map(

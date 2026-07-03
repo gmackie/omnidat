@@ -314,6 +314,48 @@ describe("omnidat tRPC router", () => {
     expect(pack.programs.sale.hostMessage).toContain("POS.SALE");
   });
 
+  it("builds a vintage terminal download package for TCLOAD and ZONTALK updates", async () => {
+    const download = await (
+      caller.omnidat as unknown as {
+        vintageTerminalDownloadPackage: (input: {
+          terminalId: string;
+          merchantAccountId: string;
+          family: "TRANZ_330_380_TCL";
+        }) => Promise<{
+          packageId: string;
+          portProfiles: { id: string; dialNumber: string; x121: string }[];
+          files: { path: string; contents: string }[];
+          shadyBankProtocol: {
+            sale: {
+              authorize: { path: string };
+              capture: { path: string };
+            };
+          };
+        }>;
+      }
+    ).vintageTerminalDownloadPackage({
+      terminalId: "VF-TR330-NITEMARKT-01",
+      merchantAccountId: "SB-CAMP-LAMINAR-001",
+      family: "TRANZ_330_380_TCL",
+    });
+
+    expect(download.packageId).toContain("VF-TR330-NITEMARKT-01");
+    expect(download.portProfiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "pots-sale", dialNumber: "8810" }),
+        expect.objectContaining({ id: "zontalk-update", x121: "311088002020" }),
+      ]),
+    );
+    expect(download.shadyBankProtocol.sale.authorize.path).toBe(
+      "/api/authorize",
+    );
+    expect(download.shadyBankProtocol.sale.capture.path).toBe("/api/capture");
+    expect(download.files.map((file) => file.path)).toContain("OMNISALE.TCL");
+    expect(
+      download.files.find((file) => file.path === "OMNISALE.TCL")?.contents,
+    ).toContain("+I");
+  });
+
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
     const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;

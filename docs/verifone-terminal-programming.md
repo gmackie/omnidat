@@ -33,6 +33,26 @@ ShadyBank without placing merchant bearer tokens on the terminal.
   - Payment inputs include track 1/2 magstripe data, PAN plus OTP/SHOTP, and
     NFC token flows.
 
+## Verified TCL Command Primitives
+
+The first generated package must not pretend that English pseudo-code is a
+loadable terminal program. The current OMNIDAT package builder emits a
+bench-validation artifact using primitives verified from OCR of the TCL manual:
+
+- `+D`: DTMF tone dial using digits in the destination buffer.
+- `S`: dial phone number or manage multiple-transaction behavior.
+- `+I`: modem character input/output for dial terminals.
+- `E`: input from cardreader or keypad.
+- `+E`: amount-style input with decimal placement.
+- `P`: display custom prompt.
+- `F`: display fixed prompt.
+- `N`: send destination buffer to printer.
+
+The generated `OMNISALE.TCL` is therefore a bench artifact, not a final
+certified terminal application. Its status remains `bench-validation-required`
+until the exact buffer selection, prompt storage, skip counts, and response
+analysis strings are verified on the acquired terminals.
+
 ## Terminal Families
 
 The primary hardware path is `TRANZ_330_380_TCL`.
@@ -85,7 +105,7 @@ The FEP owns:
 
 Terminal program name: `OMNIDAT SALE`
 
-Pseudo TCL flow:
+Operator flow:
 
 ```text
 DISPLAY "OMNIDAT SALE"
@@ -110,6 +130,22 @@ FEP action:
 - Post ShadyBank `/api/authorize`.
 - If approved, post ShadyBank `/api/capture`.
 - Return response code, auth code, and receipt fields.
+
+Generated bench artifact excerpt:
+
+```text
+100=OMNIDAT SALE
+101=ENTER AMOUNT
+B.3
+G
+P100
++E4.15
+E0.2.40.8
+S3
++D
++I7
+N
+```
 
 ### Refund
 
@@ -179,6 +215,21 @@ FEP action:
 6. Run a `0.01 SHDY` sale against a test ShadyBank account.
 7. Verify the OMNIDAT receipt, ShadyBank auth/capture, fee ledger entry, and
    NOC audit event all reference the same retrieval reference.
+
+## Dial And Download Ports
+
+- `8810`, X.121 `311088002010`: terminal-to-host sale/refund/credit
+  authorization. This is the vintage merchant-facing port.
+- `8811`, X.121 `311088002020`: host-to-terminal ZONTALK-style application
+  update path. This is the field update port for custom apps.
+
+ShadyBank bearer tokens stay on the OMNIDAT FEP. Terminal media receives only
+terminal ID, merchant account ID, dial numbers, X.121 hosts, and package files:
+
+- `OMNISALE.TCL`
+- `OMNIDAT.DTZ`
+- `CONFIG.SYS`
+- `README.TXT`
 
 ## Open Lab Work
 

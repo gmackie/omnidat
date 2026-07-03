@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
+  buildVintageTerminalDownloadPackage,
   configurePad,
   executeXotCommand,
   getIso8583ProtocolProfile,
@@ -271,5 +272,86 @@ describe("OMNIDAT operational model", () => {
         expect.stringContaining("ZONTALK telephone download"),
       ]),
     );
+  });
+
+  it("builds TCLOAD/ZONTALK download artifacts with verified TCL primitives and ShadyBank host ports", () => {
+    const download = buildVintageTerminalDownloadPackage({
+      terminalId: "VF-TR330-NITEMARKT-01",
+      merchantAccountId: "SB-CAMP-LAMINAR-001",
+      family: "TRANZ_330_380_TCL",
+    });
+
+    expect(download.packageId).toBe(
+      "OMNIDAT-VF-TCL-2028.1-VF-TR330-NITEMARKT-01",
+    );
+    expect(download.validationStatus).toBe("bench-validation-required");
+    expect(download.portProfiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "pots-sale",
+          dialNumber: "8810",
+          x121: "311088002010",
+          modem: expect.objectContaining({ nominalBaud: 2400 }),
+        }),
+        expect.objectContaining({
+          id: "zontalk-update",
+          direction: "host-to-terminal",
+          purpose: "telephone application download",
+        }),
+      ]),
+    );
+    expect(download.verifiedTclPrimitives).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          command: "+D",
+          purpose: "DTMF tone dial from destination buffer",
+        }),
+        expect.objectContaining({
+          command: "+I",
+          purpose: "modem character input/output",
+        }),
+        expect.objectContaining({
+          command: "E",
+          purpose: "cardreader or keypad input",
+        }),
+        expect.objectContaining({
+          command: "N",
+          purpose: "send destination buffer to printer",
+        }),
+      ]),
+    );
+    expect(download.shadyBankProtocol.sale).toMatchObject({
+      authorize: {
+        method: "POST",
+        path: "/api/authorize",
+        fields: ["amount", "track2"],
+      },
+      capture: {
+        method: "POST",
+        path: "/api/capture",
+        fields: ["amount", "auth_code", "description"],
+      },
+    });
+    expect(download.files.map((file) => file.path)).toEqual([
+      "OMNISALE.TCL",
+      "OMNIDAT.DTZ",
+      "CONFIG.SYS",
+      "README.TXT",
+    ]);
+    expect(
+      download.files.find((file) => file.path === "OMNISALE.TCL")?.contents,
+    ).toContain("+D");
+    expect(
+      download.files.find((file) => file.path === "OMNISALE.TCL")?.contents,
+    ).toContain("+I");
+    expect(
+      download.files.find((file) => file.path === "OMNISALE.TCL")?.contents,
+    ).toContain("POS.SALE|VF-TR330-NITEMARKT-01");
+    expect(
+      download.files.find((file) => file.path === "CONFIG.SYS")?.contents,
+    ).toContain("HOST_DIAL=8810");
+    expect(
+      download.files.find((file) => file.path === "CONFIG.SYS")?.contents,
+    ).toContain("SHADYBANK_TOKEN=FEP_ONLY");
   });
 });

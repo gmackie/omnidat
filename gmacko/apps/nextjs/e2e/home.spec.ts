@@ -58,6 +58,17 @@ test.describe("OMNIDAT Console", () => {
     ).toBeVisible();
     await expect(page.getByText("TCLOAD direct download")).toBeVisible();
     await expect(page.getByText("/api/authorize")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Build Terminal Package" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Build Terminal Package" }).click();
+    const packageOutput = page
+      .locator("pre")
+      .filter({ hasText: "OMNISALE.TCL" });
+    await expect(packageOutput).toBeVisible();
+    await expect(packageOutput).toContainText("zontalk-update");
+    await expect(packageOutput).toContainText("+D");
+    await expect(packageOutput).toContainText("+I");
 
     await page.getByRole("button", { name: "Dial POS Sale" }).click();
     const receipt = page
