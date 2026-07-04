@@ -61,6 +61,23 @@ class RuntimeManifestTests(unittest.TestCase):
         self.assertIn("--no-mobile", script)
         self.assertIn("--trpc-operators", script)
 
+    def test_root_lefthook_setup_is_reproducible(self):
+        package = json.loads(Path("package.json").read_text())
+        config = Path("lefthook.yml").read_text()
+        setup_script = Path("scripts/setup-lefthook").read_text()
+        shim = Path("scripts/lefthook").read_text()
+        prepare_hook = Path(".githooks/prepare-commit-msg").read_text()
+        pre_commit_hook = Path(".githooks/pre-commit").read_text()
+
+        self.assertEqual(package["scripts"]["prepare"], "./scripts/setup-lefthook")
+        self.assertEqual(package["scripts"]["lefthook"], "./scripts/lefthook")
+        self.assertIn("prepare-commit-msg:", config)
+        self.assertIn("pre-commit:", config)
+        self.assertIn("core.hooksPath .githooks", setup_script)
+        self.assertIn("run_hook", shim)
+        self.assertIn('scripts/lefthook run "prepare-commit-msg"', prepare_hook)
+        self.assertIn('scripts/lefthook run "pre-commit"', pre_commit_hook)
+
 
 if __name__ == "__main__":
     unittest.main()

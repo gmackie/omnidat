@@ -1,0 +1,11 @@
+prepare-commit-msg:
+  commands:
+    noop:
+      run: ./scripts/lefthook run prepare-commit-msg
+
+pre-commit:
+  commands:
+    root-tests:
+      run: npm test --silent
+    data-validation:
+      run: ./scripts/validate-data

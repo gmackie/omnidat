@@ -412,6 +412,8 @@ test("admin and NOC APIs expose billing, provisioning, and circuit state", async
   assert.ok(noc.body.incidentQueue.some((incident) => incident.kind === "radio-degradation" && incident.status === "watching"));
   assert.equal(billing.response.status, 200);
   assert.ok(billing.body.accounts.some((account) => account.type === "atm-settlement"));
+  assert.ok(billing.body.feePolicies.some((policy) => policy.mode === "per-message" && policy.appliesTo.includes("x25-pad")));
+  assert.ok(billing.body.feePolicies.some((policy) => policy.mode === "percentage" && policy.appliesTo.includes("pos-sale")));
 });
 
 test("privileged APIs reject missing or insufficient roles", async () => {
@@ -453,6 +455,7 @@ test("admin and NOC pages render operational controls", async () => {
   assert.match(adminHtml, /Admin Control Panel/);
   assert.match(adminHtml, /Service Registry/);
   assert.match(adminHtml, /ShadyBucks Settlement/);
+  assert.match(adminHtml, /Network Fee Policies/);
   assert.equal(noc.status, 200);
   assert.match(nocHtml, /Network Operations Center/);
   assert.match(nocHtml, /Circuit State/);

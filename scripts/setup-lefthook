@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$repo_root" config core.hooksPath .githooks
+  echo "lefthook: configured git core.hooksPath .githooks"
+else
+  echo "lefthook: not inside a git checkout; skipping hook install"
+fi

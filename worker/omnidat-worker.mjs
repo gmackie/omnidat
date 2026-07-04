@@ -186,6 +186,41 @@ const billingAccounts = [
   },
 ];
 
+const networkFeePolicies = [
+  {
+    policyId: "NF-X25-PAD-MSG",
+    mode: "per-message",
+    appliesTo: ["x25-pad", "terminal-session", "directory-lookup"],
+    currency: "OmniBucks",
+    rate: "0.03",
+    status: "active-demo",
+  },
+  {
+    policyId: "NF-POS-PERCENT",
+    mode: "percentage",
+    appliesTo: ["pos-sale", "atm-withdrawal", "money-order-redemption"],
+    currency: "OmniBucks",
+    rate: "1.25%",
+    status: "active-demo",
+  },
+  {
+    policyId: "NF-CAMP-FLAT",
+    mode: "flat",
+    appliesTo: ["campsite-x121-provisioning", "hosted-pad"],
+    currency: "OmniBucks",
+    rate: "5.00",
+    status: "operator-configurable",
+  },
+  {
+    policyId: "NF-PUBLIC-WAIVER",
+    mode: "waived",
+    appliesTo: ["activity-passport", "merit-badge-claim", "emergency-noc"],
+    currency: "OmniBucks",
+    rate: "0.00",
+    status: "active-demo",
+  },
+];
+
 const provisioningQueue = [
   {
     id: "PV-020184",
@@ -954,6 +989,7 @@ function adminPage() {
       <section class="panel"><div class="label">Service Registry</div><p>${serviceDefinitions.length} services define verbs, inputs, outputs, and X.121 addresses.</p></section>
       <section class="panel"><div class="label">ShadyBucks Settlement</div><p>${billingAccounts.length} demo billing accounts are available for camp operators and ATM terminals.</p></section>
       <section class="panel"><div class="label">Provisioning Queue</div><p>${provisioningQueue.length} pending network install request.</p></section>
+      <section class="panel"><div class="label">Network Fee Policies</div><p>${networkFeePolicies.length} policies cover per-message, percentage, flat, and waived OMNIDAT network fees.</p></section>
     </div>
   `);
 }
@@ -1493,6 +1529,7 @@ function adminOverviewResponse() {
     billing: {
       provider: "ShadyBucks",
       accounts: billingAccounts,
+      feePolicies: networkFeePolicies,
     },
     provisioning: {
       pending: provisioningQueue,
@@ -1522,6 +1559,7 @@ function billingAccountsResponse() {
     service,
     provider: "ShadyBucks",
     accounts: billingAccounts,
+    feePolicies: networkFeePolicies,
   });
 }
 

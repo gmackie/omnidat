@@ -4,6 +4,8 @@
   "private": true,
   "description": "OMNIDAT Field Office and Packet Clearing service",
   "scripts": {
+    "prepare": "./scripts/setup-lefthook",
+    "lefthook": "./scripts/lefthook",
     "dev": "./scripts/ui --port 8828",
     "v1:dev": "corepack pnpm@10.32.1 --dir gmacko dev:next",
     "v1:build": "corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/nextjs build",
