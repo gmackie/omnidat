@@ -335,6 +335,7 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.x121.verified, 12);
   assert.equal(body.evidence.eventLog.events, 5888);
   assert.equal(body.evidence.bankLedger.events, 2000);
+  assert.equal(body.evidence.bankLedger.url, "/api/weekend-simulation/weekend-bank-ledger.jsonl");
   assert.equal(body.evidence.networkFeeLedger.records, 1544);
   assert.equal(body.evidence.networkFeeLedger.url, "/api/weekend-simulation/weekend-network-fees.jsonl");
   assert.equal(body.networkFees.totalAssessed, "181.86");
@@ -367,6 +368,7 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /X\.121 Provisioning/);
   assert.match(html, /OMNISALE\.TCL/);
   assert.match(html, /Evidence Files/);
+  assert.match(html, /href="\/api\/weekend-simulation\/weekend-bank-ledger\.jsonl"/);
   assert.match(html, /Network Fee Ledger/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-network-fees\.jsonl"/);
   assert.match(html, /181\.86/);
@@ -412,6 +414,24 @@ test("weekend network fee ledger is downloadable JSONL evidence", async () => {
   assert.equal(lines[0].payload.status, "assessed");
   assert.equal(lines.at(-1).payload.policyId, "NF-PUBLIC-WAIVER");
   assert.equal(lines.at(-1).payload.status, "waived");
+});
+
+test("weekend bank ledger is downloadable JSONL evidence", async () => {
+  const response = await fetchPath("/api/weekend-simulation/weekend-bank-ledger.jsonl");
+  const text = await response.text();
+  const lines = text.trim().split("\n").map((line) => JSON.parse(line));
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "application/x-ndjson; charset=utf-8");
+  assert.equal(lines.length, 2000);
+  assert.equal(lines[0].type, "omnibank.authorized");
+  assert.equal(lines[0].payload.rail, "OMNIBANK_OMNIBUCKS_LEDGER");
+  assert.equal(lines[0].payload.merchantId, "OMNI-NIGHTMARKT");
+  assert.equal(lines[0].payload.amount, "7.00");
+  assert.equal(lines[1].type, "omnibank.captured");
+  assert.equal(lines[1].payload.authCode, lines[0].payload.authCode);
+  assert.equal(lines.at(-1).type, "omnibank.captured");
+  assert.equal(lines.at(-1).payload.responseCode, "00");
 });
 
 test("services define verbs inputs outputs and X.121 addresses", async () => {

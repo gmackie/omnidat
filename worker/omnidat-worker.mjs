@@ -370,6 +370,7 @@ const weekendSimulation = {
       path: "build/weekend-sim/weekend-bank-ledger.jsonl",
       events: 2000,
       responseCodes: { "00": 1000 },
+      url: "/api/weekend-simulation/weekend-bank-ledger.jsonl",
     },
     queueOrders: {
       path: "build/weekend-sim/miliways-queue/orders.json",
@@ -1338,6 +1339,55 @@ function networkFeeLedgerArtifact() {
   });
 }
 
+function weekendBankLedgerText() {
+  const lines = [];
+  const merchants = weekendSimulation.samples.merchantSetups.map((merchant) => ({
+    merchantId: merchant.merchantId,
+    terminalId: merchant.posTerminalId,
+  }));
+  const salesPerNight = weekendSimulation.nightMarket.sales / 2;
+
+  for (let nightIndex = 0; nightIndex < 2; nightIndex += 1) {
+    for (let offset = 0; offset < salesPerNight; offset += 1) {
+      const globalIndex = nightIndex * salesPerNight + offset + 1;
+      const merchant = merchants[offset % merchants.length];
+      const amount = (7 + (offset % 5)).toFixed(2);
+      const createdAt = `2028-07-0${nightIndex + 1}T21:00:00-07:00`;
+      const authCode = `AUTH-${String(globalIndex).padStart(6, "0")}`;
+      const payload = {
+        rail: "OMNIBANK_OMNIBUCKS_LEDGER",
+        merchantId: merchant.merchantId,
+        terminalId: merchant.terminalId,
+        accountId: `SB-CAMPER-${String(globalIndex).padStart(4, "0")}`,
+        panLast4: String(globalIndex).padStart(4, "0"),
+        amount,
+        authCode,
+        responseCode: "00",
+      };
+      lines.push(JSON.stringify({
+        type: "omnibank.authorized",
+        source: "omnibank-weekend",
+        createdAt,
+        payload: { ...payload, status: "approved" },
+      }));
+      lines.push(JSON.stringify({
+        type: "omnibank.captured",
+        source: "omnibank-weekend",
+        createdAt,
+        payload: { ...payload, status: "captured" },
+      }));
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function bankLedgerArtifact() {
+  return new Response(weekendBankLedgerText(), {
+    headers: ndjsonHeaders,
+  });
+}
+
 function billingStatementText(statement) {
   return [
     "OMNIDAT NETWORK FEE STATEMENT",
@@ -1813,6 +1863,10 @@ export default {
 
     if (url.pathname === "/api/weekend-simulation") {
       return weekendSimulationResponse();
+    }
+
+    if (url.pathname === "/api/weekend-simulation/weekend-bank-ledger.jsonl") {
+      return bankLedgerArtifact();
     }
 
     if (url.pathname === "/api/weekend-simulation/weekend-network-fees.jsonl") {
