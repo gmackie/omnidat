@@ -262,7 +262,7 @@ export const omnidatRouter = {
     getVintageTerminalProgramPack(),
   ),
 
-  vintageTerminalDownloadPackage: publicProcedure
+  vintageTerminalDownloadPackage: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         terminalId: z.string().min(1),
@@ -276,7 +276,7 @@ export const omnidatRouter = {
     profile: getShadyBankIntegrationProfile(shadyBankConfig(ctx)),
   })),
 
-  verifyProvisioning: publicProcedure
+  verifyProvisioning: omnidatOperatorProcedure("provisioning.write")
     .input(
       z.object({
         campsiteName: z.string().min(1),
@@ -286,7 +286,7 @@ export const omnidatRouter = {
     )
     .mutation(({ input }) => buildProvisioningTranscript(input)),
 
-  provisionCampsiteService: publicProcedure
+  provisionCampsiteService: omnidatOperatorProcedure("provisioning.write")
     .input(
       z.object({
         campsiteName: z.string().min(1),
@@ -311,7 +311,7 @@ export const omnidatRouter = {
       return result;
     }),
 
-  configurePad: publicProcedure
+  configurePad: omnidatOperatorProcedure("provisioning.write")
     .input(
       z.object({
         x121: z.string().min(6),
@@ -340,7 +340,7 @@ export const omnidatRouter = {
       return result;
     }),
 
-  setupAtmTerminal: publicProcedure
+  setupAtmTerminal: omnidatOperatorProcedure("bank.write")
     .input(
       z.object({
         terminalId: z.string().min(1),
@@ -363,7 +363,7 @@ export const omnidatRouter = {
       return result;
     }),
 
-  createFoodOrder: publicProcedure
+  createFoodOrder: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         itemIds: z.array(z.string().min(1)).min(1),
@@ -385,7 +385,7 @@ export const omnidatRouter = {
       return result;
     }),
 
-  stampActivityPassport: publicProcedure
+  stampActivityPassport: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         passportId: z.string().min(1),
@@ -408,7 +408,7 @@ export const omnidatRouter = {
       return result;
     }),
 
-  iso8583Transaction: publicProcedure
+  iso8583Transaction: omnidatOperatorProcedure("bank.write")
     .input(
       z.object({
         mti: z.enum(["0100", "0200", "0400", "0800"]),
@@ -427,7 +427,7 @@ export const omnidatRouter = {
     )
     .mutation(({ input }) => simulateIso8583Transaction(input)),
 
-  iso8583ShadyBankPurchase: publicProcedure
+  iso8583ShadyBankPurchase: omnidatOperatorProcedure("bank.write")
     .input(iso8583ShadyBankPurchaseInput)
     .mutation(async ({ ctx, input }) => {
       const cardReference = input.track2
@@ -461,7 +461,7 @@ export const omnidatRouter = {
       };
     }),
 
-  vintagePosSale: publicProcedure
+  vintagePosSale: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         terminalId: z.string().min(1),
@@ -482,7 +482,7 @@ export const omnidatRouter = {
     )
     .mutation(({ input }) => processVintagePosSale(input)),
 
-  xotCommand: publicProcedure
+  xotCommand: omnidatOperatorProcedure("session.write")
     .input(
       z.object({
         sourceX121: z.string().min(6),

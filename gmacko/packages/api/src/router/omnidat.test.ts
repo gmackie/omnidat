@@ -4,6 +4,7 @@ import {
   omnidatBillingLedgerEntry,
   omnidatEventAuthority,
   omnidatJournalEntry,
+  omnidatOperatorRole,
   omnidatPadConfig,
   omnidatProvisioningRequest,
   omnidatShadyBucksAtm,
@@ -14,10 +15,80 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../root";
+import { omnidatRouter } from "./omnidat";
 import { journalPayloadChecksum } from "./omnidat-sync";
+import type { OmnidatRole } from "./omnidat-roles";
 
 const caller = appRouter.createCaller({} as never);
 const originalPersistence = process.env.OMNIDAT_PERSISTENCE;
+
+// A db that answers loadActiveOperatorRoles with the given roles for the
+// session user. Persistence stays off in these tests, so operational reads
+// fall back to seed state and no domain rows are written.
+function roleDb(userId: string, roles: OmnidatRole[]) {
+  return {
+    select: () => ({
+      from: async (table: unknown) =>
+        table === omnidatOperatorRole
+          ? roles.map((role) => ({ userId, role, active: true }))
+          : [],
+    }),
+    insert: () => ({
+      values: () => ({ onConflictDoUpdate: () => ({}), returning: async () => [] }),
+    }),
+  };
+}
+
+// Add an operator-role select() onto a persistence mock db so gated mutations
+// pass while the test keeps its own insert spies for durability assertions.
+function withRoles(db: Record<string, unknown>, userId: string, roles: OmnidatRole[]) {
+  return {
+    ...db,
+    select: () => ({
+      from: async (table: unknown) =>
+        table === omnidatOperatorRole
+          ? roles.map((role) => ({ userId, role, active: true }))
+          : [],
+    }),
+  };
+}
+
+const OPERATOR_SESSION = { session: { user: { id: "user-admin" } } };
+
+function operatorCaller(roles: OmnidatRole[], extraCtx: Record<string, unknown> = {}) {
+  const userId = `user-${roles.join("-") || "none"}`;
+  return appRouter.createCaller({
+    db: roleDb(userId, roles),
+    session: { user: { id: userId } },
+    ...extraCtx,
+  } as never);
+}
+
+const adminCaller = operatorCaller(["admin"]);
+
+// Token-authenticated procedures (Split Authority Sync) authenticate with a
+// per-source sync token, not an operator session, so they carry no capability
+// from the role matrix. Any addition here must name its authentication mode.
+// syncPush/syncPull and transferAuthority all verify the sync token in-body.
+const SYNC_TOKEN_EXCEPTIONS = ["syncPush", "syncPull", "transferAuthority"];
+
+describe("omnidat router role-gating coverage", () => {
+  it("role-gates and audits every omnidat mutation", () => {
+    for (const [name, procedure] of Object.entries(omnidatRouter)) {
+      const def = (procedure as { _def?: { type?: string; meta?: unknown } })._def;
+      if (def?.type !== "mutation") continue;
+      if (SYNC_TOKEN_EXCEPTIONS.includes(name)) continue;
+      const meta = def.meta as
+        | { omnidat?: { capability?: string; audited?: boolean } }
+        | undefined;
+      expect(meta?.omnidat?.audited, `${name} must be audited`).toBe(true);
+      expect(
+        meta?.omnidat?.capability,
+        `${name} must carry a capability gate`,
+      ).toBeDefined();
+    }
+  });
+});
 
 describe("omnidat tRPC router", () => {
   beforeEach(() => {
@@ -61,7 +132,7 @@ describe("omnidat tRPC router", () => {
     const billing = await caller.omnidat.billing();
     const food = await caller.omnidat.foodProtocol();
     const atm = await caller.omnidat.atmProtocol();
-    const verification = await caller.omnidat.verifyProvisioning({
+    const verification = await adminCaller.omnidat.verifyProvisioning({
       campsiteName: "Camp Laminar",
       serviceSlug: "food-service",
       transport: "meshcore",
@@ -76,7 +147,7 @@ describe("omnidat tRPC router", () => {
   });
 
   it("runs the full V1 operations path across provisioning, PAD, XOT, billing, and NOC state", async () => {
-    const provisioned = await caller.omnidat.provisionCampsiteService({
+    const provisioned = await adminCaller.omnidat.provisionCampsiteService({
       campsiteName: "Camp Oscillator",
       namespace: "camp",
       contact: "oscillator@example.test",
@@ -85,13 +156,13 @@ describe("omnidat tRPC router", () => {
       transport: "wifi",
     });
     const x121 = provisioned.assignment.assignedX121;
-    const pad = await caller.omnidat.configurePad({
+    const pad = await adminCaller.omnidat.configurePad({
       x121,
       transport: "xot",
       padKind: "xot-terminal",
       endpointLabel: "Camp Oscillator laptop terminal",
     });
-    const terminal = await caller.omnidat.xotCommand({
+    const terminal = await adminCaller.omnidat.xotCommand({
       sourceX121: x121,
       command: `CALL ${x121}`,
     });
@@ -109,13 +180,13 @@ describe("omnidat tRPC router", () => {
   });
 
   it("sets up a ShadyBucks ATM terminal and reflects billing activation", async () => {
-    const atm = await caller.omnidat.setupAtmTerminal({
+    const atm = await adminCaller.omnidat.setupAtmTerminal({
       terminalId: "OSC-ATM-1",
       settlementAccountId: "SB-ATM-EX88-100",
       locationLabel: "Camp Oscillator cashier window",
     });
     const operations = await caller.omnidat.operations();
-    const bill = await caller.omnidat.xotCommand({
+    const bill = await adminCaller.omnidat.xotCommand({
       sourceX121: atm.terminalX121,
       command: "BILL SB-ATM-EX88-100",
     });
@@ -128,7 +199,7 @@ describe("omnidat tRPC router", () => {
   it("exposes detailed ISO 8583 support for ShadyBucks ATM transactions", async () => {
     const atm = await caller.omnidat.atmProtocol();
     const iso = await (
-      caller.omnidat as unknown as {
+      adminCaller.omnidat as unknown as {
         iso8583Transaction: (input: {
           mti: "0200";
           processingCode: "000000";
@@ -176,6 +247,8 @@ describe("omnidat tRPC router", () => {
         merchantToken: "merchant-token",
         fetch,
       },
+      db: roleDb("user-bank", ["bank-operator"]),
+      session: { user: { id: "user-bank" } },
     } as never);
 
     const status = await integrationCaller.omnidat.shadyBankStatus();
@@ -210,6 +283,8 @@ describe("omnidat tRPC router", () => {
         merchantToken: "merchant-token",
         fetch,
       },
+      db: roleDb("user-bank", ["bank-operator"]),
+      session: { user: { id: "user-bank" } },
     } as never);
 
     const settlement = await integrationCaller.omnidat.iso8583ShadyBankPurchase(
@@ -239,7 +314,7 @@ describe("omnidat tRPC router", () => {
 
   it("runs a vintage Verifone-style dial POS sale through the OMNIDAT FEP", async () => {
     const sale = await (
-      caller.omnidat as unknown as {
+      adminCaller.omnidat as unknown as {
         vintagePosSale: (input: {
           terminalId: string;
           terminalModel: "VERIFONE_TRANZ_330";
@@ -322,7 +397,7 @@ describe("omnidat tRPC router", () => {
 
   it("builds a vintage terminal download package for TCLOAD and ZONTALK updates", async () => {
     const download = await (
-      caller.omnidat as unknown as {
+      adminCaller.omnidat as unknown as {
         vintageTerminalDownloadPackage: (input: {
           terminalId: string;
           merchantAccountId: string;
@@ -363,7 +438,7 @@ describe("omnidat tRPC router", () => {
   });
 
   it("creates a Miliways food order with ShadyBucks billing and durable order persistence", async () => {
-    const orderProcedure = (caller.omnidat as { createFoodOrder?: unknown })
+    const orderProcedure = (adminCaller.omnidat as { createFoodOrder?: unknown })
       .createFoodOrder;
 
     expect(typeof orderProcedure).toBe("function");
@@ -400,11 +475,12 @@ describe("omnidat tRPC router", () => {
     const onConflictDoUpdate = vi.fn(() => ({ returning }));
     const values = vi.fn(() => ({ onConflictDoUpdate, returning }));
     const persistentCaller = appRouter.createCaller({
-      db: {
-        insert: vi.fn(() => ({
-          values,
-        })),
-      },
+      db: withRoles(
+        { insert: vi.fn(() => ({ values })) },
+        "user-admin",
+        ["admin"],
+      ),
+      ...OPERATOR_SESSION,
     } as never);
     const persistentFoodOrder = (
       persistentCaller.omnidat as unknown as {
@@ -439,7 +515,7 @@ describe("omnidat tRPC router", () => {
 
   it("stamps an activity passport with merit badge evidence and durable persistence", async () => {
     const stampProcedure = (
-      caller.omnidat as { stampActivityPassport?: unknown }
+      adminCaller.omnidat as { stampActivityPassport?: unknown }
     ).stampActivityPassport;
 
     expect(typeof stampProcedure).toBe("function");
@@ -481,11 +557,12 @@ describe("omnidat tRPC router", () => {
     process.env.OMNIDAT_PERSISTENCE = "database";
     const values = vi.fn(() => ({}));
     const persistentCaller = appRouter.createCaller({
-      db: {
-        insert: vi.fn(() => ({
-          values,
-        })),
-      },
+      db: withRoles(
+        { insert: vi.fn(() => ({ values })) },
+        "user-admin",
+        ["admin"],
+      ),
+      ...OPERATOR_SESSION,
     } as never);
     const persistentStamp = (
       persistentCaller.omnidat as unknown as {
@@ -526,12 +603,15 @@ describe("omnidat tRPC router", () => {
     const returning = vi.fn(async () => [{ id: `row-${++id}` }]);
     const onConflictDoUpdate = vi.fn(() => ({ returning }));
     const values = vi.fn(() => ({ onConflictDoUpdate, returning }));
-    const db = {
-      insert: vi.fn(() => ({
-        values,
-      })),
-    };
-    const persistentCaller = appRouter.createCaller({ db } as never);
+    const db = withRoles(
+      { insert: vi.fn(() => ({ values })) },
+      "user-admin",
+      ["admin"],
+    );
+    const persistentCaller = appRouter.createCaller({
+      db,
+      ...OPERATOR_SESSION,
+    } as never);
 
     const provisioned = await persistentCaller.omnidat.provisionCampsiteService(
       {
