@@ -287,6 +287,49 @@ async function sessionCookie(session, secret) {
   return `omnidat_session=${await encodeSession(session, secret)}; Path=/; Max-Age=28800; HttpOnly; Secure; SameSite=Lax`;
 }
 
+async function currentSession(request, env = {}) {
+  return decodeSession(cookieValue(request, "omnidat_session"), authSecret(env));
+}
+
+function hasRole(session, roles) {
+  const userRoles = session?.user?.roles || [];
+  return roles.some((role) => userRoles.includes(role));
+}
+
+function loginRedirect(request) {
+  const url = new URL(request.url);
+  return redirect(`/login?returnTo=${encodeURIComponent(url.pathname)}`);
+}
+
+function forbiddenPage() {
+  return new Response("INSUFFICIENT CLEARANCE\nCONTACT PACKET UTILITY COMMISSION\n", {
+    status: 403,
+    headers: textHeaders,
+  });
+}
+
+async function requirePageSession(request, env, roles, handler) {
+  const session = await currentSession(request, env);
+  if (!session) {
+    return loginRedirect(request);
+  }
+  if (!hasRole(session, roles)) {
+    return forbiddenPage();
+  }
+  return handler(session);
+}
+
+async function requireApiSession(request, env, roles, handler) {
+  const session = await currentSession(request, env);
+  if (!session) {
+    return json({ error: "authentication required" }, 401);
+  }
+  if (!hasRole(session, roles)) {
+    return json({ error: "insufficient clearance" }, 403);
+  }
+  return handler(session);
+}
+
 function homepage() {
   return new Response(`<!doctype html>
 <html lang="en">
@@ -827,20 +870,22 @@ function decodeState(value) {
 
 async function omniauthCallback(request, env = {}) {
   const url = new URL(request.url);
-  if (!url.searchParams.get("code")) {
+  const code = url.searchParams.get("code");
+  if (!code) {
     return json({ error: "omniauth callback requires code" }, 400);
   }
   const state = decodeState(url.searchParams.get("state") || "");
   const returnTo = new URLSearchParams(state).get("returnTo") || "/console";
+  const roles = code === "demo-admin-code" ? ["user", "noc", "admin"] : ["user", "noc"];
   const session = {
     user: {
-      id: "usr_shadytel_operator",
-      email: "operator@shadytel.example",
+      id: code === "demo-admin-code" ? "usr_shadytel_admin" : "usr_shadytel_operator",
+      email: code === "demo-admin-code" ? "admin@shadytel.example" : "operator@shadytel.example",
       campsite: "Camp Laminar",
-      roles: ["user", "noc"],
+      roles,
       sso: {
         provider: omniauthProvider.id,
-        subject: "shadytel-demo-operator",
+        subject: code === "demo-admin-code" ? "shadytel-demo-admin" : "shadytel-demo-operator",
       },
       pdfProfile: {
         enabled: true,
@@ -1066,15 +1111,15 @@ export default {
     }
 
     if (url.pathname === "/console") {
-      return consolePage();
+      return requirePageSession(request, env, ["user", "noc", "admin"], () => consolePage());
     }
 
     if (url.pathname === "/admin") {
-      return adminPage();
+      return requirePageSession(request, env, ["admin"], () => adminPage());
     }
 
     if (url.pathname === "/noc") {
-      return nocPage();
+      return requirePageSession(request, env, ["noc", "admin"], () => nocPage());
     }
 
     if (url.pathname === "/api/session") {
@@ -1114,15 +1159,15 @@ export default {
     }
 
     if (url.pathname === "/api/admin/overview") {
-      return adminOverviewResponse();
+      return requireApiSession(request, env, ["admin"], () => adminOverviewResponse());
     }
 
     if (url.pathname === "/api/noc/status") {
-      return nocStatusResponse();
+      return requireApiSession(request, env, ["noc", "admin"], () => nocStatusResponse());
     }
 
     if (url.pathname === "/api/billing/accounts") {
-      return billingAccountsResponse();
+      return requireApiSession(request, env, ["admin"], () => billingAccountsResponse());
     }
 
     if (url.pathname === "/api/pdf-profile") {

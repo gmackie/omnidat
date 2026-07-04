@@ -12,6 +12,26 @@ async function fetchJson(path, init = {}) {
   return { response, body: await response.json() };
 }
 
+async function sessionCookie(code = "demo-shadytel-code", env = { AUTH_SECRET: "test-auth-secret" }) {
+  const response = await worker.fetch(
+    new Request(`https://omnidat.gmac.io/api/auth/callback/omniauth?code=${code}&state=cmV0dXJuVG89JTJGY29uc29sZQ`),
+    env,
+    {},
+  );
+  return response.headers.get("set-cookie");
+}
+
+async function fetchPathWithCookie(path, cookie, env = { AUTH_SECRET: "test-auth-secret" }) {
+  return worker.fetch(new Request(`https://omnidat.gmac.io${path}`, {
+    headers: { cookie },
+  }), env, {});
+}
+
+async function fetchJsonWithCookie(path, cookie, env = { AUTH_SECRET: "test-auth-secret" }) {
+  const response = await fetchPathWithCookie(path, cookie, env);
+  return { response, body: await response.json() };
+}
+
 test("health endpoint reports the OMNIDAT edge service as healthy", async () => {
   const response = await fetchPath("/api/health");
   const body = await response.json();
@@ -85,7 +105,8 @@ test("business examples endpoint returns fake corporate network use cases", asyn
 test("operational console exposes login and user provisioning surfaces", async () => {
   const login = await fetchPath("/login");
   const loginHtml = await login.text();
-  const consolePage = await fetchPath("/console");
+  const cookie = await sessionCookie();
+  const consolePage = await fetchPathWithCookie("/console", cookie);
   const consoleHtml = await consolePage.text();
 
   assert.equal(login.status, 200);
@@ -96,6 +117,29 @@ test("operational console exposes login and user provisioning surfaces", async (
   assert.match(consoleHtml, /PDF Configuration/);
   assert.match(consoleHtml, /Provisioning Verification/);
   assert.match(consoleHtml, /X\.121 Address/);
+});
+
+test("operational pages require signed sessions and roles", async () => {
+  const consolePage = await fetchPath("/console");
+  const nocPage = await fetchPath("/noc");
+  const adminPage = await fetchPath("/admin");
+
+  assert.equal(consolePage.status, 302);
+  assert.equal(consolePage.headers.get("location"), "/login?returnTo=%2Fconsole");
+  assert.equal(nocPage.status, 302);
+  assert.equal(nocPage.headers.get("location"), "/login?returnTo=%2Fnoc");
+  assert.equal(adminPage.status, 302);
+  assert.equal(adminPage.headers.get("location"), "/login?returnTo=%2Fadmin");
+
+  const nocCookie = await sessionCookie();
+  const adminAsNoc = await fetchPathWithCookie("/admin", nocCookie);
+  assert.equal(adminAsNoc.status, 403);
+  assert.match(await adminAsNoc.text(), /INSUFFICIENT CLEARANCE/);
+
+  const adminCookie = await sessionCookie("demo-admin-code");
+  const admin = await fetchPathWithCookie("/admin", adminCookie);
+  assert.equal(admin.status, 200);
+  assert.match(await admin.text(), /Admin Control Panel/);
 });
 
 test("session endpoint returns demo user, roles, PDFs, and ShadyBucks account", async () => {
@@ -226,9 +270,11 @@ test("provisioning verification returns a network transcript", async () => {
 });
 
 test("admin and NOC APIs expose billing, provisioning, and circuit state", async () => {
-  const admin = await fetchJson("/api/admin/overview");
-  const noc = await fetchJson("/api/noc/status");
-  const billing = await fetchJson("/api/billing/accounts");
+  const adminCookie = await sessionCookie("demo-admin-code");
+  const nocCookie = await sessionCookie();
+  const admin = await fetchJsonWithCookie("/api/admin/overview", adminCookie);
+  const noc = await fetchJsonWithCookie("/api/noc/status", nocCookie);
+  const billing = await fetchJsonWithCookie("/api/billing/accounts", adminCookie);
 
   assert.equal(admin.response.status, 200);
   assert.ok(admin.body.billing.accounts.some((account) => account.provider === "ShadyBucks"));
@@ -237,6 +283,20 @@ test("admin and NOC APIs expose billing, provisioning, and circuit state", async
   assert.ok(noc.body.circuits.some((circuit) => circuit.x121 === "311088030100" && circuit.status === "up"));
   assert.equal(billing.response.status, 200);
   assert.ok(billing.body.accounts.some((account) => account.type === "atm-settlement"));
+});
+
+test("privileged APIs reject missing or insufficient roles", async () => {
+  const anonymousAdmin = await fetchJson("/api/admin/overview");
+  const anonymousNoc = await fetchJson("/api/noc/status");
+  const nocCookie = await sessionCookie();
+  const nocBilling = await fetchJsonWithCookie("/api/billing/accounts", nocCookie);
+
+  assert.equal(anonymousAdmin.response.status, 401);
+  assert.equal(anonymousAdmin.body.error, "authentication required");
+  assert.equal(anonymousNoc.response.status, 401);
+  assert.equal(anonymousNoc.body.error, "authentication required");
+  assert.equal(nocBilling.response.status, 403);
+  assert.equal(nocBilling.body.error, "insufficient clearance");
 });
 
 test("food service and ShadyBucks ATM protocol endpoints are configurable", async () => {
@@ -253,9 +313,11 @@ test("food service and ShadyBucks ATM protocol endpoints are configurable", asyn
 });
 
 test("admin and NOC pages render operational controls", async () => {
-  const admin = await fetchPath("/admin");
+  const adminCookie = await sessionCookie("demo-admin-code");
+  const nocCookie = await sessionCookie();
+  const admin = await fetchPathWithCookie("/admin", adminCookie);
   const adminHtml = await admin.text();
-  const noc = await fetchPath("/noc");
+  const noc = await fetchPathWithCookie("/noc", nocCookie);
   const nocHtml = await noc.text();
 
   assert.equal(admin.status, 200);

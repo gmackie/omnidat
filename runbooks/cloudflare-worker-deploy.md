@@ -29,6 +29,8 @@ npm run deploy:worker --silent
 curl -fsS https://omnidat.gmac.io/api/health
 curl -fsS https://omnidat.gmac.io/ | rg 'OMNIDAT Field Office'
 curl -fsS https://omnidat.gmac.io/api/auth/providers | rg 'shadytel-omniauth'
+curl -fsSI https://omnidat.gmac.io/console | rg 'location: /login\\?returnTo=%2Fconsole'
+curl -sS -i https://omnidat.gmac.io/api/admin/overview | rg '401|authentication required'
 curl -fsS 'https://omnidat.gmac.io/radio?command=DIR' | rg 'MILIWAYS ORDER ENTRY'
 curl -fsS https://omnidat.gmac.io/api/campsite-apps | rg 'MILIWAYS|PASSPORT'
 curl -fsS -X POST https://omnidat.gmac.io/api/signup \
