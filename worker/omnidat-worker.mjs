@@ -376,6 +376,7 @@ const weekendSimulation = {
     queueOrders: {
       path: "build/weekend-sim/miliways-queue/orders.json",
       records: 1600,
+      url: "/api/weekend-simulation/miliways-queue/orders.json",
     },
     networkFeeLedger: {
       path: "build/weekend-sim/weekend-network-fees.jsonl",
@@ -1474,6 +1475,49 @@ function eventLogArtifact() {
   });
 }
 
+const miliwaysServiceWindows = ["friday-dinner", "saturday-breakfast", "saturday-dinner", "sunday-breakfast"];
+
+function queueOrdersPayload() {
+  const orders = [];
+  const ordersPerWindow = weekendSimulation.miliways.orders / miliwaysServiceWindows.length;
+  for (const [windowIndex, serviceWindow] of miliwaysServiceWindows.entries()) {
+    for (let offset = 0; offset < ordersPerWindow; offset += 1) {
+      const sequence = windowIndex * ordersPerWindow + offset + 1;
+      const itemId = offset % 2 === 0 ? "tea" : "coffee";
+      orders.push({
+        ticketId: `MLY-${String(sequence).padStart(6, "0")}`,
+        queueId: "miliways",
+        serviceAddress: "020501",
+        passportId: offset % 2 === 0 ? "PASS-04271" : "PASS-02024",
+        handle: offset % 2 === 0 ? "RED-LINE-27" : "BLUE-FORM-12",
+        itemId,
+        itemName: itemId === "tea" ? "Tea" : "Coffee",
+        quantity: 1 + (offset % 2),
+        status: "accepted",
+        queuePosition: sequence,
+        serviceWindow,
+        createdAt: `2028-07-0${windowIndex + 1}T12:00:00-07:00`,
+      });
+    }
+  }
+
+  return {
+    service,
+    summary: {
+      records: orders.length,
+      queueId: "miliways",
+      serviceAddress: "020501",
+      serviceWindows: miliwaysServiceWindows,
+      status: "accepted",
+    },
+    orders,
+  };
+}
+
+function queueOrdersArtifact() {
+  return json(queueOrdersPayload());
+}
+
 function billingStatementText(statement) {
   return [
     "OMNIDAT NETWORK FEE STATEMENT",
@@ -1953,6 +1997,10 @@ export default {
 
     if (url.pathname === "/api/weekend-simulation/weekend-events.jsonl") {
       return eventLogArtifact();
+    }
+
+    if (url.pathname === "/api/weekend-simulation/miliways-queue/orders.json") {
+      return queueOrdersArtifact();
     }
 
     if (url.pathname === "/api/weekend-simulation/weekend-bank-ledger.jsonl") {

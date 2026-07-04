@@ -337,6 +337,8 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.evidence.eventLog.url, "/api/weekend-simulation/weekend-events.jsonl");
   assert.equal(body.evidence.bankLedger.events, 2000);
   assert.equal(body.evidence.bankLedger.url, "/api/weekend-simulation/weekend-bank-ledger.jsonl");
+  assert.equal(body.evidence.queueOrders.records, 1600);
+  assert.equal(body.evidence.queueOrders.url, "/api/weekend-simulation/miliways-queue/orders.json");
   assert.equal(body.evidence.networkFeeLedger.records, 1544);
   assert.equal(body.evidence.networkFeeLedger.url, "/api/weekend-simulation/weekend-network-fees.jsonl");
   assert.equal(body.networkFees.totalAssessed, "181.86");
@@ -371,6 +373,7 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /Evidence Files/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-events\.jsonl"/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-bank-ledger\.jsonl"/);
+  assert.match(html, /href="\/api\/weekend-simulation\/miliways-queue\/orders\.json"/);
   assert.match(html, /Network Fee Ledger/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-network-fees\.jsonl"/);
   assert.match(html, /181\.86/);
@@ -450,6 +453,23 @@ test("weekend event log is downloadable JSONL evidence", async () => {
   assert.ok(lines.some((line) => line.type === "x121.provisioned" && line.payload.x121 === "311088020601"));
   assert.ok(lines.some((line) => line.type === "terminal.session" && line.payload.program === "OMNISALE.TCL"));
   assert.equal(lines.at(-1).type, "event.audit.padding");
+});
+
+test("weekend Miliways queue orders are downloadable JSON evidence", async () => {
+  const response = await fetchPath("/api/weekend-simulation/miliways-queue/orders.json");
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8");
+  assert.equal(body.orders.length, 1600);
+  assert.equal(body.orders[0].ticketId, "MLY-000001");
+  assert.equal(body.orders[0].queueId, "miliways");
+  assert.equal(body.orders[0].serviceAddress, "020501");
+  assert.equal(body.orders[0].itemId, "tea");
+  assert.equal(body.orders[0].status, "accepted");
+  assert.equal(body.orders.at(-1).ticketId, "MLY-001600");
+  assert.equal(body.summary.records, 1600);
+  assert.deepEqual(body.summary.serviceWindows, ["friday-dinner", "saturday-breakfast", "saturday-dinner", "sunday-breakfast"]);
 });
 
 test("services define verbs inputs outputs and X.121 addresses", async () => {
