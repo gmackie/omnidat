@@ -1,0 +1,49 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from tools.omnidat_weekend import run_weekend_simulation
+
+
+class WeekendSimulationTests(unittest.TestCase):
+    def test_weekend_simulation_runs_thousand_camper_camp_economy(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir)
+
+            report = run_weekend_simulation(
+                runtime_dir=runtime_dir,
+                data_dir=Path("data"),
+                camper_count=1000,
+            )
+
+            self.assertEqual(report["status"], "passed")
+            self.assertEqual(report["scenario"], "omnidat-full-camp-weekend")
+            self.assertEqual(report["campers"]["count"], 1000)
+            self.assertEqual(report["campers"]["seed_amount"], "80.00")
+            self.assertEqual(report["campers"]["total_seeded"], "80000.00")
+            self.assertEqual(report["campers"]["negative_balances"], 0)
+            self.assertEqual(report["identity"]["provider"], "omniauth")
+            self.assertEqual(report["identity"]["accounts"], 1000)
+            self.assertEqual(report["identity"]["unique_subjects"], 1000)
+            self.assertEqual(report["night_market"]["nights"], 2)
+            self.assertGreaterEqual(report["night_market"]["sales"], 900)
+            self.assertEqual(report["night_market"]["captured"], report["night_market"]["sales"])
+            self.assertEqual(report["miliways"]["service_windows"], 4)
+            self.assertGreaterEqual(report["miliways"]["orders"], 1200)
+            self.assertEqual(report["miliways"]["tickets_issued"], report["miliways"]["orders"])
+            self.assertGreaterEqual(report["x121_provisioning"]["campsites"], 12)
+            self.assertEqual(report["x121_provisioning"]["verified"], report["x121_provisioning"]["campsites"])
+            self.assertGreaterEqual(report["merchants"]["count"], 5)
+            self.assertEqual(report["merchants"]["pos_terminals_connected"], report["merchants"]["count"])
+            self.assertEqual(report["merchants"]["accounts_configured"], report["merchants"]["count"])
+            self.assertEqual(report["merchants"]["settlement_accounts_linked"], report["merchants"]["count"])
+            self.assertEqual(report["bank"]["response_codes"], {"00": report["night_market"]["sales"]})
+            self.assertGreaterEqual(report["historical_records"]["deployments"], 3)
+            self.assertIn("toorcamp-2028-planning", report["historical_records"]["records"])
+            self.assertTrue((runtime_dir / "weekend-report.json").exists())
+            self.assertTrue((runtime_dir / "weekend-events.jsonl").exists())
+            self.assertTrue((runtime_dir / "weekend-bank-ledger.jsonl").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

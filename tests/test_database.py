@@ -2,6 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from tools.omnidat_db import build_database, load_service_routes, summarize_database
@@ -16,7 +17,7 @@ class DatabaseBuilderTests(unittest.TestCase):
 
             build_database(data_dir, db_path)
 
-            with sqlite3.connect(db_path) as connection:
+            with closing(sqlite3.connect(db_path)) as connection:
                 service_count = connection.execute("select count(*) from services").fetchone()[0]
                 endpoint_count = connection.execute("select count(*) from endpoints").fetchone()[0]
                 packet_count = connection.execute("select count(*) from packet_services").fetchone()[0]
@@ -49,7 +50,7 @@ class DatabaseBuilderTests(unittest.TestCase):
 
             build_database(data_dir, db_path)
 
-            with sqlite3.connect(db_path) as connection:
+            with closing(sqlite3.connect(db_path)) as connection:
                 namespaces = connection.execute(
                     """
                     select namespace_id, range_start, range_end, service_class, provisioning
@@ -102,7 +103,7 @@ class DatabaseBuilderTests(unittest.TestCase):
 
             build_database(data_dir, db_path)
 
-            with sqlite3.connect(db_path) as connection:
+            with closing(sqlite3.connect(db_path)) as connection:
                 rows = connection.execute(
                     """
                     select address, owner_name, template, directory_status, status
@@ -143,7 +144,7 @@ class DatabaseBuilderTests(unittest.TestCase):
 
             build_database(data_dir, db_path)
 
-            with sqlite3.connect(db_path) as connection:
+            with closing(sqlite3.connect(db_path)) as connection:
                 rows = connection.execute(
                     """
                     select
@@ -203,7 +204,7 @@ class DatabaseBuilderTests(unittest.TestCase):
 
             build_database(data_dir, db_path)
 
-            with sqlite3.connect(db_path) as connection:
+            with closing(sqlite3.connect(db_path)) as connection:
                 self.assertEqual(connection.execute("select count(*) from services").fetchone()[0], 2)
 
     def test_summarize_database_reports_table_counts(self):

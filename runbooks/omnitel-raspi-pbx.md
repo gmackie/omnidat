@@ -94,6 +94,19 @@ The report must show `status: passed`, terminal events
 bank ledger events `omnibank.authorized`, `omnibank.captured`, and adjacent
 terminal checks for directory, food, passport, and update programs.
 
+For a larger operating rehearsal, run:
+
+```sh
+./scripts/weekend-sim
+```
+
+That creates `build/weekend-sim/weekend-report.json` for a 1,000-camper camp
+weekend. It seeds distinct OmniAuth camper identities, OmniBucks balances,
+merchant OmniBank settlement accounts, two Night Market nights, four Miliways
+meal windows, campsite X.121 provisioning checks, and historical OMNIDAT
+deployment records. ShadyBucks conversion is represented as a future 2028
+bridge ledger rather than the authoritative balance source.
+
 Expected sale behavior:
 
 ```text

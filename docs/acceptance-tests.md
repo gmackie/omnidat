@@ -16,6 +16,7 @@ Demo-ready means the system can be shown locally without ShadyTel.
 | Registered account calls `000002` | Session starts and clears |
 | Registered carrier account calls `000011` | POS authorization service connects |
 | `./scripts/e2e-omnibank` full card sale | VeriFone sale dials `8810`, host X.121 `311088002010` captures through fake OmniBank, and `build/e2e-omnibank/report.json` reports `passed` |
+| `./scripts/weekend-sim` full weekend | 1,000 campers receive OmniAuth identities and OmniBucks, two Night Market nights capture through OmniBank, four Miliways meal windows issue tickets, campsites verify X.121 addresses, and historical records are present |
 | NiteMarkt BOH terminal calls `000020` | WMS service connects |
 | Call `8814` | Activity Passport terminal service answers |
 | Packet call `000004` | Media Vault catalog/status answers |

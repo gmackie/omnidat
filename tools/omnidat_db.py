@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -37,10 +38,11 @@ def build_database(data_dir: Path, db_path: Path) -> None:
         db_path.unlink()
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         connection.execute("pragma foreign_keys = on")
         create_schema(connection)
         load_seed_data(connection, data_dir)
+        connection.commit()
 
 
 def create_schema(connection: sqlite3.Connection) -> None:
@@ -418,7 +420,7 @@ def load_seed_data(connection: sqlite3.Connection, data_dir: Path) -> None:
 
 
 def load_service_routes(db_path: Path) -> list[dict[str, str]]:
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             """
@@ -447,7 +449,7 @@ def load_service_routes(db_path: Path) -> list[dict[str, str]]:
 
 
 def summarize_database(db_path: Path) -> dict[str, int]:
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         return {
             table: connection.execute(f"select count(*) from {table}").fetchone()[0]
             for table in TABLES

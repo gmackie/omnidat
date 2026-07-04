@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -eu
+
+runtime_dir="${OMNIDAT_WEEKEND_DIR:-build/weekend-sim}"
+campers="${OMNIDAT_WEEKEND_CAMPERS:-1000}"
+rm -rf "$runtime_dir"
+mkdir -p "$runtime_dir"
+
+python3 -m tools.omnidat_weekend --runtime-dir "$runtime_dir" --campers "$campers"

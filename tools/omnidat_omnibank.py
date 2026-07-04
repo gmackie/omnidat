@@ -28,6 +28,7 @@ class OmniBankFake:
     ) -> None:
         self.ledger_path = ledger_path
         self.profile = load_omnibank_profile(profile_path)
+        self._authorizations: dict[tuple[str, str], dict[str, Any]] = {}
 
     def authorize(
         self,
@@ -51,6 +52,7 @@ class OmniBankFake:
             "response_code": "00",
         }
         append_event(self.ledger_path, "omnibank.authorized", "omnibank-fake", payload, created_at=created_at)
+        self._authorizations[(auth_code, merchant_id)] = payload
         return payload
 
     def capture(
@@ -80,6 +82,9 @@ class OmniBankFake:
         return payload
 
     def find_authorization(self, auth_code: str, merchant_id: str) -> dict[str, Any]:
+        cached = self._authorizations.get((auth_code, merchant_id))
+        if cached is not None:
+            return cached
         for event in reversed(read_events(self.ledger_path)):
             payload = event.get("payload", {})
             if (

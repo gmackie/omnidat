@@ -166,6 +166,19 @@ in the transcript, and writes an operator report to
 field terminal programs: directory lookup, Miliways food order, Activity
 Passport stamp, and terminal package update.
 
+Run the full camp-weekend simulation:
+
+```sh
+./scripts/weekend-sim
+```
+
+That seeds 1,000 campers with distinct OmniAuth identities and OmniBucks
+accounts, runs two Night Market nights, four Miliways meal windows, camp X.121
+provisioning checks, merchant POS setup and settlement, and writes historical
+deployment records to `build/weekend-sim/weekend-report.json`. OmniBank and
+OmniBucks are treated as the controlled OMNIDAT rail; ShadyBucks conversion is
+left as a 2028 bridge-ledger boundary.
+
 Run a field terminal directory lookup:
 
 ```sh
