@@ -12,9 +12,13 @@ async function fetchJson(path, init = {}) {
   return { response, body: await response.json() };
 }
 
-async function sessionCookie(code = "demo-shadytel-code", env = { AUTH_SECRET: "test-auth-secret" }) {
+async function sessionCookie(
+  code = "demo-omniauth-code",
+  env = { AUTH_SECRET: "test-auth-secret" },
+  provider = "omniauth",
+) {
   const response = await worker.fetch(
-    new Request(`https://omnidat.gmac.io/api/auth/callback/omniauth?code=${code}&state=cmV0dXJuVG89JTJGY29uc29sZQ`),
+    new Request(`https://omnidat.gmac.io/api/auth/callback/${provider}?code=${code}&state=cmV0dXJuVG89JTJGY29uc29sZQ`),
     env,
     {},
   );
@@ -110,7 +114,9 @@ test("operational console exposes login and user provisioning surfaces", async (
   const consoleHtml = await consolePage.text();
 
   assert.equal(login.status, 200);
-  assert.match(loginHtml, /ShadyTel SSO/);
+  assert.match(loginHtml, /OmniAuth Passkey/);
+  assert.match(loginHtml, /ForgeGraph OAuth/);
+  assert.match(loginHtml, /GitHub OAuth/);
   assert.match(loginHtml, /Demo Field Operator Login/);
   assert.match(loginHtml, /ShadyBucks/);
   assert.equal(consolePage.status, 200);
@@ -157,41 +163,69 @@ test("session endpoint returns demo user, roles, PDFs, and ShadyBucks account", 
   assert.match(body.user.shadybucksAccount.accountId, /^SB-/);
 });
 
-test("omniauth provider metadata exposes ShadyTel shared services SSO", async () => {
+test("auth provider metadata exposes OmniAuth, ForgeGraph, and GitHub SSO", async () => {
   const { response, body } = await fetchJson("/api/auth/providers");
 
   assert.equal(response.status, 200);
-  assert.equal(body.defaultProvider, "shadytel-omniauth");
-  assert.equal(body.providers[0].id, "shadytel-omniauth");
-  assert.equal(body.providers[0].protocol, "omniauth");
-  assert.equal(body.providers[0].authorizationUrl, "https://identification.shady.tel/oauth/authorize");
+  assert.equal(body.defaultProvider, "omniauth");
+  assert.deepEqual(body.providers.map((provider) => provider.id), ["omniauth", "forgegraph", "github"]);
+  assert.equal(body.providers[0].protocol, "oauth-passkey");
+  assert.equal(body.providers[0].authorizationUrl, "https://omniauth.gmac.io/oauth/authorize");
   assert.equal(body.providers[0].callbackUrl, "https://omnidat.gmac.io/api/auth/callback/omniauth");
+  assert.equal(body.providers[1].authorizationUrl, "https://forgegraf.com/api/auth/oauth2/authorize");
+  assert.equal(body.providers[1].callbackUrl, "https://omnidat.gmac.io/api/auth/callback/forgegraph");
+  assert.equal(body.providers[2].authorizationUrl, "https://github.com/login/oauth/authorize");
+  assert.equal(body.providers[2].callbackUrl, "https://omnidat.gmac.io/api/auth/callback/github");
 });
 
-test("omniauth login redirects to ShadyTel with callback and state", async () => {
+test("auth login redirects to OmniAuth passkey, ForgeGraph, and GitHub providers", async () => {
   const response = await fetchPath("/api/auth/omniauth?returnTo=/console");
-  const location = response.headers.get("location");
+  const forgegraph = await fetchPath("/api/auth/forgegraph?returnTo=/noc");
+  const github = await fetchPath("/api/auth/github?returnTo=/console");
+  const omniauthLocation = response.headers.get("location");
+  const forgegraphLocation = forgegraph.headers.get("location");
+  const githubLocation = github.headers.get("location");
 
   assert.equal(response.status, 302);
-  assert.match(location, /^https:\/\/identification\.shady\.tel\/oauth\/authorize\?/);
-  assert.match(location, /client_id=omnidat-field-office/);
-  assert.match(location, /redirect_uri=https%3A%2F%2Fomnidat\.gmac\.io%2Fapi%2Fauth%2Fcallback%2Fomniauth/);
-  assert.match(location, /scope=openid\+profile\+email\+shadybucks/);
-  assert.match(location, /state=/);
+  assert.match(omniauthLocation, /^https:\/\/omniauth\.gmac\.io\/oauth\/authorize\?/);
+  assert.match(omniauthLocation, /client_id=omnidat-field-office/);
+  assert.match(omniauthLocation, /redirect_uri=https%3A%2F%2Fomnidat\.gmac\.io%2Fapi%2Fauth%2Fcallback%2Fomniauth/);
+  assert.match(omniauthLocation, /scope=openid\+profile\+email\+passkey\+shadybucks/);
+  assert.match(omniauthLocation, /state=/);
+  assert.equal(forgegraph.status, 302);
+  assert.match(forgegraphLocation, /^https:\/\/forgegraf\.com\/api\/auth\/oauth2\/authorize\?/);
+  assert.match(forgegraphLocation, /client_id=omnidat-field-office/);
+  assert.match(forgegraphLocation, /redirect_uri=https%3A%2F%2Fomnidat\.gmac\.io%2Fapi%2Fauth%2Fcallback%2Fforgegraph/);
+  assert.equal(github.status, 302);
+  assert.match(githubLocation, /^https:\/\/github\.com\/login\/oauth\/authorize\?/);
+  assert.match(githubLocation, /client_id=omnidat-field-office/);
+  assert.match(githubLocation, /redirect_uri=https%3A%2F%2Fomnidat\.gmac\.io%2Fapi%2Fauth%2Fcallback%2Fgithub/);
 });
 
-test("omniauth callback issues session cookie and session endpoint reads it", async () => {
+test("auth callbacks issue provider-specific session cookies", async () => {
   const env = { AUTH_SECRET: "test-auth-secret" };
-  const callback = await worker.fetch(
-    new Request("https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-shadytel-code&state=returnTo%3D%252Fconsole"),
-    env,
-    {},
-  );
+  const callback = await worker.fetch(new Request(
+    "https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-omniauth-code&state=returnTo%3D%252Fconsole",
+  ), env, {});
+  const forgegraphCallback = await worker.fetch(new Request(
+    "https://omnidat.gmac.io/api/auth/callback/forgegraph?code=demo-forgegraph-code&state=returnTo%3D%252Fnoc",
+  ), env, {});
+  const githubCallback = await worker.fetch(new Request(
+    "https://omnidat.gmac.io/api/auth/callback/github?code=demo-github-code&state=returnTo%3D%252Fconsole",
+  ), env, {});
   const cookie = callback.headers.get("set-cookie");
+  const forgegraphCookie = forgegraphCallback.headers.get("set-cookie");
+  const githubCookie = githubCallback.headers.get("set-cookie");
 
   assert.equal(callback.status, 302);
   assert.equal(callback.headers.get("location"), "/console");
+  assert.equal(forgegraphCallback.status, 302);
+  assert.equal(forgegraphCallback.headers.get("location"), "/noc");
+  assert.equal(githubCallback.status, 302);
+  assert.equal(githubCallback.headers.get("location"), "/console");
   assert.match(cookie, /omnidat_session=/);
+  assert.match(forgegraphCookie, /omnidat_session=/);
+  assert.match(githubCookie, /omnidat_session=/);
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /SameSite=Lax/);
 
@@ -199,18 +233,30 @@ test("omniauth callback issues session cookie and session endpoint reads it", as
     headers: { cookie },
   }), env, {});
   const body = await session.json();
+  const forgegraphSession = await worker.fetch(new Request("https://omnidat.gmac.io/api/session", {
+    headers: { cookie: forgegraphCookie },
+  }), env, {});
+  const forgegraphBody = await forgegraphSession.json();
+  const githubSession = await worker.fetch(new Request("https://omnidat.gmac.io/api/session", {
+    headers: { cookie: githubCookie },
+  }), env, {});
+  const githubBody = await githubSession.json();
 
   assert.equal(session.status, 200);
   assert.equal(body.status, "authenticated");
-  assert.equal(body.user.email, "operator@shadytel.example");
+  assert.equal(body.user.email, "operator@omniauth.example");
   assert.deepEqual(body.user.roles, ["user", "noc"]);
-  assert.equal(body.user.sso.provider, "shadytel-omniauth");
+  assert.equal(body.user.sso.provider, "omniauth");
+  assert.equal(forgegraphBody.user.email, "operator@forgegraf.com");
+  assert.equal(forgegraphBody.user.sso.provider, "forgegraph");
+  assert.equal(githubBody.user.email, "operator@github.example");
+  assert.equal(githubBody.user.sso.provider, "github");
 });
 
 test("session endpoint rejects tampered omniauth cookies", async () => {
   const env = { AUTH_SECRET: "test-auth-secret" };
   const callback = await worker.fetch(
-    new Request("https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-shadytel-code&state=returnTo%3D%252Fconsole"),
+    new Request("https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-omniauth-code&state=returnTo%3D%252Fconsole"),
     env,
     {},
   );
@@ -222,7 +268,7 @@ test("session endpoint rejects tampered omniauth cookies", async () => {
 
   assert.equal(session.status, 200);
   assert.equal(body.status, "anonymous");
-  assert.equal(body.sso, "ShadyTel SSO available");
+  assert.equal(body.sso, "OAuth SSO available");
 });
 
 test("network status reports X.25 source, directory, and live service reachability", async () => {

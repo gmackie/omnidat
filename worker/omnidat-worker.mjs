@@ -2,17 +2,51 @@ const hostname = "omnidat.gmac.io";
 const service = "omnidat-v1-worker";
 const appUrl = "https://omnidat.gmac.io";
 
-const omniauthProvider = {
-  id: "shadytel-omniauth",
-  name: "ShadyTel Shared Services",
-  protocol: "omniauth",
-  clientId: "omnidat-field-office",
-  authorizationUrl: "https://identification.shady.tel/oauth/authorize",
-  tokenUrl: "https://identification.shady.tel/oauth/token",
-  profileUrl: "https://identification.shady.tel/api/user",
-  callbackUrl: `${appUrl}/api/auth/callback/omniauth`,
-  scopes: ["openid", "profile", "email", "shadybucks"],
+const authProviders = [
+  {
+    id: "omniauth",
+    name: "OmniAuth Passkey",
+    protocol: "oauth-passkey",
+    clientId: "omnidat-field-office",
+    authorizationUrl: "https://omniauth.gmac.io/oauth/authorize",
+    tokenUrl: "https://omniauth.gmac.io/oauth/token",
+    profileUrl: "https://omniauth.gmac.io/api/user",
+    callbackUrl: `${appUrl}/api/auth/callback/omniauth`,
+    scopes: ["openid", "profile", "email", "passkey", "shadybucks"],
+  },
+  {
+    id: "forgegraph",
+    name: "ForgeGraph OAuth",
+    protocol: "oidc",
+    clientId: "omnidat-field-office",
+    authorizationUrl: "https://forgegraf.com/api/auth/oauth2/authorize",
+    tokenUrl: "https://forgegraf.com/api/auth/oauth2/token",
+    profileUrl: "https://forgegraf.com/api/auth/oauth2/userinfo",
+    callbackUrl: `${appUrl}/api/auth/callback/forgegraph`,
+    scopes: ["openid", "profile", "email"],
+  },
+  {
+    id: "github",
+    name: "GitHub OAuth",
+    protocol: "oauth",
+    clientId: "omnidat-field-office",
+    authorizationUrl: "https://github.com/login/oauth/authorize",
+    tokenUrl: "https://github.com/login/oauth/access_token",
+    profileUrl: "https://api.github.com/user",
+    callbackUrl: `${appUrl}/api/auth/callback/github`,
+    scopes: ["read:user", "user:email"],
+  },
+];
+
+const legacyProviderAliases = {
+  "shadytel-omniauth": "omniauth",
+  shadytel: "omniauth",
 };
+
+function authProvider(id = "omniauth") {
+  const canonicalId = legacyProviderAliases[id] || id;
+  return authProviders.find((provider) => provider.id === canonicalId) || null;
+}
 
 const directoryEntries = [
   { circuit: "010001", label: "OMNIDAT FIELD OFFICE", kind: "network-office", slug: "field-office" },
@@ -682,15 +716,17 @@ function operationalPage(title, body) {
 }
 
 function loginPage() {
+  const providerPanels = authProviders.map((provider) => `
+      <section class="panel">
+        <div class="label">${provider.name}</div>
+        <p><a href="/api/auth/${provider.id}?returnTo=/console">Continue with ${provider.name}</a></p>
+        <p>Provider: ${provider.id}</p>
+      </section>`).join("");
   return operationalPage("Login", `
     <h1>Operator Login</h1>
-    <p>ShadyTel SSO issues field-office identity through the OMNIDAT OmniAuth bridge. Use the shared-services path to configure PDFs, ShadyBucks accounts, and X.25 provisioning.</p>
+    <p>OMNIDAT accepts OmniAuth passkeys, ForgeGraph OAuth, and GitHub OAuth for field-office identity. Use one of these shared services to configure PDFs, ShadyBucks accounts, and X.25 provisioning.</p>
     <div class="grid">
-      <section class="panel">
-        <div class="label">ShadyTel Shared Services</div>
-        <p><a href="/api/auth/omniauth?returnTo=/console">Continue with ShadyTel SSO</a></p>
-        <p>Provider: ${omniauthProvider.id}</p>
-      </section>
+      ${providerPanels}
       <section class="panel">
         <div class="label">Demo Field Operator Login</div>
         <p>Email: operator@camp.example</p>
@@ -802,8 +838,8 @@ async function sessionResponse(request, env = {}) {
     }
     return json({
       status: "anonymous",
-      sso: "ShadyTel SSO available",
-      providers: [omniauthProvider.id],
+      sso: "OAuth SSO available",
+      providers: authProviders.map((provider) => provider.id),
       demoLogin: "/login",
     });
   }
@@ -842,50 +878,82 @@ async function sessionResponse(request, env = {}) {
 function authProvidersResponse() {
   return json({
     service,
-    defaultProvider: omniauthProvider.id,
-    providers: [omniauthProvider],
+    defaultProvider: "omniauth",
+    providers: authProviders,
   });
 }
 
-function omniauthRedirect(request) {
+function authRedirect(request, providerId = "omniauth") {
+  const provider = authProvider(providerId);
+  if (!provider) {
+    return json({ error: "unknown auth provider" }, 404);
+  }
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("returnTo") || "/console";
   const state = btoa(`returnTo=${encodeURIComponent(returnTo)}`).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-  const authorize = new URL(omniauthProvider.authorizationUrl);
-  authorize.searchParams.set("client_id", omniauthProvider.clientId);
-  authorize.searchParams.set("redirect_uri", omniauthProvider.callbackUrl);
+  const authorize = new URL(provider.authorizationUrl);
+  authorize.searchParams.set("client_id", provider.clientId);
+  authorize.searchParams.set("redirect_uri", provider.callbackUrl);
   authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", omniauthProvider.scopes.join(" "));
+  authorize.searchParams.set("scope", provider.scopes.join(" "));
   authorize.searchParams.set("state", state);
   return redirect(authorize.toString());
 }
 
 function decodeState(value) {
   try {
-    return base64UrlDecode(value);
+    const decoded = base64UrlDecode(value);
+    return decoded.includes("returnTo=") ? decoded : value;
   } catch {
-    return "";
+    return value;
   }
 }
 
-async function omniauthCallback(request, env = {}) {
+function demoIdentity(provider, code) {
+  const admin = code === "demo-admin-code";
+  const identities = {
+    omniauth: {
+      id: admin ? "usr_omniauth_admin" : "usr_omniauth_operator",
+      email: admin ? "admin@omniauth.example" : "operator@omniauth.example",
+      subject: admin ? "omniauth-demo-admin" : "omniauth-demo-operator",
+    },
+    forgegraph: {
+      id: admin ? "usr_forgegraph_admin" : "usr_forgegraph_operator",
+      email: admin ? "admin@forgegraf.com" : "operator@forgegraf.com",
+      subject: admin ? "forgegraph-demo-admin" : "forgegraph-demo-operator",
+    },
+    github: {
+      id: admin ? "usr_github_admin" : "usr_github_operator",
+      email: admin ? "admin@github.example" : "operator@github.example",
+      subject: admin ? "github-demo-admin" : "github-demo-operator",
+    },
+  };
+  return identities[provider.id] || identities.omniauth;
+}
+
+async function authCallback(request, env = {}, providerId = "omniauth") {
+  const provider = authProvider(providerId);
+  if (!provider) {
+    return json({ error: "unknown auth provider" }, 404);
+  }
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   if (!code) {
-    return json({ error: "omniauth callback requires code" }, 400);
+    return json({ error: `${provider.id} callback requires code` }, 400);
   }
   const state = decodeState(url.searchParams.get("state") || "");
   const returnTo = new URLSearchParams(state).get("returnTo") || "/console";
   const roles = code === "demo-admin-code" ? ["user", "noc", "admin"] : ["user", "noc"];
+  const identity = demoIdentity(provider, code);
   const session = {
     user: {
-      id: code === "demo-admin-code" ? "usr_shadytel_admin" : "usr_shadytel_operator",
-      email: code === "demo-admin-code" ? "admin@shadytel.example" : "operator@shadytel.example",
+      id: identity.id,
+      email: identity.email,
       campsite: "Camp Laminar",
       roles,
       sso: {
-        provider: omniauthProvider.id,
-        subject: code === "demo-admin-code" ? "shadytel-demo-admin" : "shadytel-demo-operator",
+        provider: provider.id,
+        subject: identity.subject,
       },
       pdfProfile: {
         enabled: true,
@@ -1130,12 +1198,14 @@ export default {
       return authProvidersResponse();
     }
 
-    if (url.pathname === "/api/auth/omniauth") {
-      return omniauthRedirect(request);
+    if (url.pathname.startsWith("/api/auth/callback/")) {
+      const providerId = url.pathname.slice("/api/auth/callback/".length);
+      return authCallback(request, env, providerId);
     }
 
-    if (url.pathname === "/api/auth/callback/omniauth") {
-      return omniauthCallback(request, env);
+    if (url.pathname.startsWith("/api/auth/")) {
+      const providerId = url.pathname.slice("/api/auth/".length);
+      return authRedirect(request, providerId);
     }
 
     if (url.pathname === "/api/network") {
