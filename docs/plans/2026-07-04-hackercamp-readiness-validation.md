@@ -4,15 +4,18 @@ Date: 2026-07-04
 
 ## Verdict
 
-OMNIDAT is ready to show as a serious pilot concept and live simulation, but it
-is not yet ready to operate as camp-critical infrastructure. The current system
-can demonstrate the story: X.25 Packet Clearing, campsite X.121 provisioning,
-service directory verbs, OmniBank-style settlement, network fees, NOC/admin
-views, and a full 1,000-camper weekend simulation with downloadable ledgers.
+OMNIDAT is ready for a camp-leadership pilot conversation and a credible live
+simulation, but it is not yet ready to operate as camp-critical infrastructure.
+The current system demonstrates the story: X.25 Packet Clearing, campsite X.121
+provisioning, service directory verbs, OmniBank-style settlement, network fees,
+NOC/admin views, protected demo operator sessions, and a full 1,000-camper
+weekend simulation with downloadable ledgers.
 
-The remaining work is mostly operationalization: real identity, persistent
-multi-tenant administration, hardware bridge bring-up, bank/currency governance,
-field runbooks, safety controls, and partner-facing approval materials.
+The main readiness gap is no longer broad code health. Current local gates pass.
+The gap is operationalization: real identity and role enforcement in the gmacko
+V1 app, operator CRUD over persistent rows, one real packet/terminal bridge,
+bank/currency governance, a reproducible field kit, rehearsed incident/fallback
+procedures, and partner-facing approval materials.
 
 ## Fresh Validation Performed
 
@@ -58,64 +61,94 @@ Production smoke on `https://omnidat.gmac.io`:
   - exposes links for event log, bank ledger, queue orders, network fee ledger,
     and billing statements.
 
-## Validation Refresh: Local V1 Progress
+## Deep Validation Refresh: 2026-07-04
 
-The local `main` branch has advanced beyond the deployed Worker simulation:
+Current local branch: `71b5fef Clean up gmacko release warnings`.
 
-- `df1f904` adds `omnidat_event`, `omnidat_evidence_artifact`, and
-  `omnidat_operator_role` schema/migration support.
-- `d8da7e9` loads persistent campsite, address-allocation, service,
-  service-verb, audit, incident, evidence, and infra rows into the OMNIDAT
-  operational snapshot.
-- These commits are local because the Forge remote is returning HTTP 500 on
-  `git push forge main`.
-
-Fresh local validation on 2026-07-04:
+Fresh local verification:
 
 - `npm test`
   - 100 Python tests passed.
   - 35 Worker tests passed.
 - `./scripts/validate-data`
-  - all seed data validated.
+  - all seed JSON files validated.
+  - service map covers `8800-8823`.
+  - service endpoint references resolve.
 - `npm run deploy:worker:dry-run --silent`
-  - Worker bundles with `postgres-shared-fryos-v1`, `OMNIDAT_PERSISTENCE=database`,
-    and the `omnidat` schema binding.
-- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/api typecheck`
-  - passed.
-- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/api test -- omnidat-persistence`
-  - 5 test files and 40 tests passed.
-- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/db test -- omnidat-schema`
-  - 3 test files and 11 tests passed.
-- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/nextjs build`
-  - fails without required auth/database environment variables.
-  - passes when placeholder `AUTH_*`, `AUTH_SECRET`, and `DATABASE_URL` values
-    are supplied, which means the code compiles but the build environment path
-    needs cleanup/documentation.
+  - Worker bundles successfully.
+  - production config points at `postgres-shared-fryos-v1`.
+  - Hyperdrive binding is present.
+  - `OMNIDAT_PERSISTENCE=database` and `OMNIDAT_DB_SCHEMA=omnidat` are set.
 - `corepack pnpm@10.32.1 --dir gmacko test`
-  - currently fails before tests run because Turbo detects a cyclic build graph
-    among `@omnidat/api`, `@omnidat/trpc-client`, and
-    `@omnidat/operator-core`.
+  - 21 Turbo tasks passed.
+  - API tests passed, including provisioning, PAD, XOT, billing, ISO 8583,
+    Shady Bank HTTP contract, Verifone dial POS, food orders, activity passport
+    stamps, audit events, and persisted operational dashboards.
+- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/nextjs build`
+  - passed.
+- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/nextjs typecheck`
+  - passed.
+- `corepack pnpm@10.32.1 --dir gmacko test:scaffold`
+  - passed.
+- `./scripts/weekend-sim`
+  - passed with 1,000 campers, 80,000.00 OmniBucks seeded, 1,000 Night Market
+    sales captured, 1,600 Miliways orders, and 12 verified campsite X.121
+    assignments.
+- `./scripts/e2e-omnibank`
+  - passed with a Verifone-style `OMNISALE.TCL` dial sale through X.121
+    `311088002010`, fake OmniBank authorization, capture, and evidence logs.
 
 Fresh production smoke on `https://omnidat.gmac.io`:
 
-- `/api/health`: healthy, database `postgres-shared-fryos-v1`.
-- `/api/network`: `X.25`, operational, 5 directory entries, 5 services.
-- `/api/provisioning`: 1 queued provisioning record, first X.121
-  `311088020184`.
-- `/api/weekend-simulation`: 1,000 campers, 2,000 bank ledger events, 181.86
-  OmniBucks assessed in network fees.
-- `/dashboard`: event log, bank ledger, queue orders, network fee ledger, and
-  billing statement links render.
-- Downloadable evidence artifacts still respond:
-  - 5,888 event log lines.
-  - 2,000 bank ledger lines.
-  - 1,600 queue orders.
-  - 1,544 network fee ledger lines.
-  - `OMNI-NIGHTMARKT` billing statement.
+- `/api/health`
+  - healthy.
+  - database `postgres-shared-fryos-v1`.
+  - schema `omnidat`.
+- `/api/network`
+  - protocol `X.25`.
+  - status `operational`.
+  - 5 service definitions with verbs, inputs, outputs, and X.121 addresses.
+  - radio gateway status is intentionally `degraded` in the demo data.
+- `/api/provisioning`
+  - one queued provisioning record for Camp Laminar.
+- `/api/weekend-simulation`
+  - 1,000 OmniAuth identities.
+  - 1,000 Night Market captures.
+  - 1,600 Miliways orders.
+  - 340 filed forms.
+  - 312 terminal sessions.
+  - 12 verified X.121 campsite assignments.
+  - 1,544 network-fee ledger records.
+- `/dashboard`
+  - renders the public camp weekend operations board and artifact links.
+- `/login`
+  - renders OmniAuth Passkey, ForgeGraph OAuth, and GitHub OAuth login options.
+- `/api/admin/overview` and `/api/noc/status`
+  - return `401` without a session.
+  - return protected admin/NOC JSON after the Worker demo OAuth callback issues
+    an admin session cookie.
 
-This refresh changes the readiness picture: persistent operational state is now
-partially real in the gmacko V1 path, but it is not yet exposed through complete
-operator CRUD, not pushed to Forge, and not deployed.
+Fresh local field-office UI smoke:
+
+- `./scripts/ui --port 8838`
+  - started without disturbing the existing process on `8828`.
+- `http://127.0.0.1:8838/api/health`, `/api/health/ready`, and
+  `/api/health/live`
+  - healthy.
+  - seed files present.
+  - queue and activity directories writable.
+- `http://127.0.0.1:8838/`
+  - renders the field-office dashboard with packet apps, passports, orders, and
+    activity.
+- `http://127.0.0.1:8838/radio?command=DIR`
+  - returns the Radio PAD directory response with `CLR 00`.
+- `http://127.0.0.1:8838/api/state`
+  - returns `404`; this local UI does not yet expose a machine-readable state
+    endpoint beyond health checks.
+
+This refresh supersedes the earlier local release blockers: the gmacko Turbo
+cycle, Next.js build env issue, and scaffold gate are now clear. The remaining
+blockers are product/operations blockers, not the basic release gates.
 
 ## What Is Leadership-Ready Now
 
@@ -161,22 +194,25 @@ sample response.
 ### Release Engineering
 
 Before this can be taken seriously by camp leadership as a deployable system,
-the repo needs clean release gates:
+the deploy path needs to make the current green gates boring and repeatable:
 
-- Forge push must recover or a working alternate remote must be configured.
-- gmacko's Turbo cycle among `@omnidat/api`, `@omnidat/trpc-client`, and
-  `@omnidat/operator-core` must be broken so `corepack pnpm@10.32.1 --dir gmacko
-  test` can run.
-- Next.js build needs a documented local/CI env path. The app builds with
-  placeholder auth/database values, but fails when those variables are absent.
-- Production deployment must include the local persistent schema/migration and
-  operator-state loader work, then rerun production smoke.
+- confirm the latest gmacko V1 app is deployed to the intended production lane,
+  not only the seeded Worker demo.
+- run migrations against the shared FryOS Postgres `omnidat` schema in a
+  controlled deploy step.
+- keep `npm test`, `./scripts/validate-data`, Worker dry-run, gmacko test,
+  gmacko Next build, gmacko Next typecheck, `test:scaffold`,
+  `./scripts/weekend-sim`, and `./scripts/e2e-omnibank` as release gates.
+- document the exact Cloudflare Worker versus gmacko V1 ownership boundary so
+  operators know which production surface is authoritative for each flow.
+- add post-deploy smoke that exercises login, admin, NOC, provisioning, XOT/PAD,
+  and evidence export on the deployed V1 app.
 
 ### Real Network Bridge
 
 The Worker reports an X.25-style network surface, but the field bridge still
-needs to prove real packets or terminal sessions through at least one hardware
-path:
+needs to prove real packets or terminal sessions through at least one non-demo
+access path:
 
 - XOT or PAD-to-service bridge.
 - POTS/modem path through Asterisk/SIP/USB modem lab.
@@ -197,8 +233,10 @@ real or simulated terminal
 
 ### Identity And Roles
 
-The current OmniAuth, ForgeGraph, and GitHub flows are demo-compatible. Before a
-camp deployment, they need real issuer/client configuration and role management:
+The deployed Worker has demo-compatible OmniAuth, ForgeGraph, and GitHub OAuth
+redirects plus protected admin/NOC JSON. Before a camp deployment, the gmacko V1
+app needs real issuer/client configuration, session-to-role mapping, and
+procedure-level authorization for:
 
 - camp leadership administrators.
 - OMNIDAT NOC operators.
@@ -208,6 +246,9 @@ camp deployment, they need real issuer/client configuration and role management:
 - read-only auditors.
 
 ShadyTel or event leadership should not need shell access to manage approvals.
+The OMNIDAT tRPC router currently exposes operational mutations through
+`publicProcedure`; this must become role-gated before the app is used by event
+operators.
 
 ### Money And Risk Model
 
@@ -252,6 +293,73 @@ Camp leadership will need documents that do not assume they know the repo:
 - money/currency policy.
 - signage and participant consent language.
 - what happens if OMNIDAT is unavailable.
+
+## Build Gaps Found In This Pass
+
+These are the concrete gaps to close before asking for an event-ready approval:
+
+1. **Authoritative production surface**
+   - Decide whether `omnidat.gmac.io` serves the gmacko V1 app, the Worker demo,
+     or a split where the Worker is a status/demo edge and gmacko is the
+     operator system.
+   - Right now the deployed Worker is good for leadership demo and public
+     simulation, while gmacko contains the richer persistent operational model.
+
+2. **Role-gated OMNIDAT tRPC**
+   - Replace `publicProcedure` on operational OMNIDAT mutations with
+     user/operator/admin procedures.
+   - Enforce roles for provisioning, PAD configuration, ATM setup, food-order
+     operator actions, passport stamping, ISO 8583/Shady Bank flows, and XOT
+     command execution.
+
+3. **Operator CRUD**
+   - Add UI and mutations for events, historical festivals, campsites, vendors,
+     services, service verbs, X.121 blocks, individual allocations, PAD configs,
+     incidents, evidence artifacts, billing accounts, and role assignments.
+   - Existing schema supports much of this, but the UI is still mostly
+     operational-action forms and read-only dashboards.
+
+4. **Provisioning lifecycle**
+   - Move from "provision and verify" demos to a reviewable workflow:
+     requested, approved, assigned, installed, verified, active, suspended,
+     revoked.
+   - Store the verification transcript and printed/PDF receipt as evidence.
+
+5. **Terminal bridge**
+   - Implement one deployed browser XOT terminal first.
+   - It should call the same service directory, execute one verb against a
+     provisioned X.121 address, write a NOC event, and export evidence.
+   - Then add POTS/modem and radio adapters behind the same packet-call
+     interface.
+
+6. **Local NOC state API**
+   - The Python field-office UI has health endpoints and rendered pages, but no
+     `/api/state`.
+   - Add a machine-readable local status endpoint if it will be used as the
+     Raspi/PBX field dashboard.
+
+7. **Bank and currency governance**
+   - Keep OmniBucks as controlled play money until the ShadyBank/ShadyBucks team
+     signs off on mint, burn, redeem, void, dispute, bearer instrument, ATM, and
+     conversion rules.
+   - Implement POS batch close and terminal settlement reports before any
+     merchant-facing money pilot.
+
+8. **Hardware bench proof**
+   - Inventory the actual ShadyTel terminals/modems/PBX gear.
+   - Prove at least one end-to-end transaction through a real or near-real
+     terminal path before representing this as event-ready.
+
+9. **Camp approval packet**
+   - Turn `docs/leadership-pilot-package.md` into a small PDF/deck plus a
+     one-page field footprint and risk summary.
+   - Include explicit opt-in, privacy, money, failure, staffing, RF, power, and
+     ShadyTel demarcation language.
+
+10. **Rehearsal gate**
+    - Run a human rehearsal with 10-20 people using the operator console and at
+      least one terminal path.
+    - Treat this as the go/no-go before asking for a real camp placement.
 
 ## Recommended Build Order
 
