@@ -9,10 +9,12 @@ import {
   omnidatCampsite,
   omnidatCampsiteApp,
   omnidatEvent,
+  omnidatEventAuthority,
   omnidatEvidenceArtifact,
   omnidatFoodMenuItem,
   omnidatFoodOrder,
   omnidatInfraEndpoint,
+  omnidatJournalEntry,
   omnidatNetwork,
   omnidatNetworkMetric,
   omnidatNocIncident,
@@ -25,6 +27,7 @@ import {
   omnidatService,
   omnidatServiceVerb,
   omnidatShadyBucksAtm,
+  omnidatSyncSource,
   omnidatTransportEndpoint,
   omnidatX25Circuit,
   omnidatX25Node,
@@ -135,6 +138,39 @@ describe("OMNIDAT X.25 operational schema", () => {
     expect(uniqueNames(omnidatEvent)).toContain("omnidat_event_code_unique");
     expect(uniqueNames(omnidatOperatorRole)).toContain(
       "omnidat_operator_role_user_event_role_unique",
+    );
+  });
+
+  it("exports journal, authority, and sync source tables", () => {
+    expect(omnidatJournalEntry).toBeDefined();
+    expect(omnidatEventAuthority).toBeDefined();
+    expect(omnidatSyncSource).toBeDefined();
+
+    expect(omnidatJournalEntry.sourceId).toBeDefined();
+    expect(omnidatJournalEntry.seq).toBeDefined();
+    expect(omnidatJournalEntry.epoch).toBeDefined();
+    expect(omnidatJournalEntry.opType).toBeDefined();
+    expect(omnidatJournalEntry.idempotencyKey).toBeDefined();
+    expect(omnidatJournalEntry.payloadChecksum).toBeDefined();
+    expect(omnidatJournalEntry.applyStatus).toBeDefined();
+    expect(omnidatEventAuthority.epoch).toBeDefined();
+    expect(omnidatEventAuthority.holder).toBeDefined();
+    expect(omnidatEventAuthority.fenceSeq).toBeDefined();
+    expect(omnidatSyncSource.sourceId).toBeDefined();
+    expect(omnidatSyncSource.tokenHash).toBeDefined();
+    expect(omnidatSyncSource.lastSyncAt).toBeDefined();
+
+    expect(uniqueNames(omnidatJournalEntry)).toContain(
+      "omnidat_journal_source_seq_unique",
+    );
+    expect(uniqueNames(omnidatJournalEntry)).toContain(
+      "omnidat_journal_idempotency_unique",
+    );
+    expect(uniqueNames(omnidatEventAuthority)).toContain(
+      "omnidat_event_authority_event_epoch_unique",
+    );
+    expect(uniqueNames(omnidatSyncSource)).toContain(
+      "omnidat_sync_source_source_id_unique",
     );
   });
 });
