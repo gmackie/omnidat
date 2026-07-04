@@ -1,11 +1,18 @@
 import {
+  omnidatAddressAllocation,
   omnidatAuditEvent,
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
+  omnidatCampsite,
+  omnidatEvidenceArtifact,
   omnidatFoodOrder,
+  omnidatInfraEndpoint,
+  omnidatNocIncident,
   omnidatPadConfig,
   omnidatPassportStamp,
   omnidatProvisioningRequest,
+  omnidatService,
+  omnidatServiceVerb,
   omnidatShadyBucksAtm,
 } from "@omnidat/db/schema";
 import type {
@@ -47,6 +54,28 @@ type OmnidatOperationalSnapshot = {
     subjectKind: string;
     subjectId: string;
     details: Record<string, string | number | boolean>;
+  }>;
+  incidents?: Array<{
+    id: string;
+    title: string;
+    severity: string;
+    status: string;
+  }>;
+  evidenceArtifacts?: Array<{
+    id: string;
+    artifactKind: string;
+    label: string;
+    url: string;
+    recordCount: number | null;
+    contentType: string;
+  }>;
+  infraEndpoints?: Array<{
+    id: string;
+    endpointKind: string;
+    label: string;
+    url: string | null;
+    healthStatus: string;
+    owner: string;
   }>;
 };
 
@@ -307,11 +336,63 @@ function latencyForTransport(transport: string) {
   return 88;
 }
 
+function serviceCategory(value: unknown): OmnidatServiceDefinition["category"] {
+  if (value === "food") return "food";
+  if (value === "billing" || value === "atm") return "billing";
+  if (value === "passport") return "passport";
+  if (value === "transport") return "transport";
+  if (value === "directory") return "directory";
+  return "transport";
+}
+
 type ProvisioningRow = {
   id?: string;
+  campsiteId?: string | null;
+  serviceId?: string | null;
   assignedX121?: string | null;
   transport?: string | null;
   status?: string | null;
+};
+
+type CampsiteRow = {
+  id?: string;
+  namespace?: string | null;
+  slug?: string | null;
+  displayName?: string | null;
+  contactHandle?: string | null;
+  status?: string | null;
+};
+
+type AddressAllocationRow = {
+  id?: string;
+  x121?: string | null;
+  assignedToKind?: string | null;
+  assignedToId?: string | null;
+  namespace?: string | null;
+  status?: string | null;
+};
+
+type ServiceRow = {
+  id?: string;
+  ownerCampsiteId?: string | null;
+  slug?: string | null;
+  displayName?: string | null;
+  x121?: string | null;
+  ownerKind?: string | null;
+  serviceKind?: string | null;
+  status?: string | null;
+  reachable?: boolean | null;
+  description?: string | null;
+};
+
+type ServiceVerbRow = {
+  id?: string;
+  serviceId?: string | null;
+  verb?: string | null;
+  description?: string | null;
+  inputs?: string[] | null;
+  outputs?: string[] | null;
+  active?: boolean | null;
 };
 
 type BillingAccountRow = {
@@ -373,6 +454,39 @@ type PassportStampRow = {
   status?: string | null;
 };
 
+type AuditEventRow = {
+  id?: string;
+  eventType?: string | null;
+  subjectKind?: string | null;
+  subjectId?: string | null;
+  details?: Record<string, string | number | boolean> | null;
+};
+
+type NocIncidentRow = {
+  id?: string;
+  title?: string | null;
+  severity?: string | null;
+  status?: string | null;
+};
+
+type EvidenceArtifactRow = {
+  id?: string;
+  artifactKind?: string | null;
+  label?: string | null;
+  url?: string | null;
+  recordCount?: number | null;
+  contentType?: string | null;
+};
+
+type InfraEndpointRow = {
+  id?: string;
+  endpointKind?: string | null;
+  label?: string | null;
+  url?: string | null;
+  healthStatus?: string | null;
+  owner?: string | null;
+};
+
 export async function loadPersistentOperationalState(
   db: OmnidatPersistenceDb | undefined,
   seed: OmnidatOperationalSnapshot,
@@ -380,6 +494,10 @@ export async function loadPersistentOperationalState(
   if (!db || !databasePersistenceEnabled()) return undefined;
 
   const [
+    campsiteRows,
+    addressRows,
+    serviceRows,
+    serviceVerbRows,
     provisioningRows,
     billingRows,
     ledgerRows,
@@ -387,7 +505,15 @@ export async function loadPersistentOperationalState(
     atmRows,
     foodOrderRows,
     passportStampRows,
+    auditRows,
+    incidentRows,
+    evidenceRows,
+    infraRows,
   ] = await Promise.all([
+    selectRows<CampsiteRow>(db, omnidatCampsite),
+    selectRows<AddressAllocationRow>(db, omnidatAddressAllocation),
+    selectRows<ServiceRow>(db, omnidatService),
+    selectRows<ServiceVerbRow>(db, omnidatServiceVerb),
     selectRows<ProvisioningRow>(db, omnidatProvisioningRequest),
     selectRows<BillingAccountRow>(db, omnidatBillingAccount),
     selectRows<LedgerRow>(db, omnidatBillingLedgerEntry),
@@ -395,14 +521,42 @@ export async function loadPersistentOperationalState(
     selectRows<AtmRow>(db, omnidatShadyBucksAtm),
     selectRows<FoodOrderRow>(db, omnidatFoodOrder),
     selectRows<PassportStampRow>(db, omnidatPassportStamp),
+    selectRows<AuditEventRow>(db, omnidatAuditEvent),
+    selectRows<NocIncidentRow>(db, omnidatNocIncident),
+    selectRows<EvidenceArtifactRow>(db, omnidatEvidenceArtifact),
+    selectRows<InfraEndpointRow>(db, omnidatInfraEndpoint),
   ]);
+
+  const campsitesById = new Map(
+    campsiteRows
+      .filter((row) => row.id)
+      .map((row) => [row.id ?? "", row]),
+  );
+  const addressesByAssignedToId = new Map(
+    addressRows
+      .filter((row) => row.assignedToId && row.x121)
+      .map((row) => [row.assignedToId ?? "", row]),
+  );
+  const verbsByServiceId = new Map<string, ServiceVerbRow[]>();
+  for (const verb of serviceVerbRows) {
+    if (!verb.serviceId || verb.active === false) continue;
+    verbsByServiceId.set(verb.serviceId, [
+      ...(verbsByServiceId.get(verb.serviceId) ?? []),
+      verb,
+    ]);
+  }
 
   const provisioningRequests = provisioningRows
     .filter((row) => row.assignedX121)
     .map((row): OmnidatProvisioningRequest => ({
       id: row.id ?? `PV-${row.assignedX121}`,
-      campsiteName: `Persisted ${row.assignedX121}`,
-      namespace: "camp",
+      campsiteName:
+        campsitesById.get(row.campsiteId ?? "")?.displayName ??
+        `Persisted ${row.assignedX121}`,
+      namespace:
+        campsitesById.get(row.campsiteId ?? "")?.namespace ??
+        addressesByAssignedToId.get(row.serviceId ?? "")?.namespace ??
+        "camp",
       transport: row.transport ?? "xot",
       assignedX121: row.assignedX121 ?? "",
       status: provisioningStatus(row.status),
@@ -483,6 +637,70 @@ export async function loadPersistentOperationalState(
         : "filed",
     }));
 
+  const persistentServices = serviceRows
+    .filter((row) => row.slug && row.x121)
+    .map((row): OmnidatServiceDefinition => {
+      const campsite = campsitesById.get(row.ownerCampsiteId ?? "");
+      const status =
+        row.status === "degraded" || row.status === "down" ? row.status : "up";
+      return {
+        slug: row.slug ?? "",
+        name: row.displayName ?? row.slug ?? "Persisted Service",
+        x121: row.x121 ?? "",
+        owner: campsite?.displayName ?? row.ownerKind ?? "OMNIDAT",
+        category: serviceCategory(row.serviceKind),
+        status,
+        reachable: row.reachable ?? status === "up",
+        verbs: (verbsByServiceId.get(row.id ?? "") ?? []).map((verb) => ({
+          name: verb.verb ?? "",
+          description: verb.description ?? "",
+          inputs: verb.inputs ?? [],
+          outputs: verb.outputs ?? [],
+        })),
+      };
+    });
+
+  const auditEvents = auditRows
+    .filter((row) => row.eventType)
+    .map((row) => ({
+      id: row.id ?? `AUDIT-${row.eventType}`,
+      eventType: row.eventType ?? "",
+      subjectKind: row.subjectKind ?? "unknown",
+      subjectId: row.subjectId ?? "",
+      details: row.details ?? {},
+    }));
+
+  const incidents = incidentRows
+    .filter((row) => row.title)
+    .map((row) => ({
+      id: row.id ?? `INC-${row.title}`,
+      title: row.title ?? "",
+      severity: row.severity ?? "minor",
+      status: row.status ?? "open",
+    }));
+
+  const evidenceArtifacts = evidenceRows
+    .filter((row) => row.url)
+    .map((row) => ({
+      id: row.id ?? `ART-${row.url}`,
+      artifactKind: row.artifactKind ?? "artifact",
+      label: row.label ?? row.url ?? "Evidence Artifact",
+      url: row.url ?? "",
+      recordCount: row.recordCount ?? null,
+      contentType: row.contentType ?? "application/json",
+    }));
+
+  const infraEndpoints = infraRows
+    .filter((row) => row.label)
+    .map((row) => ({
+      id: row.id ?? `INFRA-${row.label}`,
+      endpointKind: row.endpointKind ?? "endpoint",
+      label: row.label ?? "",
+      url: row.url ?? null,
+      healthStatus: row.healthStatus ?? "unknown",
+      owner: row.owner ?? "OMNIDAT",
+    }));
+
   const padCircuits = pads.map((pad): OmnidatCircuitMetric => ({
     x121: pad.x121,
     service: pad.endpointLabel,
@@ -545,10 +763,10 @@ export async function loadPersistentOperationalState(
   return {
     ...seed,
     services:
-      derivedServices.length > 0
+      persistentServices.length > 0 || derivedServices.length > 0
         ? [
             ...seed.services,
-            ...derivedServices.filter(
+            ...[...persistentServices, ...derivedServices].filter(
               (service) =>
                 !seed.services.some((seedService) => seedService.x121 === service.x121),
             ),
@@ -575,6 +793,10 @@ export async function loadPersistentOperationalState(
     foodOrders: foodOrders.length > 0 ? foodOrders : seed.foodOrders,
     passportStamps:
       passportStamps.length > 0 ? passportStamps : seed.passportStamps,
+    auditEvents: auditEvents.length > 0 ? auditEvents : seed.auditEvents,
+    incidents,
+    evidenceArtifacts,
+    infraEndpoints,
   };
 }
 
