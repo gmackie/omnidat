@@ -404,6 +404,52 @@ export const omnidatAuditEvent = omnidatNamespace.table("omnidat_audit_event", (
   createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
 }));
 
+export const omnidatEvent = omnidatNamespace.table("omnidat_event", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  eventCode: t.varchar({ length: 80 }).notNull(),
+  displayName: t.varchar({ length: 180 }).notNull(),
+  eventKind: t.varchar({ length: 80 }).notNull().default("hackercamp"),
+  status: t.varchar({ length: 32 }).notNull().default("planning"),
+  startsAt: t.timestamp({ mode: "date", withTimezone: true }),
+  endsAt: t.timestamp({ mode: "date", withTimezone: true }),
+  publicArchive: t.boolean().notNull().default(false),
+  notes: t.text(),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+}), (table) => [
+  unique("omnidat_event_code_unique").on(table.eventCode),
+]);
+
+export const omnidatEvidenceArtifact = omnidatNamespace.table("omnidat_evidence_artifact", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  eventId: t
+    .uuid()
+    .references(() => omnidatEvent.id, { onDelete: "set null" }),
+  artifactKind: t.varchar({ length: 80 }).notNull(),
+  label: t.varchar({ length: 180 }).notNull(),
+  url: t.text().notNull(),
+  recordCount: t.integer(),
+  contentType: t.varchar({ length: 120 }).notNull().default("application/json"),
+  checksum: t.varchar({ length: 128 }),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+}));
+
+export const omnidatOperatorRole = omnidatNamespace.table("omnidat_operator_role", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  userId: t
+    .text()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  eventId: t
+    .uuid()
+    .references(() => omnidatEvent.id, { onDelete: "cascade" }),
+  role: t.varchar({ length: 64 }).notNull(),
+  scope: t.varchar({ length: 80 }).notNull().default("event"),
+  active: t.boolean().notNull().default(true),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+}), (table) => [
+  unique("omnidat_operator_role_user_event_role_unique").on(table.userId, table.eventId, table.role),
+]);
+
 export const omnidatNocIncident = omnidatNamespace.table("omnidat_noc_incident", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   networkId: t

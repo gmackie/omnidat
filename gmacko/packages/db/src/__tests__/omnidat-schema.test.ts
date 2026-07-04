@@ -8,12 +8,15 @@ import {
   omnidatBillingLedgerEntry,
   omnidatCampsite,
   omnidatCampsiteApp,
+  omnidatEvent,
+  omnidatEvidenceArtifact,
   omnidatFoodMenuItem,
   omnidatFoodOrder,
   omnidatInfraEndpoint,
   omnidatNetwork,
   omnidatNetworkMetric,
   omnidatNocIncident,
+  omnidatOperatorRole,
   omnidatPadConfig,
   omnidatPassportStamp,
   omnidatPdfProfile,
@@ -119,5 +122,19 @@ describe("OMNIDAT X.25 operational schema", () => {
     expect(omnidatCampsite.namespace).toBeDefined();
     expect(omnidatCampsiteApp.address).toBeDefined();
     expect(omnidatTransportEndpoint.transport).toBeDefined();
+  });
+
+  it("models historical events, evidence artifacts, and operator roles", () => {
+    expect(omnidatEvent.eventCode).toBeDefined();
+    expect(omnidatEvent.publicArchive).toBeDefined();
+    expect(omnidatEvidenceArtifact.artifactKind).toBeDefined();
+    expect(omnidatEvidenceArtifact.recordCount).toBeDefined();
+    expect(omnidatOperatorRole.userId).toBeDefined();
+    expect(omnidatOperatorRole.role).toBeDefined();
+
+    expect(uniqueNames(omnidatEvent)).toContain("omnidat_event_code_unique");
+    expect(uniqueNames(omnidatOperatorRole)).toContain(
+      "omnidat_operator_role_user_event_role_unique",
+    );
   });
 });
