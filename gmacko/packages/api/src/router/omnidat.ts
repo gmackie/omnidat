@@ -1,3 +1,8 @@
+import { and, eq } from "@omnidat/db";
+import {
+  omnidatAuditEvent,
+  omnidatOperatorRole,
+} from "@omnidat/db/schema";
 import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
@@ -21,6 +26,8 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
+import { omnidatOperatorProcedure } from "./omnidat-operator-procedure";
+import { OMNIDAT_ROLES } from "./omnidat-roles";
 import {
   loadPersistentOperationalState,
   type OmnidatPersistenceDb,
@@ -453,6 +460,76 @@ export const omnidatRouter = {
         payload: { ...input, result } as unknown as Record<string, unknown>,
       });
       return result;
+    }),
+
+  grantOperatorRole: omnidatOperatorProcedure("role.write")
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        role: z.enum(OMNIDAT_ROLES),
+        eventId: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const grant = {
+        userId: input.userId,
+        role: input.role,
+        eventId: input.eventId ?? null,
+        active: true,
+      };
+      await ctx.db
+        .insert(omnidatOperatorRole)
+        .values(grant)
+        .onConflictDoUpdate({
+          target: [
+            omnidatOperatorRole.userId,
+            omnidatOperatorRole.eventId,
+            omnidatOperatorRole.role,
+          ],
+          set: { active: true },
+        });
+      await ctx.db.insert(omnidatAuditEvent).values({
+        actorUserId: ctx.operator.userId,
+        eventType: "role.granted",
+        subjectKind: "operator-role",
+        subjectId: input.userId,
+        details: {
+          grantedRole: input.role,
+          eventId: input.eventId ?? null,
+          actorRoles: ctx.operator.roles,
+        },
+      });
+      return grant;
+    }),
+
+  revokeOperatorRole: omnidatOperatorProcedure("role.write")
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        role: z.enum(OMNIDAT_ROLES),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(omnidatOperatorRole)
+        .set({ active: false })
+        .where(
+          and(
+            eq(omnidatOperatorRole.userId, input.userId),
+            eq(omnidatOperatorRole.role, input.role),
+          ),
+        );
+      await ctx.db.insert(omnidatAuditEvent).values({
+        actorUserId: ctx.operator.userId,
+        eventType: "role.revoked",
+        subjectKind: "operator-role",
+        subjectId: input.userId,
+        details: {
+          revokedRole: input.role,
+          actorRoles: ctx.operator.roles,
+        },
+      });
+      return { ...input, active: false };
     }),
 
   // Sync procedures authenticate with a per-source sync token instead of a

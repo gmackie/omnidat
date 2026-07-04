@@ -26,6 +26,17 @@ def payload_checksum(payload: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+class JournalWriter:
+    """Binds a journal store to one event so writers only supply op payloads."""
+
+    def __init__(self, store: "JournalStore", event_id: str) -> None:
+        self.store = store
+        self.event_id = event_id
+
+    def append(self, op_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self.store.append(self.event_id, op_type, payload)
+
+
 class JournalStore:
     def __init__(self, path: Path, source_id: str | None = None):
         self.path = path
@@ -206,6 +217,15 @@ class JournalStore:
             "recorded_at": row["recorded_at"],
             "pushed_at": row["pushed_at"],
         }
+
+
+class JournalWriter:
+    def __init__(self, store: JournalStore, event_id: str):
+        self.store = store
+        self.event_id = event_id
+
+    def append(self, op_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self.store.append(self.event_id, op_type, payload)
 
 
 def main() -> int:

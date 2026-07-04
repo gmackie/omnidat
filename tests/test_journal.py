@@ -85,6 +85,57 @@ class JournalStoreTests(unittest.TestCase):
         self.assertEqual(self.store.current_epoch("event-unknown"), 0)
         self.assertEqual(self.store.current_epoch("event-1"), 1)
 
+    def test_omnibank_ledger_postings_journal_when_store_attached(self):
+        from tools.omnidat_journal import JournalWriter
+        from tools.omnidat_omnibank import OmniBankFake
+
+        bank = OmniBankFake(
+            ledger_path=Path(self._tmp.name) / "omnibank-ledger.jsonl",
+            journal=JournalWriter(self.store, "event-1"),
+        )
+        authorization = bank.authorize(
+            pan="6011000990139424",
+            amount="12.00",
+            merchant_id="NITE-MARKT-01",
+            description="Night Market sale",
+        )
+        bank.capture(
+            auth_code=authorization["auth_code"],
+            amount="12.00",
+            merchant_id="NITE-MARKT-01",
+            description="Night Market sale capture",
+        )
+
+        entries = self.store.entries()
+        self.assertEqual(
+            [entry["op_type"] for entry in entries],
+            ["omnibucks.ledger.posted", "omnibucks.ledger.posted"],
+        )
+        self.assertEqual(
+            entries[0]["payload"]["ledger_event"], "omnibank.authorized"
+        )
+        self.assertEqual(
+            entries[1]["payload"]["ledger_event"], "omnibank.captured"
+        )
+
+    def test_append_event_journals_when_writer_attached(self):
+        from tools.omnidat_events import append_event
+        from tools.omnidat_journal import JournalWriter
+
+        log_path = Path(self._tmp.name) / "events.jsonl"
+        event = append_event(
+            log_path,
+            "session.ended",
+            "packet-clearing",
+            {"kind": "pad", "duration": 90},
+            journal=JournalWriter(self.store, "event-1"),
+        )
+
+        entries = self.store.entries()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["op_type"], "session.ended")
+        self.assertEqual(entries[0]["payload"], event["payload"])
+
 
 if __name__ == "__main__":
     unittest.main()

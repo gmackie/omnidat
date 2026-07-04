@@ -49,6 +49,7 @@ def log_activity(
     source: str,
     log_path: Path | None = None,
     created_at: str | None = None,
+    journal: Any | None = None,
 ) -> dict[str, Any]:
     passports = load_passports(data_dir)
     if passport_id not in passports:
@@ -71,6 +72,8 @@ def log_activity(
     append_activity_record(activity_dir, record)
     if log_path is not None:
         append_event(log_path, "activity.logged", "activity-clearing", record, created_at=created_at)
+    if journal is not None:
+        journal.append("activity.logged", record)
     return record
 
 

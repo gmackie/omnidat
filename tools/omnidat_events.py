@@ -27,6 +27,7 @@ def append_event(
     source: str,
     payload: dict[str, Any],
     created_at: str | None = None,
+    journal: Any | None = None,
 ) -> dict[str, Any]:
     created_at = created_at or datetime.now().astimezone().isoformat(timespec="seconds")
     event = {
@@ -39,6 +40,8 @@ def append_event(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a") as handle:
         handle.write(json.dumps(event, sort_keys=True) + "\n")
+    if journal is not None:
+        journal.append(event_type, payload)
     return event
 
 

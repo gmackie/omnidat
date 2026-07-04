@@ -11,6 +11,7 @@ from tools.omnidat_activity import (
     read_activity_records,
 )
 from tools.omnidat_events import read_events
+from tools.omnidat_journal import JournalStore, JournalWriter
 
 
 class ActivityTests(unittest.TestCase):
@@ -22,6 +23,32 @@ class ActivityTests(unittest.TestCase):
             passports = load_passports(data_dir)
 
             self.assertEqual(passports["PASS-04271"]["handle"], "RED-LINE-27")
+
+    def test_log_activity_appends_journal_entry_when_store_attached(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "data"
+            activity_dir = root / "activity"
+            write_activity_seed_data(data_dir)
+            store = JournalStore(root / "journal.db", source_id="field-kit-01")
+            self.addCleanup(store.close)
+            store.set_authority("event-sim", "field-kit-01", 1)
+            journal = JournalWriter(store, "event-sim")
+
+            record = log_activity(
+                data_dir,
+                activity_dir,
+                passport_id="PASS-04271",
+                service_address="020184",
+                action="WORKSHOP-COMPLETE",
+                source="packet-clearing",
+                journal=journal,
+            )
+
+            entries = store.entries()
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["op_type"], "activity.logged")
+            self.assertEqual(entries[0]["payload"], record)
 
     def test_log_activity_writes_record_and_event_for_passport_identity(self):
         with tempfile.TemporaryDirectory() as temp_dir:
