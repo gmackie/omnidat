@@ -90,6 +90,39 @@ class JournalStore:
         ).fetchone()
         return int(row["epoch"]) if row else 0
 
+    def current_holder(self, event_id: str) -> str | None:
+        row = self._conn.execute(
+            "select holder from authority_cache where event_id = ?",
+            (event_id,),
+        ).fetchone()
+        return str(row["holder"]) if row else None
+
+    def watermark(self, source_id: str) -> int:
+        row = self._conn.execute(
+            "select last_pulled_seq from sync_watermark where source_id = ?",
+            (source_id,),
+        ).fetchone()
+        return int(row["last_pulled_seq"]) if row else 0
+
+    def watermarks(self) -> dict[str, int]:
+        rows = self._conn.execute(
+            "select source_id, last_pulled_seq from sync_watermark"
+        ).fetchall()
+        return {row["source_id"]: int(row["last_pulled_seq"]) for row in rows}
+
+    def set_watermark(self, source_id: str, seq: int) -> None:
+        self._conn.execute(
+            """
+            insert into sync_watermark (source_id, last_pulled_seq, last_sync_at)
+            values (?, ?, ?)
+            on conflict(source_id) do update set
+              last_pulled_seq = excluded.last_pulled_seq,
+              last_sync_at = excluded.last_sync_at
+            """,
+            (source_id, seq, now_iso()),
+        )
+        self._conn.commit()
+
     def append(
         self, event_id: str, op_type: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
