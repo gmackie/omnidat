@@ -5,10 +5,7 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
-export default function middleware(
-  request: Parameters<typeof intlMiddleware>[0],
-) {
-  // If i18n is disabled, skip locale routing
+export function proxy(request: Parameters<typeof intlMiddleware>[0]) {
   if (!integrations.i18n) {
     return;
   }
@@ -17,13 +14,8 @@ export default function middleware(
 }
 
 export const config = {
-  // Match all pathnames except for:
-  // - API routes
-  // - Static files (images, fonts, etc.)
-  // - Next.js internals
   matcher: [
     "/((?!api|_next|.*\\..*).*)",
-    // Also match the root
     "/",
   ],
 };
