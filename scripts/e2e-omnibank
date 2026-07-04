@@ -5,11 +5,4 @@ runtime_dir="${OMNIDAT_E2E_DIR:-build/e2e-omnibank}"
 rm -rf "$runtime_dir"
 mkdir -p "$runtime_dir"
 
-python3 -m tools.omnidat_verifone \
-  --log "$runtime_dir/events.jsonl" \
-  sale 12.50 4242424242424242 \
-  --omnibank \
-  --omnibank-ledger "$runtime_dir/omnibank-ledger.jsonl"
-
-printf '\nEVENT LOG: %s\n' "$runtime_dir/events.jsonl"
-printf 'OMNIBANK LEDGER: %s\n' "$runtime_dir/omnibank-ledger.jsonl"
+python3 -m tools.omnidat_omnibank e2e-card-sale --runtime-dir "$runtime_dir"

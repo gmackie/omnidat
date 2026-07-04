@@ -158,6 +158,14 @@ checked-out ShadyBank `/api/authorize` and `/api/capture` merchant contract:
 ./scripts/e2e-omnibank
 ```
 
+That command is the full local card-sale verifier for Nightmarkt POS setup. It
+dials the VeriFone sale program, opens and clears the Packet Clearing session,
+authorizes and captures against the fake OmniBank rail, rejects raw PAN leakage
+in the transcript, and writes an operator report to
+`build/e2e-omnibank/report.json`. The same report also smokes the adjacent
+field terminal programs: directory lookup, Miliways food order, Activity
+Passport stamp, and terminal package update.
+
 Run a field terminal directory lookup:
 
 ```sh

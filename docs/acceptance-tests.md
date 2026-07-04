@@ -15,6 +15,7 @@ Demo-ready means the system can be shown locally without ShadyTel.
 | Packet guest calls `000002` | Registered-only access is rejected |
 | Registered account calls `000002` | Session starts and clears |
 | Registered carrier account calls `000011` | POS authorization service connects |
+| `./scripts/e2e-omnibank` full card sale | VeriFone sale dials `8810`, host X.121 `311088002010` captures through fake OmniBank, and `build/e2e-omnibank/report.json` reports `passed` |
 | NiteMarkt BOH terminal calls `000020` | WMS service connects |
 | Call `8814` | Activity Passport terminal service answers |
 | Packet call `000004` | Media Vault catalog/status answers |

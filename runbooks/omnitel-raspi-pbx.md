@@ -82,13 +82,27 @@ This uses the ShadyBank merchant API shape from
 `/Volumes/dev/shady/shadybank/src/apiserver.py`, but writes to local JSONL
 ledgers under `build/e2e-omnibank`.
 
+The harness fails if any required evidence is missing. A passing run writes:
+
+- `build/e2e-omnibank/report.json`
+- `build/e2e-omnibank/events.jsonl`
+- `build/e2e-omnibank/terminal-checks.jsonl`
+- `build/e2e-omnibank/omnibank-ledger.jsonl`
+
+The report must show `status: passed`, terminal events
+`terminal.dialed`, `session.started`, `session.ended`, `terminal.receipt`,
+bank ledger events `omnibank.authorized`, `omnibank.captured`, and adjacent
+terminal checks for directory, food, passport, and update programs.
+
 Expected sale behavior:
 
 ```text
 DIAL 8810
 CONNECT 2400
 X121 311088002010
-APPROVED
+OMNIBANK POST /api/authorize
+OMNIBANK POST /api/capture
+CAPTURED
 ```
 
 Expected directory behavior:

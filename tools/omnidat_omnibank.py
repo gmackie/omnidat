@@ -135,6 +135,140 @@ def settle_sale(
     }
 
 
+def run_full_card_sale_e2e(
+    runtime_dir: Path = Path("build/e2e-omnibank"),
+    data_dir: Path = Path("data"),
+    terminal_id: str = "VF-NITEMARKT-01",
+    amount: str = "12.50",
+    pan: str = "4242424242424242",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    from tools.omnidat_verifone import (
+        simulate_field_directory,
+        simulate_food_order,
+        simulate_passport_stamp,
+        simulate_pos_sale,
+        simulate_terminal_update,
+    )
+
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    event_log = runtime_dir / "events.jsonl"
+    terminal_checks_log = runtime_dir / "terminal-checks.jsonl"
+    ledger_path = runtime_dir / "omnibank-ledger.jsonl"
+    report_path = runtime_dir / "report.json"
+    bank = OmniBankFake(ledger_path=ledger_path)
+    sale = simulate_pos_sale(
+        data_dir=data_dir,
+        terminal_id=terminal_id,
+        amount=amount,
+        tender=pan,
+        log_path=event_log,
+        bank=bank,
+        created_at=created_at,
+    )
+    terminal_checks = {
+        "directory": simulate_field_directory(
+            data_dir=data_dir,
+            terminal_id="VF-FIELD-01",
+            query="miliways",
+            log_path=terminal_checks_log,
+            created_at=created_at,
+        ),
+        "food": simulate_food_order(
+            data_dir=data_dir,
+            queue_dir=runtime_dir / "queue",
+            terminal_id="VF-FOOD-01",
+            passport_id="PASS-04271",
+            item_id="tea",
+            quantity=2,
+            log_path=terminal_checks_log,
+            created_at=created_at,
+        ),
+        "passport": simulate_passport_stamp(
+            data_dir=data_dir,
+            activity_dir=runtime_dir / "activity",
+            terminal_id="VF-PASS-01",
+            passport_id="PASS-04271",
+            action="CALL TEST LOOP",
+            log_path=terminal_checks_log,
+            created_at=created_at,
+        ),
+        "update": simulate_terminal_update(
+            data_dir=data_dir,
+            terminal_id=terminal_id,
+            package_name="OMNIDAT.DTZ",
+            log_path=terminal_checks_log,
+            created_at=created_at,
+        ),
+    }
+    terminal_events = [event["type"] for event in read_events(event_log)]
+    terminal_check_events = [event["type"] for event in read_events(terminal_checks_log)]
+    ledger_events = [event["type"] for event in read_events(ledger_path)]
+    expected_terminal_events = ["terminal.dialed", "session.started", "session.ended", "terminal.receipt"]
+    expected_ledger_events = ["omnibank.authorized", "omnibank.captured"]
+    checks = {
+        "terminal_event_sequence": terminal_events == expected_terminal_events,
+        "bank_ledger_sequence": ledger_events == expected_ledger_events,
+        "sale_captured": sale["status"] == "captured",
+        "response_code_approved": sale["bank"]["response_code"] == "00",
+        "card_redacted": pan not in sale["transcript"],
+        "directory_terminal_complete": terminal_checks["directory"]["status"] == "complete",
+        "food_terminal_accepted": terminal_checks["food"]["status"] == "accepted",
+        "passport_terminal_cleared": terminal_checks["passport"]["status"] == "cleared",
+        "update_terminal_ready": terminal_checks["update"]["status"] == "ready",
+    }
+    status = "passed" if all(checks.values()) else "failed"
+    report = {
+        "scenario": "verifone-pos-card-sale-to-omnibank",
+        "status": status,
+        "checks": checks,
+        "sale": {
+            "terminal_id": sale["terminal_id"],
+            "program": sale["program"],
+            "dial_number": sale["dial_number"],
+            "host_x121": sale["x121"],
+            "packet_service": sale["packet_service"],
+            "status": sale["status"],
+            "auth_code": sale["auth_code"],
+            "session_id": sale["session_id"],
+        },
+        "bank": {
+            "rail": sale["bank"]["rail"],
+            "authorize_status": sale["bank"]["authorize_status"],
+            "capture_status": sale["bank"]["capture_status"],
+            "response_code": sale["bank"]["response_code"],
+        },
+        "terminal_checks": {
+            name: {
+                "terminal_id": check["terminal_id"],
+                "program": check["program"],
+                "dial_number": check["dial_number"],
+                "host_x121": check["x121"],
+                "packet_service": check["packet_service"],
+                "status": check["status"],
+            }
+            for name, check in terminal_checks.items()
+        },
+        "event_log": {
+            "path": str(event_log),
+            "events": terminal_events,
+        },
+        "terminal_check_log": {
+            "path": str(terminal_checks_log),
+            "events": terminal_check_events,
+        },
+        "ledger": {
+            "path": str(ledger_path),
+            "events": ledger_events,
+        },
+        "transcript": sale["transcript"],
+    }
+    report_path.write_text(json.dumps(report, indent=2) + "\n")
+    if status != "passed":
+        raise RuntimeError(f"full card sale e2e failed: {json.dumps(checks, sort_keys=True)}")
+    return report
+
+
 def money(value: str | Decimal) -> Decimal:
     return Decimal(str(value)).quantize(Decimal("0.01"))
 
@@ -154,6 +288,13 @@ def main() -> int:
     sale_parser.add_argument("amount")
     sale_parser.add_argument("pan")
 
+    e2e_parser = subparsers.add_parser("e2e-card-sale")
+    e2e_parser.add_argument("--runtime-dir", default="build/e2e-omnibank", type=Path)
+    e2e_parser.add_argument("--data-dir", default="data", type=Path)
+    e2e_parser.add_argument("--terminal", default="VF-NITEMARKT-01")
+    e2e_parser.add_argument("--amount", default="12.50")
+    e2e_parser.add_argument("--pan", default="4242424242424242")
+
     args = parser.parse_args()
     bank = OmniBankFake(ledger_path=args.ledger)
     if args.command == "sale":
@@ -165,6 +306,20 @@ def main() -> int:
             merchant_id=args.merchant,
         )
         print(result["transcript"])
+    if args.command == "e2e-card-sale":
+        report = run_full_card_sale_e2e(
+            runtime_dir=args.runtime_dir,
+            data_dir=args.data_dir,
+            terminal_id=args.terminal,
+            amount=args.amount,
+            pan=args.pan,
+        )
+        print(report["transcript"])
+        print(f"E2E STATUS: {report['status']}")
+        print(f"REPORT: {args.runtime_dir / 'report.json'}")
+        print(f"EVENT LOG: {report['event_log']['path']}")
+        print(f"TERMINAL CHECK LOG: {report['terminal_check_log']['path']}")
+        print(f"OMNIBANK LEDGER: {report['ledger']['path']}")
     return 0
 
 

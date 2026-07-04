@@ -6,6 +6,7 @@ from tools.omnidat_events import read_events
 from tools.omnidat_omnibank import (
     OmniBankFake,
     load_omnibank_profile,
+    run_full_card_sale_e2e,
 )
 from tools.omnidat_verifone import simulate_pos_sale
 
@@ -74,6 +75,47 @@ class OmniBankEndToEndTests(unittest.TestCase):
             )
             self.assertEqual(read_events(event_log)[-1]["payload"]["status"], "captured")
             self.assertEqual([event["type"] for event in read_events(ledger_path)], ["omnibank.authorized", "omnibank.captured"])
+
+    def test_full_card_sale_e2e_writes_operator_report_and_validates_evidence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir)
+
+            report = run_full_card_sale_e2e(
+                runtime_dir=runtime_dir,
+                data_dir=Path("data"),
+                terminal_id="VF-NITEMARKT-01",
+                amount="12.50",
+                pan="4242424242424242",
+                created_at="2028-07-01T12:00:00-07:00",
+            )
+
+            self.assertEqual(report["status"], "passed")
+            self.assertEqual(report["scenario"], "verifone-pos-card-sale-to-omnibank")
+            self.assertEqual(report["sale"]["status"], "captured")
+            self.assertEqual(report["sale"]["dial_number"], "8810")
+            self.assertEqual(report["sale"]["host_x121"], "311088002010")
+            self.assertEqual(report["sale"]["terminal_id"], "VF-NITEMARKT-01")
+            self.assertEqual(report["bank"]["rail"], "OMNIBANK_FAKE_SHADYBANK_CONTRACT")
+            self.assertEqual(report["bank"]["response_code"], "00")
+            self.assertEqual(report["terminal_checks"]["directory"]["status"], "complete")
+            self.assertEqual(report["terminal_checks"]["directory"]["dial_number"], "8812")
+            self.assertEqual(report["terminal_checks"]["food"]["status"], "accepted")
+            self.assertEqual(report["terminal_checks"]["food"]["dial_number"], "8813")
+            self.assertEqual(report["terminal_checks"]["passport"]["status"], "cleared")
+            self.assertEqual(report["terminal_checks"]["passport"]["dial_number"], "8814")
+            self.assertEqual(report["terminal_checks"]["update"]["status"], "ready")
+            self.assertEqual(report["terminal_checks"]["update"]["dial_number"], "8811")
+            self.assertEqual(report["ledger"]["events"], ["omnibank.authorized", "omnibank.captured"])
+            self.assertEqual(
+                report["event_log"]["events"],
+                ["terminal.dialed", "session.started", "session.ended", "terminal.receipt"],
+            )
+            self.assertIn("POS.SALE|VF-NITEMARKT-01|12.50|4242...4242", report["transcript"])
+            self.assertIn("OMNIBANK POST /api/authorize", report["transcript"])
+            self.assertNotIn("4242424242424242", report["transcript"])
+            self.assertTrue((runtime_dir / "report.json").exists())
+            self.assertTrue((runtime_dir / "events.jsonl").exists())
+            self.assertTrue((runtime_dir / "omnibank-ledger.jsonl").exists())
 
 
 if __name__ == "__main__":
