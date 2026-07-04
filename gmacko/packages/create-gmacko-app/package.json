@@ -19,7 +19,7 @@
     "dev": "tsup --watch",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "pnpm build && vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:e2e:update": "vitest run --config vitest.e2e.config.ts --update"

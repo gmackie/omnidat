@@ -27,6 +27,4 @@
 export type { TRPCClient } from "./client";
 export { type CreateClientOptions, createClient } from "./client";
 
-// Re-export types from @omnidat/api for convenience
-// Users can import these directly if they have @omnidat/api installed
-export type { AppRouter, RouterInputs, RouterOutputs } from "./types";
+export type { RouterInputs, RouterOutputs } from "./types";

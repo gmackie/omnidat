@@ -12,11 +12,17 @@ const baseUrl =
   env.PORTLESS_URL ??
   env.NEXT_PUBLIC_APP_URL ??
   "http://localhost:3000";
+const isBuildTime =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  process.env.npm_lifecycle_event === "build" ||
+  process.env.npm_lifecycle_event === "with-env";
 
 export const auth = initAuth({
   baseUrl,
   productionUrl: env.APP_URL ?? env.NEXT_PUBLIC_APP_URL ?? baseUrl,
-  secret: env.AUTH_SECRET,
+  secret:
+    env.AUTH_SECRET ??
+    (isBuildTime ? "omnidat-build-time-secret-not-used-at-runtime-2026" : undefined),
   githubClientId: env.AUTH_GITHUB_ID,
   githubClientSecret: env.AUTH_GITHUB_SECRET,
   googleClientId: env.AUTH_GOOGLE_ID,

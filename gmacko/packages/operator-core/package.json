@@ -33,7 +33,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@omnidat/api": "workspace:*",
     "@omnidat/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "oxlint": "catalog:",

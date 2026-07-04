@@ -798,9 +798,6 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.8
-      '@omnidat/api':
-        specifier: workspace:*
-        version: link:../api
       '@omnidat/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -1058,9 +1055,6 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.8
-      '@omnidat/api':
-        specifier: workspace:*
-        version: link:../api
       '@omnidat/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript

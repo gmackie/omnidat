@@ -1,8 +1,7 @@
 import type { TRPCLink } from "@trpc/client";
 import { createTRPCClient, httpBatchLink, httpLink } from "@trpc/client";
+import type { AnyTRPCRouter } from "@trpc/server";
 import superjson from "superjson";
-
-import type { AppRouter } from "./types";
 
 /**
  * Options for creating a tRPC client
@@ -44,7 +43,11 @@ export interface CreateClientOptions {
   fetch?: typeof fetch;
 }
 
-export type TRPCClient = ReturnType<typeof createTRPCClient<AppRouter>>;
+// oxlint-disable-next-line typescript/no-explicit-any
+export type TRPCClient = any;
+export type TypedTRPCClient<TRouter extends AnyTRPCRouter> = ReturnType<
+  typeof createTRPCClient<TRouter>
+>;
 
 /**
  * Create a tRPC client for the API
@@ -68,7 +71,13 @@ export type TRPCClient = ReturnType<typeof createTRPCClient<AppRouter>>;
  * const newPost = await client.post.create.mutate({ title: "Hello" });
  * ```
  */
-export function createClient(options: CreateClientOptions): TRPCClient {
+export function createClient<TRouter extends AnyTRPCRouter>(
+  options: CreateClientOptions,
+): TypedTRPCClient<TRouter>;
+export function createClient(options: CreateClientOptions): TRPCClient;
+export function createClient<TRouter extends AnyTRPCRouter>(
+  options: CreateClientOptions,
+): TypedTRPCClient<TRouter> {
   const {
     baseUrl,
     apiKey,
@@ -116,11 +125,11 @@ export function createClient(options: CreateClientOptions): TRPCClient {
     linkOptions.fetch = customFetch;
   }
 
-  const link: TRPCLink<AppRouter> = batch
+  const link: TRPCLink<TRouter> = batch
     ? httpBatchLink(linkOptions)
     : httpLink(linkOptions);
 
-  return createTRPCClient<AppRouter>({
+  return createTRPCClient<TRouter>({
     links: [link],
   });
 }

@@ -28,10 +28,10 @@ export function initAuth<
   productionUrl: string;
   secret: string | undefined;
 
-  githubClientId: string;
-  githubClientSecret: string;
-  googleClientId: string;
-  googleClientSecret: string;
+  githubClientId?: string;
+  githubClientSecret?: string;
+  googleClientId?: string;
+  googleClientSecret?: string;
   appleClientId?: string;
   appleClientSecret?: string;
   appleBundleIdentifier?: string;
@@ -79,19 +79,27 @@ export function initAuth<
       ...(options.extraPlugins ?? []),
     ],
     socialProviders: {
-      github: {
-        clientId: options.githubClientId,
-        clientSecret: options.githubClientSecret,
-        authorizationEndpoint: `${ghUrl}/login/oauth/authorize`,
-        tokenEndpoint: `${ghUrl}/login/oauth/access_token`,
-        userInfoEndpoint: `${ghApiUrl}/user`,
-      },
-      google: {
-        clientId: options.googleClientId,
-        clientSecret: options.googleClientSecret,
-        authorizationEndpoint: `${googleUrl}/o/oauth2/v2/auth`,
-        tokenEndpoint: googleTokenUrl,
-      },
+      ...(options.githubClientId && options.githubClientSecret
+        ? {
+            github: {
+              clientId: options.githubClientId,
+              clientSecret: options.githubClientSecret,
+              authorizationEndpoint: `${ghUrl}/login/oauth/authorize`,
+              tokenEndpoint: `${ghUrl}/login/oauth/access_token`,
+              userInfoEndpoint: `${ghApiUrl}/user`,
+            },
+          }
+        : {}),
+      ...(options.googleClientId && options.googleClientSecret
+        ? {
+            google: {
+              clientId: options.googleClientId,
+              clientSecret: options.googleClientSecret,
+              authorizationEndpoint: `${googleUrl}/o/oauth2/v2/auth`,
+              tokenEndpoint: googleTokenUrl,
+            },
+          }
+        : {}),
       ...(options.appleClientId && options.appleClientSecret
         ? {
             apple: {
