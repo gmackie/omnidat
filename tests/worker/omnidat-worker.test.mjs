@@ -149,6 +149,7 @@ test("operational pages require signed sessions and roles", async () => {
   const consolePage = await fetchPath("/console");
   const nocPage = await fetchPath("/noc");
   const adminPage = await fetchPath("/admin");
+  const operatorAdminPage = await fetchPath("/operator-admin");
 
   assert.equal(consolePage.status, 302);
   assert.equal(consolePage.headers.get("location"), "/login?returnTo=%2Fconsole");
@@ -156,6 +157,11 @@ test("operational pages require signed sessions and roles", async () => {
   assert.equal(nocPage.headers.get("location"), "/login?returnTo=%2Fnoc");
   assert.equal(adminPage.status, 302);
   assert.equal(adminPage.headers.get("location"), "/login?returnTo=%2Fadmin");
+  assert.equal(operatorAdminPage.status, 302);
+  assert.equal(
+    operatorAdminPage.headers.get("location"),
+    "/login?returnTo=%2Foperator-admin",
+  );
 
   const nocCookie = await sessionCookie();
   const adminAsNoc = await fetchPathWithCookie("/admin", nocCookie);
@@ -164,8 +170,14 @@ test("operational pages require signed sessions and roles", async () => {
 
   const adminCookie = await sessionCookie("demo-admin-code");
   const admin = await fetchPathWithCookie("/admin", adminCookie);
+  const operatorAdmin = await fetchPathWithCookie(
+    "/operator-admin",
+    adminCookie,
+  );
   assert.equal(admin.status, 200);
+  assert.equal(operatorAdmin.status, 200);
   assert.match(await admin.text(), /Admin Control Panel/);
+  assert.match(await operatorAdmin.text(), /Admin Control Panel/);
 });
 
 test("session endpoint returns demo user, roles, PDFs, and ShadyBucks account", async () => {

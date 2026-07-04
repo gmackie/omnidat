@@ -1945,7 +1945,7 @@ export default {
       return requirePageSession(request, env, ["user", "noc", "admin"], () => consolePage());
     }
 
-    if (url.pathname === "/admin") {
+    if (url.pathname === "/admin" || url.pathname === "/operator-admin") {
       return requirePageSession(request, env, ["admin"], () => adminPage());
     }
 
