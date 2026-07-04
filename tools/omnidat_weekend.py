@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from tools.omnidat_events import read_events
+from tools.omnidat_journal import JournalStore, JournalWriter
 from tools.omnidat_queue import read_orders, write_orders
+from tools.omnidat_sync import SyncClient
 
 
 CAMPER_SEED_AMOUNT = Decimal("80.00")
@@ -40,6 +43,11 @@ def run_weekend_simulation(
     runtime_dir: Path = Path("build/weekend-sim"),
     data_dir: Path = Path("data"),
     camper_count: int = 1000,
+    source_id: str = "sim-field-kit",
+    event_id: str = "weekend-sim",
+    sync_target: str | None = None,
+    sync_token: str | None = None,
+    sync_transport: Any | None = None,
 ) -> dict[str, Any]:
     runtime_dir.mkdir(parents=True, exist_ok=True)
     event_log = runtime_dir / "weekend-events.jsonl"
@@ -47,9 +55,20 @@ def run_weekend_simulation(
     fee_ledger = runtime_dir / "weekend-network-fees.jsonl"
     report_path = runtime_dir / "weekend-report.json"
     queue_dir = runtime_dir / "miliways-queue"
-    events = JsonlEventWriter(event_log)
-    ledger = JsonlEventWriter(bank_ledger)
-    fees = JsonlEventWriter(fee_ledger)
+
+    # The sim runs on a sim field kit: every op is journaled through the same
+    # SQLite store and sync path a real event uses, so the weekend sim is a
+    # permanent sync soak test rather than a parallel code path.
+    journal_db = runtime_dir / "sim-field-kit-journal.db"
+    if journal_db.exists():
+        journal_db.unlink()
+    journal_store = JournalStore(journal_db, source_id=source_id)
+    journal_store.set_authority(event_id, source_id, 1)
+    journal = JournalWriter(journal_store, event_id)
+
+    events = JsonlEventWriter(event_log, journal=journal)
+    ledger = JsonlEventWriter(bank_ledger, journal=journal)
+    fees = JsonlEventWriter(fee_ledger, journal=journal)
     campers = seed_campers(camper_count)
     merchant_balances = {merchant["merchant_id"]: Decimal("0.00") for merchant in MERCHANTS}
 
@@ -73,6 +92,15 @@ def run_weekend_simulation(
     terminals = run_terminal_sessions(events)
     network_fees = assess_network_fees(fees, night_market, terminals, forms, provisioning)
     statement_count = write_statement_artifacts(runtime_dir, network_fees["statements"]["by_account"])
+    journal_summary = build_journal_summary(
+        journal_store,
+        source_id,
+        sync_target=sync_target,
+        sync_token=sync_token,
+        sync_transport=sync_transport,
+        event_id=event_id,
+    )
+    journal_store.close()
     event_log_events = read_events(event_log)
     event_summary = summarize_weekend_events(event_log_events)
     ledger_events = read_events(bank_ledger)
@@ -140,6 +168,7 @@ def run_weekend_simulation(
             "response_codes": response_codes,
         },
         "historical_records": historical_records(),
+        "journal": journal_summary,
         "event_log": {
             "path": str(event_log),
             "summary": event_summary,
@@ -567,12 +596,56 @@ def count_response_codes(events: list[dict[str, Any]]) -> dict[str, int]:
     return codes
 
 
+def build_journal_summary(
+    journal_store: JournalStore,
+    source_id: str,
+    sync_target: str | None,
+    sync_token: str | None,
+    sync_transport: Any | None,
+    event_id: str,
+) -> dict[str, Any]:
+    entries = journal_store.entries()
+    per_op_type: dict[str, int] = {}
+    for entry in entries:
+        per_op_type[entry["op_type"]] = per_op_type.get(entry["op_type"], 0) + 1
+
+    summary: dict[str, Any] = {
+        "source_id": source_id,
+        "total": len(entries),
+        "per_op_type": per_op_type,
+        "sync": None,
+    }
+
+    target = sync_target or os.environ.get("OMNIDAT_SYNC_TARGET")
+    token = sync_token or os.environ.get("OMNIDAT_SYNC_TOKEN")
+    if target and (token or sync_transport is not None):
+        client = SyncClient(
+            journal_store,
+            base_url=target,
+            token=token or "",
+            event_id=event_id,
+            transport=sync_transport,
+        )
+        result = client.push()
+        report = result.get("report") or {}
+        summary["sync"] = {
+            "status": result["status"],
+            "pushed": result.get("pushed", 0),
+            "applied": report.get("applied", 0),
+            "duplicate": report.get("duplicate", 0),
+            "rejected_stale": report.get("rejectedStale", 0),
+            "quarantined": report.get("quarantined", 0),
+        }
+    return summary
+
+
 class JsonlEventWriter:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, journal: Any | None = None) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text("")
         self.sequence = 0
+        self.journal = journal
 
     def append(self, event_type: str, source: str, payload: dict[str, Any], created_at: str) -> dict[str, Any]:
         self.sequence += 1
@@ -585,6 +658,8 @@ class JsonlEventWriter:
         }
         with self.path.open("a") as handle:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
+        if self.journal is not None:
+            self.journal.append(event_type, payload)
         return event
 
 
@@ -687,13 +762,24 @@ def main() -> int:
     parser.add_argument("--runtime-dir", default="build/weekend-sim", type=Path)
     parser.add_argument("--data-dir", default="data", type=Path)
     parser.add_argument("--campers", default=1000, type=int)
+    parser.add_argument("--sync-target", default=os.environ.get("OMNIDAT_SYNC_TARGET"))
+    parser.add_argument("--sync-token", default=os.environ.get("OMNIDAT_SYNC_TOKEN"))
     args = parser.parse_args()
-    report = run_weekend_simulation(args.runtime_dir, args.data_dir, args.campers)
+    report = run_weekend_simulation(
+        args.runtime_dir,
+        args.data_dir,
+        args.campers,
+        sync_target=args.sync_target,
+        sync_token=args.sync_token,
+    )
     print(f"WEEKEND STATUS: {report['status']}")
     print(f"CAMPERS: {report['campers']['count']} SEEDED {report['campers']['total_seeded']} OMNIBUCKS")
     print(f"NIGHT MARKET: {report['night_market']['sales']} SALES CAPTURED {report['night_market']['captured']}")
     print(f"MILIWAYS: {report['miliways']['orders']} ORDERS ACROSS {report['miliways']['service_windows']} WINDOWS")
     print(f"X121: {report['x121_provisioning']['verified']} VERIFIED CAMPSITES")
+    print(f"JOURNAL: {report['journal']['total']} ENTRIES ON {report['journal']['source_id'].upper()}")
+    if report["journal"]["sync"]:
+        print(f"SYNC: {report['journal']['sync']['status'].upper()} APPLIED {report['journal']['sync']['applied']}")
     print(f"REPORT: {args.runtime_dir / 'weekend-report.json'}")
     print(f"EVENT LOG: {report['event_log']['path']}")
     print(f"BANK LEDGER: {report['bank']['ledger_path']}")

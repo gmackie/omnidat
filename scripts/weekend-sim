@@ -6,4 +6,7 @@ campers="${OMNIDAT_WEEKEND_CAMPERS:-1000}"
 rm -rf "$runtime_dir"
 mkdir -p "$runtime_dir"
 
+# The sim runs on a sim field kit. Set OMNIDAT_SYNC_TARGET (and
+# OMNIDAT_SYNC_TOKEN) to soak-test the sync path against a gmacko target;
+# unset, it runs journal-local with no network access.
 python3 -m tools.omnidat_weekend --runtime-dir "$runtime_dir" --campers "$campers"
