@@ -351,13 +351,13 @@ const weekendSimulation = {
       count: 7,
       totalAssessed: "181.86",
       byAccount: [
-        { accountId: "OMNI-NIGHTMARKT", name: "NiteMarkt", kind: "merchant-pos", gross: "1400.00", networkFees: "17.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-NIGHTMARKT.txt" },
-        { accountId: "OMNI-TEA", name: "Packet Tea Counter", kind: "merchant-pos", gross: "1600.00", networkFees: "20.00", currency: "OmniBucks", artifact: "billing-statements/OMNI-TEA.txt" },
-        { accountId: "OMNI-ZINE", name: "Zine Exchange", kind: "merchant-pos", gross: "1800.00", networkFees: "22.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-ZINE.txt" },
-        { accountId: "OMNI-PARTS", name: "Cable Parts Desk", kind: "merchant-pos", gross: "2000.00", networkFees: "25.00", currency: "OmniBucks", artifact: "billing-statements/OMNI-PARTS.txt" },
-        { accountId: "OMNI-MERCH", name: "Camp Merch Table", kind: "merchant-pos", gross: "2200.00", networkFees: "27.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-MERCH.txt" },
-        { accountId: "OMNIDAT-TERMINAL-BUREAU", name: "OMNIDAT Terminal Bureau", kind: "terminal-sessions", gross: "0.00", networkFees: "9.36", currency: "OmniBucks", artifact: "billing-statements/OMNIDAT-TERMINAL-BUREAU.txt" },
-        { accountId: "OMNIDAT-CAMPSITE-BUREAU", name: "OMNIDAT Campsite Bureau", kind: "campsite-provisioning", gross: "0.00", networkFees: "60.00", currency: "OmniBucks", artifact: "billing-statements/OMNIDAT-CAMPSITE-BUREAU.txt" },
+        { accountId: "OMNI-NIGHTMARKT", name: "NiteMarkt", kind: "merchant-pos", gross: "1400.00", networkFees: "17.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-NIGHTMARKT.txt", url: "/api/weekend-simulation/billing-statements/OMNI-NIGHTMARKT.txt" },
+        { accountId: "OMNI-TEA", name: "Packet Tea Counter", kind: "merchant-pos", gross: "1600.00", networkFees: "20.00", currency: "OmniBucks", artifact: "billing-statements/OMNI-TEA.txt", url: "/api/weekend-simulation/billing-statements/OMNI-TEA.txt" },
+        { accountId: "OMNI-ZINE", name: "Zine Exchange", kind: "merchant-pos", gross: "1800.00", networkFees: "22.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-ZINE.txt", url: "/api/weekend-simulation/billing-statements/OMNI-ZINE.txt" },
+        { accountId: "OMNI-PARTS", name: "Cable Parts Desk", kind: "merchant-pos", gross: "2000.00", networkFees: "25.00", currency: "OmniBucks", artifact: "billing-statements/OMNI-PARTS.txt", url: "/api/weekend-simulation/billing-statements/OMNI-PARTS.txt" },
+        { accountId: "OMNI-MERCH", name: "Camp Merch Table", kind: "merchant-pos", gross: "2200.00", networkFees: "27.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-MERCH.txt", url: "/api/weekend-simulation/billing-statements/OMNI-MERCH.txt" },
+        { accountId: "OMNIDAT-TERMINAL-BUREAU", name: "OMNIDAT Terminal Bureau", kind: "terminal-sessions", gross: "0.00", networkFees: "9.36", currency: "OmniBucks", artifact: "billing-statements/OMNIDAT-TERMINAL-BUREAU.txt", url: "/api/weekend-simulation/billing-statements/OMNIDAT-TERMINAL-BUREAU.txt" },
+        { accountId: "OMNIDAT-CAMPSITE-BUREAU", name: "OMNIDAT Campsite Bureau", kind: "campsite-provisioning", gross: "0.00", networkFees: "60.00", currency: "OmniBucks", artifact: "billing-statements/OMNIDAT-CAMPSITE-BUREAU.txt", url: "/api/weekend-simulation/billing-statements/OMNIDAT-CAMPSITE-BUREAU.txt" },
       ],
     },
   },
@@ -1102,7 +1102,7 @@ function weekendDashboardPage() {
     .map((session) => `<div><span>${session.program}</span><strong>${session.status}</strong><small>${session.terminalId}</small></div>`)
     .join("");
   const statementRows = weekendSimulation.networkFees.statements.byAccount
-    .map((statement) => `<div><span>${statement.accountId}</span><strong>${statement.networkFees}</strong><small>${statement.kind} / gross ${statement.gross} ${statement.currency} / ${statement.artifact}</small></div>`)
+    .map((statement) => `<div><span><a href="${statement.url}">${statement.accountId}</a></span><strong>${statement.networkFees}</strong><small>${statement.kind} / gross ${statement.gross} ${statement.currency} / ${statement.artifact}</small></div>`)
     .join("");
   return new Response(`<!doctype html>
 <html lang="en">
@@ -1286,6 +1286,37 @@ function weekendSimulationResponse() {
   return json({
     service,
     ...weekendSimulation,
+  });
+}
+
+function billingStatementText(statement) {
+  return [
+    "OMNIDAT NETWORK FEE STATEMENT",
+    "EXCHANGE 88 WEEKEND REHEARSAL",
+    `ACCOUNT ${statement.accountId}`,
+    `NAME ${statement.name}`,
+    `KIND ${statement.kind}`,
+    `GROSS ${statement.gross} ${statement.currency}`,
+    `NETWORK FEES ${statement.networkFees} ${statement.currency}`,
+    "STATUS FILED",
+    "",
+  ].join("\n");
+}
+
+function billingStatementArtifact(pathname) {
+  const prefix = "/api/weekend-simulation/billing-statements/";
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(".txt")) {
+    return notFound();
+  }
+
+  const accountId = decodeURIComponent(pathname.slice(prefix.length, -".txt".length));
+  const statement = weekendSimulation.networkFees.statements.byAccount.find((entry) => entry.accountId === accountId);
+  if (!statement) {
+    return notFound();
+  }
+
+  return new Response(billingStatementText(statement), {
+    headers: textHeaders,
   });
 }
 
@@ -1733,6 +1764,10 @@ export default {
 
     if (url.pathname === "/api/weekend-simulation") {
       return weekendSimulationResponse();
+    }
+
+    if (url.pathname.startsWith("/api/weekend-simulation/billing-statements/")) {
+      return billingStatementArtifact(url.pathname);
     }
 
     if (url.pathname === "/api/provisioning") {

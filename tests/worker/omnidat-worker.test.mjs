@@ -344,6 +344,7 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.networkFees.statements.byAccount[0].accountId, "OMNI-NIGHTMARKT");
   assert.equal(body.networkFees.statements.byAccount[0].networkFees, "17.50");
   assert.equal(body.networkFees.statements.byAccount[0].artifact, "billing-statements/OMNI-NIGHTMARKT.txt");
+  assert.equal(body.networkFees.statements.byAccount[0].url, "/api/weekend-simulation/billing-statements/OMNI-NIGHTMARKT.txt");
   assert.equal(body.evidence.billingStatements.records, 7);
   assert.equal(body.samples.forms[0].formType, "campsite-provisioning");
   assert.equal(body.samples.terminalSessions[0].program, "OMNISALE.TCL");
@@ -369,11 +370,31 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /181\.86/);
   assert.match(html, /Billing Statements/);
   assert.match(html, /billing-statements\/OMNI-NIGHTMARKT\.txt/);
+  assert.match(html, /href="\/api\/weekend-simulation\/billing-statements\/OMNI-NIGHTMARKT\.txt"/);
   assert.match(html, /OMNIDAT-CAMPSITE-BUREAU/);
   assert.match(html, /Merchant Accounts/);
   assert.match(html, /Form Inbox/);
   assert.match(html, /Recent Terminal Evidence/);
   assert.match(html, /class="bar"/);
+});
+
+test("weekend billing statement artifacts are downloadable text records", async () => {
+  const response = await fetchPath("/api/weekend-simulation/billing-statements/OMNI-NIGHTMARKT.txt");
+  const text = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/plain; charset=utf-8");
+  assert.match(text, /OMNIDAT NETWORK FEE STATEMENT/);
+  assert.match(text, /ACCOUNT OMNI-NIGHTMARKT/);
+  assert.match(text, /NETWORK FEES 17\.50 OmniBucks/);
+});
+
+test("weekend billing statement artifacts reject unknown accounts", async () => {
+  const response = await fetchPath("/api/weekend-simulation/billing-statements/UNKNOWN.txt");
+  const text = await response.text();
+
+  assert.equal(response.status, 404);
+  assert.match(text, /NO CARRIER/);
 });
 
 test("services define verbs inputs outputs and X.121 addresses", async () => {
