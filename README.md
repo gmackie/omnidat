@@ -82,6 +82,7 @@ OMNIDAT PBX
 - [Roadmap](docs/roadmap.md)
 - [Open Questions](docs/open-questions.md)
 - [Field Office X.25 App Platform Plan](docs/plans/2026-06-29-omnidat-field-office-x25-app-platform.md)
+- [Persistent Operator Workflows Implementation Plan](docs/plans/2026-07-04-persistent-operator-workflows.md)
 
 ### Operational Artifacts
 
