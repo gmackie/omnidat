@@ -33,6 +33,8 @@ import type {
 } from "@omnidat/operator-core/omnidat";
 import { createHash } from "node:crypto";
 
+import type { OmnidatRole } from "./omnidat-roles";
+
 type ProvisioningResult = ReturnType<typeof provisionCampsiteService>;
 type PadResult = ReturnType<typeof configurePad>;
 type AtmResult = ReturnType<typeof setupAtmTerminal>;
@@ -81,6 +83,12 @@ type OmnidatOperationalSnapshot = {
 
 type InsertValue<T> = T extends { $inferInsert: infer U } ? U : never;
 
+export type OmnidatAuditActor = {
+  userId: string;
+  roles: OmnidatRole[];
+  ipAddress?: string;
+};
+
 export type OmnidatPersistenceDb = {
   insert: (table: unknown) => {
     values: (value: unknown) => {
@@ -95,6 +103,22 @@ export type OmnidatPersistenceDb = {
 
 function activationHash(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function withAuditActor(
+  auditEvent: InsertValue<typeof omnidatAuditEvent>,
+  actor?: OmnidatAuditActor,
+): InsertValue<typeof omnidatAuditEvent> {
+  if (!actor) return auditEvent;
+  return {
+    ...auditEvent,
+    actorUserId: actor.userId,
+    ipAddress: actor.ipAddress,
+    details: {
+      ...(auditEvent.details ?? {}),
+      actorRoles: actor.roles,
+    },
+  };
 }
 
 export function projectProvisioningPersistenceRows(result: ProvisioningResult) {
@@ -842,6 +866,7 @@ async function upsertBillingAccount(
 export async function persistProvisioningResult(
   db: OmnidatPersistenceDb | undefined,
   result: ProvisioningResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectProvisioningPersistenceRows(result);
@@ -852,12 +877,13 @@ export async function persistProvisioningResult(
     ...rows.ledgerEntry,
     accountId,
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistPadResult(
   db: OmnidatPersistenceDb | undefined,
   result: PadResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectPadPersistenceRows(result);
@@ -872,12 +898,13 @@ export async function persistPadResult(
       profile: rows.padConfig.profile,
     },
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistAtmResult(
   db: OmnidatPersistenceDb | undefined,
   result: AtmResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectAtmPersistenceRows(result);
@@ -900,7 +927,7 @@ export async function persistAtmResult(
     ...rows.ledgerEntry,
     accountId,
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistXotCommandResult(
@@ -910,16 +937,18 @@ export async function persistXotCommandResult(
     command: string;
     result: XotResult;
   },
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   await db
     .insert(omnidatAuditEvent)
-    .values(projectXotCommandPersistenceRows(input).auditEvent);
+    .values(withAuditActor(projectXotCommandPersistenceRows(input).auditEvent, actor));
 }
 
 export async function persistFoodOrderResult(
   db: OmnidatPersistenceDb | undefined,
   result: FoodOrderResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectFoodOrderPersistenceRows(result);
@@ -930,24 +959,26 @@ export async function persistFoodOrderResult(
     ...rows.ledgerEntry,
     accountId,
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistPassportStampResult(
   db: OmnidatPersistenceDb | undefined,
   result: PassportStampResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectPassportStampPersistenceRows(result);
 
   await db.insert(omnidatPassportStamp).values(rows.passportStamp);
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistAuditEvent(
   db: OmnidatPersistenceDb | undefined,
   auditEvent: InsertValue<typeof omnidatAuditEvent>,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
-  await db.insert(omnidatAuditEvent).values(auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(auditEvent, actor));
 }

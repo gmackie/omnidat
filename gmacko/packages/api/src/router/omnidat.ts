@@ -30,6 +30,7 @@ import { omnidatOperatorProcedure } from "./omnidat-operator-procedure";
 import { OMNIDAT_ROLES } from "./omnidat-roles";
 import {
   loadPersistentOperationalState,
+  type OmnidatAuditActor,
   type OmnidatPersistenceDb,
   persistAtmResult,
   persistFoodOrderResult,
@@ -56,6 +57,12 @@ import {
 
 function syncDb(ctx: unknown) {
   return (ctx as { db?: OmnidatSyncDb }).db;
+}
+
+function auditActor(ctx: unknown): OmnidatAuditActor | undefined {
+  const operator = (ctx as { operator?: OmnidatAuditActor }).operator;
+  if (!operator) return undefined;
+  return operator;
 }
 
 const journalEntryInput = z.object({
@@ -273,6 +280,7 @@ export const omnidatRouter = {
       await persistProvisioningResult(
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
+        auditActor(ctx),
       );
       await journalCloudWrite(syncDb(ctx), {
         opType: "provisioning.verified",
@@ -298,7 +306,11 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = configurePad(input);
-      await persistPadResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistPadResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+        auditActor(ctx),
+      );
       await journalCloudWrite(syncDb(ctx), {
         opType: "pad.configured",
         payload: result as unknown as Record<string, unknown>,
@@ -317,7 +329,11 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = setupAtmTerminal(input);
-      await persistAtmResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistAtmResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+        auditActor(ctx),
+      );
       await journalCloudWrite(syncDb(ctx), {
         opType: "atm.activated",
         payload: result as unknown as Record<string, unknown>,
@@ -338,6 +354,7 @@ export const omnidatRouter = {
       await persistFoodOrderResult(
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
+        auditActor(ctx),
       );
       await journalCloudWrite(syncDb(ctx), {
         opType: "food.order.created",
@@ -360,6 +377,7 @@ export const omnidatRouter = {
       await persistPassportStampResult(
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
+        auditActor(ctx),
       );
       await journalCloudWrite(syncDb(ctx), {
         opType: "passport.stamped",
@@ -454,7 +472,7 @@ export const omnidatRouter = {
       await persistXotCommandResult((ctx as { db?: OmnidatPersistenceDb }).db, {
         ...input,
         result,
-      });
+      }, auditActor(ctx));
       await journalCloudWrite(syncDb(ctx), {
         opType: "xot.command",
         payload: { ...input, result } as unknown as Record<string, unknown>,
