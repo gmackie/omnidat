@@ -66,10 +66,11 @@ export function omnidatOperatorProcedure(capability: OmnidatCapability) {
   return protectedProcedure
     .meta({ omnidat: { capability, audited: true } })
     .use(async ({ ctx, next }) => {
-      const roles = await loadActiveOperatorRoles(ctx.db, ctx.session.user.id);
+      const db = (ctx as { db?: OperatorDb }).db;
+      const roles = await loadActiveOperatorRoles(db, ctx.session.user.id);
       if (bootstrapAdmin(ctx.session.user.id) && !roles.includes("admin")) {
         roles.push("admin");
-        await auditBootstrapAdminUse(ctx.db, ctx.session.user.id);
+        await auditBootstrapAdminUse(db, ctx.session.user.id);
       }
       if (!roles.some((role) => roleGrants(role, capability))) {
         throw new TRPCError({

@@ -39,7 +39,12 @@ export function roleGrants(
 ) {
   if (role === "admin") return true;
   if (!isOmnidatCapability(capability)) return false;
-  return OMNIDAT_CAPABILITIES[capability].includes(role);
+  // The `satisfies` above guarantees every value is a readonly OmnidatRole[];
+  // the annotation keeps `.includes` from narrowing the empty `role.write`
+  // array's element type to `never`.
+  return (OMNIDAT_CAPABILITIES[capability] as readonly OmnidatRole[]).includes(
+    role,
+  );
 }
 
 export function isOmnidatRole(role: string): role is OmnidatRole {
