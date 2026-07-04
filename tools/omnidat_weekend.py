@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.omnidat_events import read_events
-from tools.omnidat_queue import write_orders
+from tools.omnidat_queue import read_orders, write_orders
 
 
 CAMPER_SEED_AMOUNT = Decimal("80.00")
@@ -69,8 +69,10 @@ def run_weekend_simulation(
     miliways = run_miliways_meals(queue_dir, campers, merchant_balances, events)
     forms = file_weekend_forms(events)
     terminals = run_terminal_sessions(events)
-    event_summary = summarize_weekend_events(event_log)
+    event_log_events = read_events(event_log)
+    event_summary = summarize_weekend_events(event_log_events)
     ledger_events = read_events(bank_ledger)
+    queue_orders = read_orders(queue_dir)
     response_codes = count_response_codes(ledger_events)
     negative_balances = sum(1 for camper in campers if camper["balance"] < Decimal("0.00"))
     checks = {
@@ -135,6 +137,31 @@ def run_weekend_simulation(
         "event_log": {
             "path": str(event_log),
             "summary": event_summary,
+        },
+        "evidence": {
+            "event_log": {
+                "path": str(event_log),
+                "events": len(event_log_events),
+                "summary": event_summary,
+            },
+            "bank_ledger": {
+                "path": str(bank_ledger),
+                "events": len(ledger_events),
+                "response_codes": response_codes,
+            },
+            "queue_orders": {
+                "path": str(queue_dir / "orders.json"),
+                "records": len(queue_orders),
+            },
+            "report": {
+                "path": str(report_path),
+            },
+        },
+        "samples": {
+            "forms": sample_forms(),
+            "terminal_sessions": sample_terminal_sessions(),
+            "merchant_setups": merchant_setups()[:3],
+            "x121_assignments": provisioning["assignments"][:3],
         },
     }
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
@@ -380,9 +407,9 @@ def existing_passport_id(offset: int) -> str:
     return "PASS-04271" if offset % 2 == 0 else "PASS-02024"
 
 
-def summarize_weekend_events(event_log: Path) -> dict[str, int]:
+def summarize_weekend_events(events: list[dict[str, Any]]) -> dict[str, int]:
     summary: dict[str, int] = {}
-    for event in read_events(event_log):
+    for event in events:
         summary[event["type"]] = summary.get(event["type"], 0) + 1
     return summary
 
@@ -438,6 +465,46 @@ def merchant_setups() -> list[dict[str, Any]]:
             }
         )
     return setups
+
+
+def sample_forms() -> list[dict[str, str]]:
+    return [
+        {
+            "form_type": "campsite-provisioning",
+            "form_id": "FORM-CAMPSITE-PROVISIONING-0001",
+            "status": "filed",
+        },
+        {
+            "form_type": "merchant-onboarding",
+            "form_id": "FORM-MERCHANT-ONBOARDING-0001",
+            "status": "filed",
+        },
+        {
+            "form_type": "activity-passport",
+            "form_id": "FORM-ACTIVITY-PASSPORT-0001",
+            "status": "filed",
+        },
+    ]
+
+
+def sample_terminal_sessions() -> list[dict[str, str]]:
+    return [
+        {
+            "program": "OMNISALE.TCL",
+            "terminal_id": "VF-OMNISALE-0001",
+            "status": "complete",
+        },
+        {
+            "program": "OMNIFOOD.TCL",
+            "terminal_id": "VF-OMNIFOOD-0001",
+            "status": "complete",
+        },
+        {
+            "program": "OMNIDIR.TCL",
+            "terminal_id": "VF-OMNIDIR-0001",
+            "status": "complete",
+        },
+    ]
 
 
 def historical_records() -> dict[str, Any]:

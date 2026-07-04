@@ -333,6 +333,11 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.forms.totalFiled, 340);
   assert.equal(body.terminals.totalSessions, 312);
   assert.equal(body.x121.verified, 12);
+  assert.equal(body.evidence.eventLog.events, 5888);
+  assert.equal(body.evidence.bankLedger.events, 2000);
+  assert.equal(body.samples.forms[0].formType, "campsite-provisioning");
+  assert.equal(body.samples.terminalSessions[0].program, "OMNISALE.TCL");
+  assert.equal(body.samples.merchantSetups[0].settlementCurrency, "OmniBucks");
   assert.ok(body.timeline.some((entry) => entry.label === "Night Market Friday"));
 });
 
@@ -349,6 +354,10 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /Terminal Sessions/);
   assert.match(html, /X\.121 Provisioning/);
   assert.match(html, /OMNISALE\.TCL/);
+  assert.match(html, /Evidence Files/);
+  assert.match(html, /Merchant Accounts/);
+  assert.match(html, /Form Inbox/);
+  assert.match(html, /Recent Terminal Evidence/);
   assert.match(html, /class="bar"/);
 });
 

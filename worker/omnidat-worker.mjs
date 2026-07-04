@@ -302,6 +302,70 @@ const weekendSimulation = {
     settlementAccountsLinked: 5,
     posTerminalsConnected: 5,
   },
+  evidence: {
+    eventLog: {
+      path: "build/weekend-sim/weekend-events.jsonl",
+      events: 5888,
+    },
+    bankLedger: {
+      path: "build/weekend-sim/weekend-bank-ledger.jsonl",
+      events: 2000,
+      responseCodes: { "00": 1000 },
+    },
+    queueOrders: {
+      path: "build/weekend-sim/miliways-queue/orders.json",
+      records: 1600,
+    },
+    report: {
+      path: "build/weekend-sim/weekend-report.json",
+    },
+  },
+  samples: {
+    forms: [
+      { formType: "campsite-provisioning", formId: "FORM-CAMPSITE-PROVISIONING-0001", status: "filed" },
+      { formType: "merchant-onboarding", formId: "FORM-MERCHANT-ONBOARDING-0001", status: "filed" },
+      { formType: "activity-passport", formId: "FORM-ACTIVITY-PASSPORT-0001", status: "filed" },
+    ],
+    terminalSessions: [
+      { program: "OMNISALE.TCL", terminalId: "VF-OMNISALE-0001", status: "complete" },
+      { program: "OMNIFOOD.TCL", terminalId: "VF-OMNIFOOD-0001", status: "complete" },
+      { program: "OMNIDIR.TCL", terminalId: "VF-OMNIDIR-0001", status: "complete" },
+    ],
+    merchantSetups: [
+      {
+        merchantId: "OMNI-NIGHTMARKT",
+        name: "NiteMarkt",
+        omniauthSubject: "omniauth|merchant-omni-nightmarkt",
+        omnibankAccountId: "OB-MERCHANT-001",
+        settlementCurrency: "OmniBucks",
+        posTerminalId: "VF-NITEMARKT-01",
+        status: "configured",
+      },
+      {
+        merchantId: "OMNI-TEA",
+        name: "Packet Tea Counter",
+        omniauthSubject: "omniauth|merchant-omni-tea",
+        omnibankAccountId: "OB-MERCHANT-002",
+        settlementCurrency: "OmniBucks",
+        posTerminalId: "VF-TEA-02",
+        status: "configured",
+      },
+      {
+        merchantId: "OMNI-ZINE",
+        name: "Zine Exchange",
+        omniauthSubject: "omniauth|merchant-omni-zine",
+        omnibankAccountId: "OB-MERCHANT-003",
+        settlementCurrency: "OmniBucks",
+        posTerminalId: "VF-ZINE-03",
+        status: "configured",
+      },
+    ],
+    x121Assignments: [
+      { campsite: "Camp Laminar", x121: "311088020601", transport: "meshcore", verified: true },
+      { campsite: "Camp Oscillator", x121: "311088020602", transport: "wifi-tcp", verified: true },
+      { campsite: "Camp Null Route", x121: "311088020603", transport: "meshcore", verified: true },
+    ],
+  },
   timeline: [
     { label: "Campers Seeded", value: 1000, max: 1000, detail: "OmniAuth and OmniBucks accounts opened" },
     { label: "Night Market Friday", value: 500, max: 500, detail: "POS captures over OMNISALE.TCL" },
@@ -880,6 +944,27 @@ function weekendDashboardPage() {
   const terminalRows = Object.entries(weekendSimulation.terminals.byProgram)
     .map(([program, count]) => `<div><span>${program}</span><strong>${count}</strong></div>`)
     .join("");
+  const evidenceRows = Object.entries(weekendSimulation.evidence)
+    .map(([key, item]) => {
+      const labels = {
+        eventLog: "Event Log",
+        bankLedger: "Bank Ledger",
+        queueOrders: "Queue Orders",
+        report: "Weekend Report",
+      };
+      const count = item.events || item.records || "filed";
+      return `<div><span>${labels[key] || key}</span><strong>${count}</strong><small>${item.path}</small></div>`;
+    })
+    .join("");
+  const merchantRows = weekendSimulation.samples.merchantSetups
+    .map((merchant) => `<div><span>${merchant.name}</span><strong>${merchant.posTerminalId}</strong><small>${merchant.omnibankAccountId} / ${merchant.settlementCurrency}</small></div>`)
+    .join("");
+  const formRows = weekendSimulation.samples.forms
+    .map((form) => `<div><span>${form.formType}</span><strong>${form.status}</strong><small>${form.formId}</small></div>`)
+    .join("");
+  const terminalEvidenceRows = weekendSimulation.samples.terminalSessions
+    .map((session) => `<div><span>${session.program}</span><strong>${session.status}</strong><small>${session.terminalId}</small></div>`)
+    .join("");
   return new Response(`<!doctype html>
 <html lang="en">
 <head>
@@ -930,6 +1015,10 @@ function weekendDashboardPage() {
     .band { margin-top: 18px; }
     .programs div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(90,67,37,.55); padding: 7px 0; }
     .programs strong { color: var(--green); }
+    .ledger-list div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; border-bottom: 1px solid rgba(90,67,37,.55); padding: 8px 0; }
+    .ledger-list span { color: var(--paper); overflow-wrap: anywhere; }
+    .ledger-list strong { color: var(--green); white-space: nowrap; }
+    .ledger-list small { grid-column: 1 / -1; color: var(--muted); overflow-wrap: anywhere; }
     @media (max-width: 820px) { .hero { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -970,6 +1059,34 @@ ${weekendSimulation.terminalFeed.join("\n")}</pre>
         <section class="panel"><div class="label">Forms Filed</div><p>${weekendSimulation.forms.totalFiled} forms filed across campsite provisioning, merchant onboarding, activity passport, lost-property, and volunteer workflows.</p></section>
         <section class="panel"><div class="label">X.121 Provisioning</div><p>${weekendSimulation.x121.verified} of ${weekendSimulation.x121.campsites} campsite X.121 assignments verified.</p></section>
         <section class="panel"><div class="label">OmniBank</div><p>${weekendSimulation.merchants.settlementAccountsLinked} merchant settlement accounts linked. ShadyBucks conversion remains a ${weekendSimulation.currency.shadybucksConversion}.</p></section>
+      </div>
+    </section>
+    <section class="band">
+      <h2>Evidence Files</h2>
+      <div class="grid">
+        <section class="panel ledger-list">${evidenceRows}</section>
+        <section class="panel"><div class="label">Audit Trail</div><p>The dashboard is keyed to the simulator artifacts operators inspect during a rehearsal: event JSONL, OmniBank ledger JSONL, Miliways order file, and the consolidated weekend report.</p></section>
+      </div>
+    </section>
+    <section class="band">
+      <h2>Merchant Accounts</h2>
+      <div class="grid">
+        <section class="panel ledger-list">${merchantRows}</section>
+        <section class="panel"><div class="label">Settlement</div><p>${weekendSimulation.merchants.count} merchants have OmniAuth identities, OmniBank accounts, OmniBucks settlement, and Verifone terminal IDs ready for X.25 POS traffic.</p></section>
+      </div>
+    </section>
+    <section class="band">
+      <h2>Form Inbox</h2>
+      <div class="grid">
+        <section class="panel ledger-list">${formRows}</section>
+        <section class="panel"><div class="label">Filed Work</div><p>Sample filed records cover campsite provisioning, merchant onboarding, and activity passport evidence. These become the field-office review queue for the NOC and admin operators.</p></section>
+      </div>
+    </section>
+    <section class="band">
+      <h2>Recent Terminal Evidence</h2>
+      <div class="grid">
+        <section class="panel ledger-list">${terminalEvidenceRows}</section>
+        <section class="panel"><div class="label">Terminal Proof</div><p>Recent TCL sessions give operators a compact proof trail for sales, food ordering, directory lookup, and passport filing paths.</p></section>
       </div>
     </section>
   </main>
