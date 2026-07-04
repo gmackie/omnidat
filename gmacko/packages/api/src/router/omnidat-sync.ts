@@ -319,6 +319,174 @@ export async function applyJournalBatch(
   return report;
 }
 
+type SyncSourceRow = {
+  sourceId?: string | null;
+  sourceKind?: string | null;
+  tokenHash?: string | null;
+  lastPushedSeq?: number | null;
+  lastSyncAt?: Date | string | null;
+  active?: boolean | null;
+};
+
+export async function verifySyncToken(
+  db: OmnidatSyncDb | undefined,
+  token: string,
+  sourceId?: string,
+) {
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const sources = db
+    ? await selectRows<SyncSourceRow>(db, omnidatSyncSource)
+    : [];
+  const match = sources.find(
+    (row) =>
+      row.active !== false &&
+      row.tokenHash === tokenHash &&
+      (sourceId === undefined || row.sourceId === sourceId),
+  );
+  if (!match) {
+    throw new Error(
+      `invalid sync token${sourceId ? ` for source ${sourceId}` : ""}`,
+    );
+  }
+  return match;
+}
+
+export async function listSyncSources(db: OmnidatSyncDb | undefined) {
+  if (!db) return [];
+  const rows = await selectRows<SyncSourceRow>(db, omnidatSyncSource);
+  return rows.map((row) => ({
+    sourceId: row.sourceId ?? "",
+    sourceKind: row.sourceKind ?? "field-kit",
+    lastPushedSeq: row.lastPushedSeq ?? 0,
+    lastSyncAt: row.lastSyncAt ?? null,
+    active: row.active !== false,
+  }));
+}
+
+type PullRow = JournalRow & {
+  eventId?: string | null;
+  epoch?: number | null;
+  opType?: string | null;
+  payload?: Record<string, unknown> | null;
+  payloadChecksum?: string | null;
+  recordedAt?: Date | string | null;
+  applyStatus?: string | null;
+};
+
+export async function pullJournalEntries(
+  db: OmnidatSyncDb | undefined,
+  input: { sourceId: string; watermarks: Record<string, number> },
+) {
+  if (!db) return [];
+  const rows = await selectRows<PullRow>(db, omnidatJournalEntry);
+  return rows
+    .filter(
+      (row) =>
+        row.sourceId &&
+        row.sourceId !== input.sourceId &&
+        (row.seq ?? 0) > (input.watermarks[row.sourceId] ?? 0),
+    )
+    .sort((left, right) =>
+      left.sourceId === right.sourceId
+        ? (left.seq ?? 0) - (right.seq ?? 0)
+        : String(left.sourceId).localeCompare(String(right.sourceId)),
+    );
+}
+
+export async function transferEventAuthority(
+  db: OmnidatSyncDb | undefined,
+  input: {
+    eventId: string;
+    toHolder: "field" | "cloud";
+    toSourceId: string;
+    reason: string;
+    operatorId: string;
+    targetWatermarks?: Record<string, number>;
+  },
+) {
+  if (!db || !databasePersistenceEnabled()) {
+    throw new Error("authority transfers require database persistence");
+  }
+
+  const authorityRows = await loadAuthorityRows(db);
+  const current = authorityFromRows(authorityRows, input.eventId);
+  const journalRows = await selectRows<JournalRow>(db, omnidatJournalEntry);
+
+  if (input.toHolder !== "cloud") {
+    // A rejoining field kit must have pulled every other source's tail before
+    // it can take authority back; otherwise it would write on top of history
+    // it has never seen.
+    const watermarks = input.targetWatermarks ?? {};
+    const maxSeqBySource = new Map<string, number>();
+    for (const row of journalRows) {
+      if (!row.sourceId || row.sourceId === input.toSourceId) continue;
+      maxSeqBySource.set(
+        row.sourceId,
+        Math.max(maxSeqBySource.get(row.sourceId) ?? 0, row.seq ?? 0),
+      );
+    }
+    for (const [sourceId, maxSeq] of maxSeqBySource) {
+      if ((watermarks[sourceId] ?? 0) < maxSeq) {
+        throw new Error(
+          `transfer refused: ${input.toSourceId} has not caught up to the ` +
+            `${sourceId} watermark (${watermarks[sourceId] ?? 0} < ${maxSeq})`,
+        );
+      }
+    }
+  }
+
+  const fenceSeq = journalRows
+    .filter((row) => row.sourceId === current.holderSourceId)
+    .reduce((max, row) => Math.max(max, row.seq ?? 0), 0);
+  const epoch = current.epoch + 1;
+
+  db.insert(omnidatEventAuthority).values({
+    eventId: input.eventId,
+    epoch,
+    holder: input.toHolder,
+    holderSourceId: input.toSourceId,
+    fenceSeq,
+    reason: input.reason,
+  });
+  await persistAuditEvent(db, {
+    eventType: "authority.transferred",
+    subjectKind: "event",
+    subjectId: input.eventId,
+    details: {
+      fromHolder: current.holder,
+      fromSourceId: current.holderSourceId,
+      toHolder: input.toHolder,
+      toSourceId: input.toSourceId,
+      epoch,
+      fenceSeq,
+      reason: input.reason,
+      operatorId: input.operatorId,
+    },
+  });
+
+  return {
+    eventId: input.eventId,
+    epoch,
+    holder: input.toHolder,
+    holderSourceId: input.toSourceId,
+    fenceSeq,
+  };
+}
+
+export async function journalCloudWrite(
+  db: OmnidatSyncDb | undefined,
+  input: {
+    eventId?: string | null;
+    opType: string;
+    payload: Record<string, unknown>;
+  },
+) {
+  if (!db || !databasePersistenceEnabled()) return undefined;
+  const authority = await getCurrentAuthority(db, input.eventId ?? null);
+  if (authority.holder !== "cloud") return undefined;
+  return appendCloudJournalEntry(db, input);
+}
+
 export async function appendCloudJournalEntry(
   db: OmnidatSyncDb | undefined,
   input: {

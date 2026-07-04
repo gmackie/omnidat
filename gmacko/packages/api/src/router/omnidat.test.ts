@@ -1,14 +1,20 @@
 import {
+  omnidatAuditEvent,
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
+  omnidatEventAuthority,
+  omnidatJournalEntry,
   omnidatPadConfig,
   omnidatProvisioningRequest,
   omnidatShadyBucksAtm,
+  omnidatSyncSource,
 } from "@omnidat/db/schema";
 import { resetOmnidatOperationalState } from "@omnidat/operator-core/omnidat";
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../root";
+import { journalPayloadChecksum } from "./omnidat-sync";
 
 const caller = appRouter.createCaller({} as never);
 const originalPersistence = process.env.OMNIDAT_PERSISTENCE;
@@ -652,5 +658,273 @@ describe("omnidat tRPC router", () => {
     expect(noc.circuits.map((circuit) => circuit.x121)).toContain(
       "311088039999",
     );
+  });
+});
+
+describe("omnidat sync and authority procedures", () => {
+  const SYNC_TOKEN = "field-kit-secret";
+  const EVENT_ID = "event-sync-1";
+
+  function sha256(value: string) {
+    return createHash("sha256").update(value).digest("hex");
+  }
+
+  function createSyncFakeDb() {
+    const tables = new Map<unknown, Array<Record<string, unknown>>>();
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    let id = 0;
+    const rowsFor = (table: unknown) => {
+      const existing = tables.get(table);
+      if (existing) return existing;
+      const created: Array<Record<string, unknown>> = [];
+      tables.set(table, created);
+      return created;
+    };
+    const returning = async () => [{ id: `row-${++id}` }];
+    const db = {
+      insert: (table: unknown) => ({
+        values: (value: unknown) => {
+          writes.push({ table, value: value as Record<string, unknown> });
+          rowsFor(table).push(value as Record<string, unknown>);
+          return { onConflictDoUpdate: () => ({ returning }), returning };
+        },
+      }),
+      select: () => ({
+        from: async (table: unknown) => rowsFor(table),
+      }),
+      update: (table: unknown) => ({
+        set: (value: unknown) => ({
+          where: () => {
+            for (const row of rowsFor(table)) {
+              Object.assign(row, value as Record<string, unknown>);
+            }
+            return Promise.resolve();
+          },
+        }),
+      }),
+    };
+    rowsFor(omnidatSyncSource).push({
+      id: "sync-1",
+      sourceId: "field-kit-01",
+      sourceKind: "field-kit",
+      tokenHash: sha256(SYNC_TOKEN),
+      lastPushedSeq: 0,
+      lastSyncAt: null,
+      active: true,
+    });
+    rowsFor(omnidatEventAuthority).push({
+      id: "auth-1",
+      eventId: EVENT_ID,
+      epoch: 1,
+      holder: "field",
+      holderSourceId: "field-kit-01",
+      fenceSeq: null,
+    });
+    return { db, writes, rowsFor };
+  }
+
+  function makeSyncEntry(seq: number, overrides?: Record<string, unknown>) {
+    const payload = { note: `field op ${seq}` };
+    return {
+      seq,
+      eventId: EVENT_ID,
+      epoch: 1,
+      opType: "campsite.note.filed",
+      payload,
+      idempotencyKey: `field-kit-01:${seq}`,
+      payloadChecksum: journalPayloadChecksum(payload),
+      recordedAt: "2026-07-04T18:00:00Z",
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+
+  it("syncPush applies a batch and returns a reconciliation report", async () => {
+    const fake = createSyncFakeDb();
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    const report = await syncCaller.omnidat.syncPush({
+      sourceId: "field-kit-01",
+      syncToken: SYNC_TOKEN,
+      entries: [makeSyncEntry(1), makeSyncEntry(2)],
+    });
+
+    expect(report.applied).toBe(2);
+    expect(report.duplicate).toBe(0);
+    expect(report.rejectedStale).toBe(0);
+    expect(report.highWatermark).toBe(2);
+    expect(report.authority).toEqual({ holder: "field", epoch: 1 });
+  });
+
+  it("syncPush rejects a bad sync token", async () => {
+    const fake = createSyncFakeDb();
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    await expect(
+      syncCaller.omnidat.syncPush({
+        sourceId: "field-kit-01",
+        syncToken: "wrong-token",
+        entries: [makeSyncEntry(1)],
+      }),
+    ).rejects.toThrow(/token/i);
+    expect(fake.rowsFor(omnidatJournalEntry)).toHaveLength(0);
+  });
+
+  it("syncPull returns entries above the supplied watermarks plus authority", async () => {
+    const fake = createSyncFakeDb();
+    fake.rowsFor(omnidatJournalEntry).push(
+      {
+        sourceId: "cloud",
+        seq: 1,
+        eventId: EVENT_ID,
+        epoch: 1,
+        opType: "service.approved",
+        payload: { slug: "bulletin" },
+        idempotencyKey: "cloud:1",
+        payloadChecksum: "abc",
+        recordedAt: new Date("2026-07-04T17:00:00Z"),
+        applyStatus: "applied",
+      },
+      {
+        sourceId: "cloud",
+        seq: 2,
+        eventId: EVENT_ID,
+        epoch: 1,
+        opType: "service.approved",
+        payload: { slug: "queue" },
+        idempotencyKey: "cloud:2",
+        payloadChecksum: "def",
+        recordedAt: new Date("2026-07-04T17:05:00Z"),
+        applyStatus: "applied",
+      },
+    );
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    const all = await syncCaller.omnidat.syncPull({
+      sourceId: "field-kit-01",
+      syncToken: SYNC_TOKEN,
+      eventId: EVENT_ID,
+      watermarks: {},
+    });
+    const tail = await syncCaller.omnidat.syncPull({
+      sourceId: "field-kit-01",
+      syncToken: SYNC_TOKEN,
+      eventId: EVENT_ID,
+      watermarks: { cloud: 1 },
+    });
+
+    expect(all.entries.map((entry) => entry.seq)).toEqual([1, 2]);
+    expect(tail.entries.map((entry) => entry.seq)).toEqual([2]);
+    expect(tail.authority).toMatchObject({ holder: "field", epoch: 1 });
+  });
+
+  it("authorityStatus reports holder, epoch, and per-source sync recency", async () => {
+    const fake = createSyncFakeDb();
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    await syncCaller.omnidat.syncPush({
+      sourceId: "field-kit-01",
+      syncToken: SYNC_TOKEN,
+      entries: [makeSyncEntry(1)],
+    });
+    const status = await syncCaller.omnidat.authorityStatus({
+      eventId: EVENT_ID,
+    });
+
+    expect(status.authority).toMatchObject({ holder: "field", epoch: 1 });
+    const source = status.sources.find(
+      (entry) => entry.sourceId === "field-kit-01",
+    );
+    expect(source?.lastPushedSeq).toBe(1);
+    expect(source?.lastSyncAt).toBeTruthy();
+  });
+
+  it("transferAuthority increments the epoch, records the fence, and audits", async () => {
+    const fake = createSyncFakeDb();
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    await syncCaller.omnidat.syncPush({
+      sourceId: "field-kit-01",
+      syncToken: SYNC_TOKEN,
+      entries: [makeSyncEntry(1), makeSyncEntry(2)],
+    });
+    const transfer = await syncCaller.omnidat.transferAuthority({
+      eventId: EVENT_ID,
+      toHolder: "cloud",
+      toSourceId: "cloud",
+      reason: "field kit unreachable",
+      operatorId: "noc-operator-1",
+      syncToken: SYNC_TOKEN,
+    });
+
+    expect(transfer.epoch).toBe(2);
+    expect(transfer.holder).toBe("cloud");
+    expect(transfer.fenceSeq).toBe(2);
+
+    const auditWrites = fake.writes.filter(
+      (write) =>
+        write.table === omnidatAuditEvent &&
+        write.value.eventType === "authority.transferred",
+    );
+    expect(auditWrites).toHaveLength(1);
+    expect(
+      (auditWrites[0]?.value.details as Record<string, unknown>).operatorId,
+    ).toBe("noc-operator-1");
+    expect(
+      (auditWrites[0]?.value.details as Record<string, unknown>).reason,
+    ).toBe("field kit unreachable");
+  });
+
+  it("transferAuthority refuses a target that has not caught up", async () => {
+    const fake = createSyncFakeDb();
+    // Cloud holds authority (epoch 2) and has journaled past the kit's view.
+    fake.rowsFor(omnidatEventAuthority).push({
+      id: "auth-2",
+      eventId: EVENT_ID,
+      epoch: 2,
+      holder: "cloud",
+      holderSourceId: "cloud",
+      fenceSeq: 0,
+    });
+    fake.rowsFor(omnidatJournalEntry).push({
+      sourceId: "cloud",
+      seq: 3,
+      eventId: EVENT_ID,
+      epoch: 2,
+      opType: "service.approved",
+      payload: {},
+      idempotencyKey: "cloud:3",
+      payloadChecksum: "abc",
+      recordedAt: new Date(),
+      applyStatus: "applied",
+    });
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    await expect(
+      syncCaller.omnidat.transferAuthority({
+        eventId: EVENT_ID,
+        toHolder: "field",
+        toSourceId: "field-kit-01",
+        reason: "kit recovered",
+        operatorId: "noc-operator-1",
+        syncToken: SYNC_TOKEN,
+        targetWatermarks: { cloud: 2 },
+      }),
+    ).rejects.toThrow(/caught up|watermark/i);
+
+    const accepted = await syncCaller.omnidat.transferAuthority({
+      eventId: EVENT_ID,
+      toHolder: "field",
+      toSourceId: "field-kit-01",
+      reason: "kit recovered",
+      operatorId: "noc-operator-1",
+      syncToken: SYNC_TOKEN,
+      targetWatermarks: { cloud: 3 },
+    });
+    expect(accepted.epoch).toBe(3);
+    expect(accepted.holder).toBe("field");
   });
 });

@@ -32,10 +32,35 @@ import {
   persistXotCommandResult,
 } from "./omnidat-persistence";
 import {
+  applyJournalBatch,
+  getCurrentAuthority,
+  journalCloudWrite,
+  listSyncSources,
+  type OmnidatSyncDb,
+  pullJournalEntries,
+  transferEventAuthority,
+  verifySyncToken,
+} from "./omnidat-sync";
+import {
   createShadyBankClient,
   getShadyBankIntegrationProfile,
   type ShadyBankClientConfig,
 } from "./shadybank-client";
+
+function syncDb(ctx: unknown) {
+  return (ctx as { db?: OmnidatSyncDb }).db;
+}
+
+const journalEntryInput = z.object({
+  seq: z.number().int().positive(),
+  eventId: z.string().min(1).nullish(),
+  epoch: z.number().int().min(0),
+  opType: z.string().min(1),
+  payload: z.record(z.string(), z.unknown()),
+  idempotencyKey: z.string().min(1),
+  payloadChecksum: z.string().min(1),
+  recordedAt: z.string().min(1),
+});
 
 function shadyBankConfig(ctx: unknown): ShadyBankClientConfig {
   return (
@@ -242,6 +267,10 @@ export const omnidatRouter = {
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
       );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "provisioning.verified",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
@@ -263,6 +292,10 @@ export const omnidatRouter = {
     .mutation(async ({ ctx, input }) => {
       const result = configurePad(input);
       await persistPadResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "pad.configured",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
@@ -278,6 +311,10 @@ export const omnidatRouter = {
     .mutation(async ({ ctx, input }) => {
       const result = setupAtmTerminal(input);
       await persistAtmResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "atm.activated",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
@@ -295,6 +332,10 @@ export const omnidatRouter = {
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
       );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "food.order.created",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
@@ -313,6 +354,10 @@ export const omnidatRouter = {
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
       );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "passport.stamped",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
@@ -403,6 +448,81 @@ export const omnidatRouter = {
         ...input,
         result,
       });
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "xot.command",
+        payload: { ...input, result } as unknown as Record<string, unknown>,
+      });
       return result;
+    }),
+
+  // Sync procedures authenticate with a per-source sync token instead of a
+  // capability from the H1a matrix; the H1a router-walk test annotates them
+  // as exceptions until the sync credential model lands (see
+  // docs/plans/2026-07-04-split-authority-sync.md).
+  syncPush: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string().min(1),
+        syncToken: z.string().min(1),
+        entries: z.array(journalEntryInput),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      await verifySyncToken(db, input.syncToken, input.sourceId);
+      return applyJournalBatch(db, {
+        sourceId: input.sourceId,
+        entries: input.entries,
+      });
+    }),
+
+  syncPull: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string().min(1),
+        syncToken: z.string().min(1),
+        eventId: z.string().min(1).nullish(),
+        watermarks: z.record(z.string(), z.number()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      await verifySyncToken(db, input.syncToken, input.sourceId);
+      const entries = await pullJournalEntries(db, {
+        sourceId: input.sourceId,
+        watermarks: input.watermarks,
+      });
+      return {
+        entries,
+        authority: await getCurrentAuthority(db, input.eventId ?? null),
+      };
+    }),
+
+  authorityStatus: publicProcedure
+    .input(z.object({ eventId: z.string().min(1).nullish() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      return {
+        authority: await getCurrentAuthority(db, input?.eventId ?? null),
+        sources: await listSyncSources(db),
+      };
+    }),
+
+  transferAuthority: publicProcedure
+    .input(
+      z.object({
+        eventId: z.string().min(1),
+        toHolder: z.enum(["field", "cloud"]),
+        toSourceId: z.string().min(1),
+        reason: z.string().min(1),
+        operatorId: z.string().min(1),
+        syncToken: z.string().min(1),
+        targetWatermarks: z.record(z.string(), z.number()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      await verifySyncToken(db, input.syncToken);
+      return transferEventAuthority(db, input);
     }),
 } satisfies TRPCRouterRecord;
