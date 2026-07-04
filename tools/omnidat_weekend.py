@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ def run_weekend_simulation(
     sync_target: str | None = None,
     sync_token: str | None = None,
     sync_transport: Any | None = None,
+    outage_window: tuple[str, str] | None = None,
 ) -> dict[str, Any]:
     runtime_dir.mkdir(parents=True, exist_ok=True)
     event_log = runtime_dir / "weekend-events.jsonl"
@@ -99,6 +101,7 @@ def run_weekend_simulation(
         sync_token=sync_token,
         sync_transport=sync_transport,
         event_id=event_id,
+        outage_window=outage_window,
     )
     journal_store.close()
     event_log_events = read_events(event_log)
@@ -596,6 +599,40 @@ def count_response_codes(events: list[dict[str, Any]]) -> dict[str, int]:
     return codes
 
 
+# Simulated-time checkpoints the sim attempts a sync push at. The final drain
+# always runs on recovery, so any push refused during an outage window is
+# retried store-and-forward.
+SYNC_CHECKPOINTS = [
+    "2028-07-01T09:30:00-07:00",
+    "2028-07-01T22:30:00-07:00",
+    "2028-07-02T12:30:00-07:00",
+    "2028-07-02T15:00:00-07:00",
+]
+
+
+class _OutageTransport:
+    """Wraps a transport and refuses pushes while the checkpoint is inside the
+    outage window, modelling a dropped uplink."""
+
+    def __init__(self, base: Any, window: tuple[str, str]) -> None:
+        self.base = base
+        self.start, self.end = window
+        self.blocked = False
+        self.refused = 0
+
+    def __call__(self, request):
+        if self.blocked and request.full_url.endswith("omnidat.syncPush"):
+            self.refused += 1
+            raise OSError("uplink down (simulated outage)")
+        return self.base(request)
+
+
+def _outage_minutes(window: tuple[str, str]) -> int:
+    start = datetime.fromisoformat(window[0])
+    end = datetime.fromisoformat(window[1])
+    return int((end - start).total_seconds() // 60)
+
+
 def build_journal_summary(
     journal_store: JournalStore,
     source_id: str,
@@ -603,6 +640,7 @@ def build_journal_summary(
     sync_token: str | None,
     sync_transport: Any | None,
     event_id: str,
+    outage_window: tuple[str, str] | None = None,
 ) -> dict[str, Any]:
     entries = journal_store.entries()
     per_op_type: dict[str, int] = {}
@@ -618,23 +656,54 @@ def build_journal_summary(
 
     target = sync_target or os.environ.get("OMNIDAT_SYNC_TARGET")
     token = sync_token or os.environ.get("OMNIDAT_SYNC_TOKEN")
-    if target and (token or sync_transport is not None):
-        client = SyncClient(
-            journal_store,
-            base_url=target,
-            token=token or "",
-            event_id=event_id,
-            transport=sync_transport,
-        )
+    if not (target and (token or sync_transport is not None)):
+        return summary
+
+    transport = sync_transport
+    outage = None
+    if outage_window is not None:
+        transport = _OutageTransport(sync_transport, outage_window)
+        outage = transport
+
+    client = SyncClient(
+        journal_store,
+        base_url=target,
+        token=token or "",
+        event_id=event_id,
+        transport=transport,
+    )
+
+    # Aggregate reconciliation counts across every push. A push refused during
+    # an outage leaves entries queued (store-and-forward); the final drain
+    # applies whatever survived the outage, so applied + duplicate == total.
+    totals = {"applied": 0, "duplicate": 0, "rejected_stale": 0, "quarantined": 0}
+    statuses: list[str] = []
+
+    def run_push() -> None:
         result = client.push()
+        statuses.append(result["status"])
         report = result.get("report") or {}
-        summary["sync"] = {
-            "status": result["status"],
-            "pushed": result.get("pushed", 0),
-            "applied": report.get("applied", 0),
-            "duplicate": report.get("duplicate", 0),
-            "rejected_stale": report.get("rejectedStale", 0),
-            "quarantined": report.get("quarantined", 0),
+        totals["applied"] += report.get("applied", 0)
+        totals["duplicate"] += report.get("duplicate", 0)
+        totals["rejected_stale"] += report.get("rejectedStale", 0)
+        totals["quarantined"] += report.get("quarantined", 0)
+
+    if outage is not None:
+        for checkpoint in SYNC_CHECKPOINTS:
+            outage.blocked = outage_window[0] <= checkpoint <= outage_window[1]
+            run_push()
+        outage.blocked = False
+
+    run_push()
+
+    summary["sync"] = {
+        "status": "ok" if statuses[-1] == "ok" else "error",
+        **totals,
+    }
+    if outage is not None:
+        summary["outage"] = {
+            "refused_pushes": outage.refused,
+            "simulated_minutes": _outage_minutes(outage_window),
         }
     return summary
 

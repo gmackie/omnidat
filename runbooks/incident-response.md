@@ -28,8 +28,16 @@ DATA    modem, PAD, BBS, terminal service
 DOC     fax, printer, form queue
 MEDIA   robot, VCR, tape, video chain
 ATV     amateur TV station chain
+SYNC    field kit uplink, authority failover, journal reconciliation
 SAFETY  mechanical, electrical, RF, crowd
 ```
+
+## Field Kit Authority
+
+A SYNC incident (field kit uplink lost, or authority needs to move between the
+field kit and the cloud) follows [Authority Failover](authority-failover.md).
+Failover is a deliberate NOC action, never automatic; stale-epoch writes are
+quarantined, not dropped, so a wrong call is recoverable.
 
 ## Maintenance Mode Rule
 

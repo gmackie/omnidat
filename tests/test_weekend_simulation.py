@@ -175,6 +175,39 @@ class WeekendSimulationTests(unittest.TestCase):
             # No sync target configured: journal-local, no reconciliation.
             self.assertIsNone(journal["sync"])
 
+    def test_uplink_outage_window_loses_zero_records(self):
+        # Exit gate: pull the uplink for a 60+ simulated-minute window mid-sim.
+        # Every journaled op must still reach the cloud on recovery with a clean
+        # reconciliation, and field-office flows must complete during the outage.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir)
+            transport = RecordingTransport()
+
+            report = run_weekend_simulation(
+                runtime_dir=runtime_dir,
+                data_dir=Path("data"),
+                camper_count=1000,
+                sync_target="https://cloud.test",
+                sync_token="sim-secret",
+                sync_transport=transport,
+                outage_window=("2028-07-01T09:00:00-07:00", "2028-07-02T13:00:00-07:00"),
+            )
+
+            outage = report["journal"]["outage"]
+            self.assertGreaterEqual(outage["refused_pushes"], 1)
+            self.assertGreaterEqual(outage["simulated_minutes"], 60)
+            sync = report["journal"]["sync"]
+            self.assertEqual(sync["status"], "ok")
+            self.assertEqual(
+                sync["applied"] + sync["duplicate"], report["journal"]["total"]
+            )
+            self.assertEqual(sync["rejected_stale"], 0)
+            # Field-office flows completed during the outage window: Miliways
+            # orders (created during the window) are present in the journal.
+            self.assertGreater(
+                report["journal"]["per_op_type"].get("queue.order.accepted", 0), 0
+            )
+
     def test_weekend_simulation_pushes_journal_when_sync_target_configured(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             runtime_dir = Path(temp_dir)

@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -eu
+
+# Drive an OMNIDAT authority failover drill in both directions against a
+# gmacko target. Prints a pass/fail transcript suitable for printing as
+# rehearsal evidence. See runbooks/authority-failover.md.
+#
+# Required env or flags:
+#   OMNIDAT_SYNC_TARGET  gmacko base URL (e.g. https://omnidat.gmac.io)
+#   OMNIDAT_SYNC_TOKEN   NOC sync token
+# Required flags:
+#   --event-id <id>      the active event
+#   --operator-id <id>   the NOC operator running the drill
+
+exec python3 -m tools.omnidat_authority_drill "$@"
