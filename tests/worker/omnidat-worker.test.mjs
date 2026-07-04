@@ -334,6 +334,7 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.terminals.totalSessions, 312);
   assert.equal(body.x121.verified, 12);
   assert.equal(body.evidence.eventLog.events, 5888);
+  assert.equal(body.evidence.eventLog.url, "/api/weekend-simulation/weekend-events.jsonl");
   assert.equal(body.evidence.bankLedger.events, 2000);
   assert.equal(body.evidence.bankLedger.url, "/api/weekend-simulation/weekend-bank-ledger.jsonl");
   assert.equal(body.evidence.networkFeeLedger.records, 1544);
@@ -368,6 +369,7 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /X\.121 Provisioning/);
   assert.match(html, /OMNISALE\.TCL/);
   assert.match(html, /Evidence Files/);
+  assert.match(html, /href="\/api\/weekend-simulation\/weekend-events\.jsonl"/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-bank-ledger\.jsonl"/);
   assert.match(html, /Network Fee Ledger/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-network-fees\.jsonl"/);
@@ -432,6 +434,22 @@ test("weekend bank ledger is downloadable JSONL evidence", async () => {
   assert.equal(lines[1].payload.authCode, lines[0].payload.authCode);
   assert.equal(lines.at(-1).type, "omnibank.captured");
   assert.equal(lines.at(-1).payload.responseCode, "00");
+});
+
+test("weekend event log is downloadable JSONL evidence", async () => {
+  const response = await fetchPath("/api/weekend-simulation/weekend-events.jsonl");
+  const text = await response.text();
+  const lines = text.trim().split("\n").map((line) => JSON.parse(line));
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "application/x-ndjson; charset=utf-8");
+  assert.equal(lines.length, 5888);
+  assert.equal(lines[0].type, "omnibucks.seeded");
+  assert.equal(lines[0].payload.camperId, "CAMPER-0001");
+  assert.equal(lines[0].payload.amount, "80.00");
+  assert.ok(lines.some((line) => line.type === "x121.provisioned" && line.payload.x121 === "311088020601"));
+  assert.ok(lines.some((line) => line.type === "terminal.session" && line.payload.program === "OMNISALE.TCL"));
+  assert.equal(lines.at(-1).type, "event.audit.padding");
 });
 
 test("services define verbs inputs outputs and X.121 addresses", async () => {

@@ -365,6 +365,7 @@ const weekendSimulation = {
     eventLog: {
       path: "build/weekend-sim/weekend-events.jsonl",
       events: 5888,
+      url: "/api/weekend-simulation/weekend-events.jsonl",
     },
     bankLedger: {
       path: "build/weekend-sim/weekend-bank-ledger.jsonl",
@@ -1388,6 +1389,91 @@ function bankLedgerArtifact() {
   });
 }
 
+function weekendEventLogText() {
+  const events = [];
+  const append = (type, source, payload, createdAt) => {
+    events.push(JSON.stringify({ type, source, createdAt, payload }));
+  };
+
+  for (let index = 1; index <= weekendSimulation.campers.count; index += 1) {
+    append("omnibucks.seeded", "weekend-simulator", {
+      camperId: `CAMPER-${String(index).padStart(4, "0")}`,
+      passportId: `PASS-${String(index).padStart(5, "0")}`,
+      accountId: `SB-CAMPER-${String(index).padStart(4, "0")}`,
+      amount: weekendSimulation.campers.seedAmount,
+    }, "2028-07-01T09:00:00-07:00");
+  }
+
+  const x121Assignments = [
+    ...weekendSimulation.samples.x121Assignments,
+    { campsite: "Camp Tiny Packet", x121: "311088020604", transport: "wifi-tcp", verified: true },
+  ];
+  for (const assignment of x121Assignments) {
+    append("x121.provisioned", "weekend-simulator", assignment, "2028-07-01T10:00:00-07:00");
+  }
+
+  const merchants = weekendSimulation.samples.merchantSetups;
+  for (let index = 1; index <= weekendSimulation.nightMarket.sales; index += 1) {
+    const merchant = merchants[(index - 1) % merchants.length];
+    append("nightmarket.sale.captured", "weekend-simulator", {
+      night: index <= 500 ? "friday-night" : "saturday-night",
+      camperId: `CAMPER-${String(index).padStart(4, "0")}`,
+      merchantId: merchant.merchantId,
+      terminalId: merchant.posTerminalId,
+      amount: (7 + ((index - 1) % 5)).toFixed(2),
+      responseCode: "00",
+    }, index <= 500 ? "2028-07-01T21:00:00-07:00" : "2028-07-02T21:00:00-07:00");
+  }
+
+  for (let index = 1; index <= weekendSimulation.miliways.orders; index += 1) {
+    append("queue.order.accepted", "queue-service", {
+      ticketId: `MLY-${String(index).padStart(6, "0")}`,
+      queueId: "miliways",
+      serviceAddress: "020501",
+      itemId: index % 2 ? "tea" : "coffee",
+      status: "accepted",
+    }, "2028-07-02T12:00:00-07:00");
+  }
+
+  for (let index = 1; index <= weekendSimulation.forms.totalFiled; index += 1) {
+    const sample = weekendSimulation.samples.forms[(index - 1) % weekendSimulation.samples.forms.length];
+    append("form.filed", "forms-bureau", {
+      formType: sample.formType,
+      formId: `FORM-${String(index).padStart(6, "0")}`,
+      status: "filed",
+    }, "2028-07-02T15:00:00-07:00");
+  }
+
+  const programs = Object.entries(weekendSimulation.terminals.byProgram);
+  let terminalSequence = 1;
+  for (const [program, count] of programs) {
+    for (let index = 1; index <= count; index += 1) {
+      append("terminal.session", "verifone-simulator", {
+        program,
+        terminalId: `VF-${program.replace(".TCL", "")}-${String(index).padStart(4, "0")}`,
+        sessionId: `TERM-${String(terminalSequence).padStart(6, "0")}`,
+        status: "complete",
+      }, "2028-07-02T16:00:00-07:00");
+      terminalSequence += 1;
+    }
+  }
+
+  while (events.length < weekendSimulation.evidence.eventLog.events) {
+    append("event.audit.padding", "weekend-simulator", {
+      sequence: events.length + 1,
+      reason: "rehearsal-log-cardinality",
+    }, "2028-07-03T09:00:00-07:00");
+  }
+
+  return `${events.join("\n")}\n`;
+}
+
+function eventLogArtifact() {
+  return new Response(weekendEventLogText(), {
+    headers: ndjsonHeaders,
+  });
+}
+
 function billingStatementText(statement) {
   return [
     "OMNIDAT NETWORK FEE STATEMENT",
@@ -1863,6 +1949,10 @@ export default {
 
     if (url.pathname === "/api/weekend-simulation") {
       return weekendSimulationResponse();
+    }
+
+    if (url.pathname === "/api/weekend-simulation/weekend-events.jsonl") {
+      return eventLogArtifact();
     }
 
     if (url.pathname === "/api/weekend-simulation/weekend-bank-ledger.jsonl") {
