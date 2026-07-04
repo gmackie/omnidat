@@ -65,6 +65,7 @@ OMNIDAT PBX
 - [Data Model](docs/data-model.md)
 - [Integration Map](docs/integration-map.md)
 - [Field Office Network Plan](docs/field-office-network-plan.md)
+- [Leadership Pilot Package](docs/leadership-pilot-package.md)
 - [Shared Infrastructure with FryOS](docs/shared-infra-fryos.md)
 - [Lab Bring-Up Plan](docs/lab-bringup.md)
 - [Acceptance Tests](docs/acceptance-tests.md)
