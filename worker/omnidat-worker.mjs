@@ -883,14 +883,52 @@ function authProvidersResponse() {
   });
 }
 
-function authRedirect(request, providerId = "omniauth") {
+function safeReturnTo(value) {
+  if (typeof value !== "string") {
+    return "/console";
+  }
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return "/console";
+  }
+  return value;
+}
+
+async function encodeState(returnTo, secret) {
+  const payload = base64UrlEncode(JSON.stringify({
+    returnTo: safeReturnTo(returnTo),
+    issuedAt: Date.now(),
+  }));
+  const signature = await sessionSignature(payload, secret);
+  return `${payload}.${signature}`;
+}
+
+async function decodeState(value, secret) {
+  try {
+    const [payload, signature] = value.split(".");
+    if (!payload || !signature) {
+      return null;
+    }
+    const expected = await sessionSignature(payload, secret);
+    if (signature !== expected) {
+      return null;
+    }
+    const state = JSON.parse(base64UrlDecode(payload));
+    return {
+      returnTo: safeReturnTo(state.returnTo),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function authRedirect(request, env = {}, providerId = "omniauth") {
   const provider = authProvider(providerId);
   if (!provider) {
     return json({ error: "unknown auth provider" }, 404);
   }
   const url = new URL(request.url);
-  const returnTo = url.searchParams.get("returnTo") || "/console";
-  const state = btoa(`returnTo=${encodeURIComponent(returnTo)}`).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const returnTo = safeReturnTo(url.searchParams.get("returnTo") || "/console");
+  const state = await encodeState(returnTo, authSecret(env));
   const authorize = new URL(provider.authorizationUrl);
   authorize.searchParams.set("client_id", provider.clientId);
   authorize.searchParams.set("redirect_uri", provider.callbackUrl);
@@ -898,15 +936,6 @@ function authRedirect(request, providerId = "omniauth") {
   authorize.searchParams.set("scope", provider.scopes.join(" "));
   authorize.searchParams.set("state", state);
   return redirect(authorize.toString());
-}
-
-function decodeState(value) {
-  try {
-    const decoded = base64UrlDecode(value);
-    return decoded.includes("returnTo=") ? decoded : value;
-  } catch {
-    return value;
-  }
 }
 
 function demoIdentity(provider, code) {
@@ -941,8 +970,11 @@ async function authCallback(request, env = {}, providerId = "omniauth") {
   if (!code) {
     return json({ error: `${provider.id} callback requires code` }, 400);
   }
-  const state = decodeState(url.searchParams.get("state") || "");
-  const returnTo = new URLSearchParams(state).get("returnTo") || "/console";
+  const state = await decodeState(url.searchParams.get("state") || "", authSecret(env));
+  if (!state) {
+    return json({ error: "invalid oauth state" }, 400);
+  }
+  const returnTo = state.returnTo;
   const roles = code === "demo-admin-code" ? ["user", "noc", "admin"] : ["user", "noc"];
   const identity = demoIdentity(provider, code);
   const session = {
@@ -1205,7 +1237,7 @@ export default {
 
     if (url.pathname.startsWith("/api/auth/")) {
       const providerId = url.pathname.slice("/api/auth/".length);
-      return authRedirect(request, providerId);
+      return authRedirect(request, env, providerId);
     }
 
     if (url.pathname === "/api/network") {

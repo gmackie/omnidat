@@ -16,13 +16,33 @@ async function sessionCookie(
   code = "demo-omniauth-code",
   env = { AUTH_SECRET: "test-auth-secret" },
   provider = "omniauth",
+  returnTo = "/console",
 ) {
+  const state = await authState(provider, returnTo, env);
   const response = await worker.fetch(
-    new Request(`https://omnidat.gmac.io/api/auth/callback/${provider}?code=${code}&state=cmV0dXJuVG89JTJGY29uc29sZQ`),
+    new Request(`https://omnidat.gmac.io/api/auth/callback/${provider}?code=${code}&state=${encodeURIComponent(state)}`),
     env,
     {},
   );
   return response.headers.get("set-cookie");
+}
+
+async function authState(provider = "omniauth", returnTo = "/console", env = { AUTH_SECRET: "test-auth-secret" }) {
+  const response = await worker.fetch(
+    new Request(`https://omnidat.gmac.io/api/auth/${provider}?returnTo=${encodeURIComponent(returnTo)}`),
+    env,
+    {},
+  );
+  return new URL(response.headers.get("location")).searchParams.get("state");
+}
+
+async function authCallback(provider, code, returnTo, env = { AUTH_SECRET: "test-auth-secret" }) {
+  const state = await authState(provider, returnTo, env);
+  return worker.fetch(
+    new Request(`https://omnidat.gmac.io/api/auth/callback/${provider}?code=${code}&state=${encodeURIComponent(state)}`),
+    env,
+    {},
+  );
 }
 
 async function fetchPathWithCookie(path, cookie, env = { AUTH_SECRET: "test-auth-secret" }) {
@@ -192,6 +212,7 @@ test("auth login redirects to OmniAuth passkey, ForgeGraph, and GitHub providers
   assert.match(omniauthLocation, /redirect_uri=https%3A%2F%2Fomnidat\.gmac\.io%2Fapi%2Fauth%2Fcallback%2Fomniauth/);
   assert.match(omniauthLocation, /scope=openid\+profile\+email\+passkey\+shadybucks/);
   assert.match(omniauthLocation, /state=/);
+  assert.match(new URL(omniauthLocation).searchParams.get("state"), /^[^.]+\.[^.]+$/);
   assert.equal(forgegraph.status, 302);
   assert.match(forgegraphLocation, /^https:\/\/forgegraf\.com\/api\/auth\/oauth2\/authorize\?/);
   assert.match(forgegraphLocation, /client_id=omnidat-field-office/);
@@ -204,15 +225,9 @@ test("auth login redirects to OmniAuth passkey, ForgeGraph, and GitHub providers
 
 test("auth callbacks issue provider-specific session cookies", async () => {
   const env = { AUTH_SECRET: "test-auth-secret" };
-  const callback = await worker.fetch(new Request(
-    "https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-omniauth-code&state=returnTo%3D%252Fconsole",
-  ), env, {});
-  const forgegraphCallback = await worker.fetch(new Request(
-    "https://omnidat.gmac.io/api/auth/callback/forgegraph?code=demo-forgegraph-code&state=returnTo%3D%252Fnoc",
-  ), env, {});
-  const githubCallback = await worker.fetch(new Request(
-    "https://omnidat.gmac.io/api/auth/callback/github?code=demo-github-code&state=returnTo%3D%252Fconsole",
-  ), env, {});
+  const callback = await authCallback("omniauth", "demo-omniauth-code", "/console", env);
+  const forgegraphCallback = await authCallback("forgegraph", "demo-forgegraph-code", "/noc", env);
+  const githubCallback = await authCallback("github", "demo-github-code", "/console", env);
   const cookie = callback.headers.get("set-cookie");
   const forgegraphCookie = forgegraphCallback.headers.get("set-cookie");
   const githubCookie = githubCallback.headers.get("set-cookie");
@@ -255,11 +270,7 @@ test("auth callbacks issue provider-specific session cookies", async () => {
 
 test("session endpoint rejects tampered omniauth cookies", async () => {
   const env = { AUTH_SECRET: "test-auth-secret" };
-  const callback = await worker.fetch(
-    new Request("https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-omniauth-code&state=returnTo%3D%252Fconsole"),
-    env,
-    {},
-  );
+  const callback = await authCallback("omniauth", "demo-omniauth-code", "/console", env);
   const cookie = callback.headers.get("set-cookie").replace(/omnidat_session=([^;.]+)(.)/, "omnidat_session=$1x");
   const session = await worker.fetch(new Request("https://omnidat.gmac.io/api/session", {
     headers: { cookie },
@@ -269,6 +280,32 @@ test("session endpoint rejects tampered omniauth cookies", async () => {
   assert.equal(session.status, 200);
   assert.equal(body.status, "anonymous");
   assert.equal(body.sso, "OAuth SSO available");
+});
+
+test("auth callback rejects tampered OAuth state", async () => {
+  const env = { AUTH_SECRET: "test-auth-secret" };
+  const state = await authState("forgegraph", "/noc", env);
+  const tamperedState = state.replace(/.$/, (last) => (last === "x" ? "y" : "x"));
+  const callback = await worker.fetch(
+    new Request(`https://omnidat.gmac.io/api/auth/callback/forgegraph?code=demo-forgegraph-code&state=${encodeURIComponent(tamperedState)}`),
+    env,
+    {},
+  );
+  const body = await callback.json();
+
+  assert.equal(callback.status, 400);
+  assert.equal(body.error, "invalid oauth state");
+});
+
+test("auth callback constrains returnTo to local paths", async () => {
+  const env = { AUTH_SECRET: "test-auth-secret" };
+  const callback = await authCallback("github", "demo-github-code", "https://evil.example/steal", env);
+  const protocolRelativeCallback = await authCallback("omniauth", "demo-omniauth-code", "//evil.example/steal", env);
+
+  assert.equal(callback.status, 302);
+  assert.equal(callback.headers.get("location"), "/console");
+  assert.equal(protocolRelativeCallback.status, 302);
+  assert.equal(protocolRelativeCallback.headers.get("location"), "/console");
 });
 
 test("network status reports X.25 source, directory, and live service reachability", async () => {
