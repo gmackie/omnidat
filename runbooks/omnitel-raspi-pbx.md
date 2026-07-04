@@ -71,6 +71,17 @@ screen:
 ./scripts/verifone-tui --demo food
 ```
 
+To verify terminal-to-bank settlement without the real ShadyBank database
+stack, run the fake OmniBank end-to-end harness:
+
+```sh
+./scripts/e2e-omnibank
+```
+
+This uses the ShadyBank merchant API shape from
+`/Volumes/dev/shady/shadybank/src/apiserver.py`, but writes to local JSONL
+ledgers under `build/e2e-omnibank`.
+
 Expected sale behavior:
 
 ```text

@@ -17,6 +17,8 @@ Files:
 - `telephony-peers.sample.json`: ShadyTel and OmniTel lab interconnect peers.
 - `verifone-simulator-profile.json`: terminal app dial numbers, X.121
   addresses, and Raspberry Pi USB modem lab assumptions.
+- `omnibank-fake-profile.json`: local ShadyBank-compatible fake settlement rail
+  for terminal simulator end-to-end tests.
 - `campsite-apps.sample.json`: provisional and official campsite packet app
   records.
 - `activity-passports.sample.json`: sample passport/handle identities for

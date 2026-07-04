@@ -151,6 +151,13 @@ Run a Nightmarkt POS sale over the simulated terminal path:
 ./scripts/verifone-sim sale 12.50 SBQR-TEST-0001
 ```
 
+Run the same sale through the local fake OmniBank rail, which mirrors the
+checked-out ShadyBank `/api/authorize` and `/api/capture` merchant contract:
+
+```sh
+./scripts/e2e-omnibank
+```
+
 Run a field terminal directory lookup:
 
 ```sh

@@ -7,6 +7,7 @@ from typing import Any
 
 from tools.omnidat_activity import log_activity
 from tools.omnidat_events import append_event
+from tools.omnidat_omnibank import OmniBankFake, settle_sale
 from tools.omnidat_packet import (
     call_service,
     clear_session,
@@ -34,6 +35,7 @@ def simulate_pos_sale(
     log_path: Path | None = None,
     created_at: str | None = None,
     profile_path: Path = DEFAULT_PROFILE,
+    bank: OmniBankFake | None = None,
 ) -> dict[str, Any]:
     profile = load_profile(profile_path)
     program = profile["programs"]["sale"]
@@ -68,25 +70,33 @@ def simulate_pos_sale(
         log_path=log_path,
         created_at=created_at,
     )
-    auth_code = authorization_code(terminal_id, amount)
-    transcript = render_sale_transcript(profile, program, terminal_id, amount, tender, auth_code)
+    merchant_id = profile.get("merchant_id", "OMNI-NIGHTMARKT")
+    bank_result = (
+        settle_sale(bank, terminal_id, amount, tender, merchant_id, created_at=created_at)
+        if bank is not None
+        else None
+    )
+    auth_code = bank_result["auth_code"] if bank_result else authorization_code(terminal_id, amount)
+    transcript = render_sale_transcript(profile, program, terminal_id, amount, tender, auth_code, bank_result)
     result = {
         "terminal_id": terminal_id,
         "program": program["app"],
         "dial_number": program["dial_number"],
         "x121": program["x121"],
         "packet_service": program["packet_service"],
-        "status": "approved",
+        "status": "captured" if bank_result else "approved",
         "auth_code": auth_code,
         "session_id": cleared["session_id"],
         "transcript": transcript,
     }
+    if bank_result is not None:
+        result["bank"] = bank_result
     emit_terminal_event(
         log_path,
         "terminal.receipt",
         terminal_id,
         program,
-        {"status": "approved", "auth_code": auth_code, "amount": amount},
+        {"status": result["status"], "auth_code": auth_code, "amount": amount},
         created_at=created_at,
     )
     return result
@@ -341,23 +351,26 @@ def render_sale_transcript(
     amount: str,
     tender: str,
     auth_code: str,
+    bank_result: dict[str, Any] | None = None,
 ) -> str:
-    return "\n".join(
-        [
-            "VERIFONE OMNIDAT SIMULATOR",
-            f"MODEL {profile['terminal_family']}",
-            f"APP {program['app']}",
-            f"TERM {terminal_id}",
-            f"DIAL {program['dial_number']}",
-            f"CONNECT {profile['default_baud']}",
-            f"X121 {program['x121']}",
-            f"POS.SALE|{terminal_id}|{amount}|{redact_tender(tender)}",
-            f"AUTH {auth_code}",
-            "RC 00",
-            "APPROVED",
-            "",
-        ]
-    )
+    lines = [
+        "VERIFONE OMNIDAT SIMULATOR",
+        f"MODEL {profile['terminal_family']}",
+        f"APP {program['app']}",
+        f"TERM {terminal_id}",
+        f"DIAL {program['dial_number']}",
+        f"CONNECT {profile['default_baud']}",
+        f"X121 {program['x121']}",
+        f"POS.SALE|{terminal_id}|{amount}|{redact_tender(tender)}",
+        f"AUTH {auth_code}",
+        "RC 00",
+    ]
+    if bank_result is not None:
+        lines.extend(bank_result["transcript"].splitlines())
+    if bank_result is None:
+        lines.append("APPROVED")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def render_directory_transcript(
@@ -503,6 +516,8 @@ def main() -> int:
     sale_parser = subparsers.add_parser("sale")
     sale_parser.add_argument("amount")
     sale_parser.add_argument("tender")
+    sale_parser.add_argument("--omnibank", action="store_true", help="settle against local fake OmniBank")
+    sale_parser.add_argument("--omnibank-ledger", default="build/omnibank-ledger.jsonl", type=Path)
 
     directory_parser = subparsers.add_parser("directory")
     directory_parser.add_argument("query")
@@ -530,6 +545,7 @@ def main() -> int:
             args.tender,
             log_path=args.log,
             profile_path=args.profile,
+            bank=OmniBankFake(args.omnibank_ledger) if args.omnibank else None,
         )
     elif args.command == "directory":
         result = simulate_field_directory(

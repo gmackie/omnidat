@@ -1,0 +1,39 @@
+{
+  "profile_id": "omnibank-fake-shadybank-contract",
+  "display_name": "OmniBank Fake",
+  "source_repo": "/Volumes/dev/shady/shadybank",
+  "rail": "OMNIBANK_FAKE_SHADYBANK_CONTRACT",
+  "contract": {
+    "authorize": {
+      "method": "POST",
+      "path": "/api/authorize"
+    },
+    "capture": {
+      "method": "POST",
+      "path": "/api/capture"
+    },
+    "void": {
+      "method": "POST",
+      "path": "/api/void"
+    },
+    "reverse": {
+      "method": "POST",
+      "path": "/api/reverse"
+    },
+    "credit": {
+      "method": "POST",
+      "path": "/api/credit"
+    }
+  },
+  "merchant": {
+    "merchant_id": "OMNI-NIGHTMARKT",
+    "display_name": "OMNIDAT Nightmarkt Test Merchant",
+    "token_storage": "FEP_ONLY"
+  },
+  "test_cards": [
+    {
+      "pan": "4242424242424242",
+      "label": "approved test card"
+    }
+  ]
+}
