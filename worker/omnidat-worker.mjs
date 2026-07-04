@@ -378,6 +378,7 @@ const weekendSimulation = {
     networkFeeLedger: {
       path: "build/weekend-sim/weekend-network-fees.jsonl",
       records: 1544,
+      url: "/api/weekend-simulation/weekend-network-fees.jsonl",
     },
     billingStatements: {
       path: "build/weekend-sim/billing-statements",
@@ -497,6 +498,11 @@ const htmlHeaders = {
 
 const textHeaders = {
   "content-type": "text/plain; charset=utf-8",
+  "cache-control": "public, max-age=30",
+};
+
+const ndjsonHeaders = {
+  "content-type": "application/x-ndjson; charset=utf-8",
   "cache-control": "public, max-age=30",
 };
 
@@ -1089,7 +1095,9 @@ function weekendDashboardPage() {
         report: "Weekend Report",
       };
       const count = item.events || item.records || "filed";
-      return `<div><span>${labels[key] || key}</span><strong>${count}</strong><small>${item.path}</small></div>`;
+      const label = labels[key] || key;
+      const labelHtml = item.url ? `<a href="${item.url}">${label}</a>` : label;
+      return `<div><span>${labelHtml}</span><strong>${count}</strong><small>${item.path}</small></div>`;
     })
     .join("");
   const merchantRows = weekendSimulation.samples.merchantSetups
@@ -1286,6 +1294,47 @@ function weekendSimulationResponse() {
   return json({
     service,
     ...weekendSimulation,
+  });
+}
+
+const networkFeePolicyByMode = {
+  percentage: { policyId: "NF-POS-PERCENT", appliesTo: "pos-sale", rate: "1.25%" },
+  "per-message": { policyId: "NF-X25-PAD-MSG", appliesTo: "terminal-session", rate: "0.03" },
+  flat: { policyId: "NF-CAMP-FLAT", appliesTo: "campsite-x121-provisioning", rate: "5.00" },
+  waived: { policyId: "NF-PUBLIC-WAIVER", appliesTo: "activity-passport", rate: "0.00" },
+};
+
+function networkFeeLedgerText() {
+  const lines = [];
+  for (const [mode, values] of Object.entries(weekendSimulation.networkFees.byMode)) {
+    const policy = networkFeePolicyByMode[mode];
+    const records = Number(values.records);
+    const assessed = Number(values.assessed);
+    const feeAmount = records === 0 ? "0.00" : (assessed / records).toFixed(2);
+    for (let sequence = 1; sequence <= records; sequence += 1) {
+      lines.push(JSON.stringify({
+        type: "network_fee.assessed",
+        source: "omnidat-fee-engine",
+        createdAt: "2028-07-03T09:00:00-07:00",
+        payload: {
+          policyId: policy.policyId,
+          mode,
+          appliesTo: policy.appliesTo,
+          currency: weekendSimulation.networkFees.currency,
+          rate: policy.rate,
+          sequence,
+          feeAmount,
+          status: mode === "waived" ? "waived" : "assessed",
+        },
+      }));
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function networkFeeLedgerArtifact() {
+  return new Response(networkFeeLedgerText(), {
+    headers: ndjsonHeaders,
   });
 }
 
@@ -1764,6 +1813,10 @@ export default {
 
     if (url.pathname === "/api/weekend-simulation") {
       return weekendSimulationResponse();
+    }
+
+    if (url.pathname === "/api/weekend-simulation/weekend-network-fees.jsonl") {
+      return networkFeeLedgerArtifact();
     }
 
     if (url.pathname.startsWith("/api/weekend-simulation/billing-statements/")) {
