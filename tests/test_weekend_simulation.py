@@ -63,8 +63,11 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertEqual(report["network_fees"]["statements"]["by_account"][0]["account_id"], "OMNI-NIGHTMARKT")
             self.assertEqual(report["network_fees"]["statements"]["by_account"][0]["gross"], "1400.00")
             self.assertEqual(report["network_fees"]["statements"]["by_account"][0]["network_fees"], "17.50")
+            self.assertEqual(report["network_fees"]["statements"]["by_account"][0]["artifact"], "billing-statements/OMNI-NIGHTMARKT.txt")
             self.assertEqual(report["network_fees"]["statements"]["by_account"][-1]["account_id"], "OMNIDAT-CAMPSITE-BUREAU")
             self.assertEqual(report["network_fees"]["statements"]["by_account"][-1]["network_fees"], "60.00")
+            self.assertEqual(report["network_fees"]["statements"]["by_account"][-1]["artifact"], "billing-statements/OMNIDAT-CAMPSITE-BUREAU.txt")
+            self.assertEqual(report["evidence"]["billing_statements"]["records"], 7)
             self.assertEqual(report["evidence"]["network_fee_ledger"]["records"], 1544)
             self.assertEqual(report["samples"]["forms"][0]["form_type"], "campsite-provisioning")
             self.assertEqual(report["samples"]["terminal_sessions"][0]["program"], "OMNISALE.TCL")
@@ -74,6 +77,10 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertTrue((runtime_dir / "weekend-events.jsonl").exists())
             self.assertTrue((runtime_dir / "weekend-bank-ledger.jsonl").exists())
             self.assertTrue((runtime_dir / "weekend-network-fees.jsonl").exists())
+            self.assertTrue((runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").exists())
+            self.assertTrue((runtime_dir / "billing-statements" / "OMNIDAT-CAMPSITE-BUREAU.txt").exists())
+            self.assertIn("OMNIDAT NETWORK FEE STATEMENT", (runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").read_text())
+            self.assertIn("NETWORK FEES 17.50 OmniBucks", (runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").read_text())
 
 
 if __name__ == "__main__":

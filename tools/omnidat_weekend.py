@@ -72,6 +72,7 @@ def run_weekend_simulation(
     forms = file_weekend_forms(events)
     terminals = run_terminal_sessions(events)
     network_fees = assess_network_fees(fees, night_market, terminals, forms, provisioning)
+    statement_count = write_statement_artifacts(runtime_dir, network_fees["statements"]["by_account"])
     event_log_events = read_events(event_log)
     event_summary = summarize_weekend_events(event_log_events)
     ledger_events = read_events(bank_ledger)
@@ -161,6 +162,10 @@ def run_weekend_simulation(
             "network_fee_ledger": {
                 "path": str(fee_ledger),
                 "records": len(fee_events),
+            },
+            "billing_statements": {
+                "path": str(runtime_dir / "billing-statements"),
+                "records": statement_count,
             },
             "report": {
                 "path": str(report_path),
@@ -464,6 +469,7 @@ def fee_statements(night_market: dict[str, Any], by_mode: dict[str, dict[str, An
                 "gross": money(gross),
                 "network_fees": money(gross * Decimal("0.0125")),
                 "currency": "OmniBucks",
+                "artifact": billing_statement_artifact(merchant["merchant_id"]),
             }
         )
     statements.append(
@@ -474,6 +480,7 @@ def fee_statements(night_market: dict[str, Any], by_mode: dict[str, dict[str, An
             "gross": "0.00",
             "network_fees": money(by_mode["per-message"]["assessed"]),
             "currency": "OmniBucks",
+            "artifact": billing_statement_artifact("OMNIDAT-TERMINAL-BUREAU"),
         }
     )
     statements.append(
@@ -484,6 +491,7 @@ def fee_statements(night_market: dict[str, Any], by_mode: dict[str, dict[str, An
             "gross": "0.00",
             "network_fees": money(by_mode["flat"]["assessed"]),
             "currency": "OmniBucks",
+            "artifact": billing_statement_artifact("OMNIDAT-CAMPSITE-BUREAU"),
         }
     )
     return {
@@ -491,6 +499,34 @@ def fee_statements(night_market: dict[str, Any], by_mode: dict[str, dict[str, An
         "total_assessed": money(sum((Decimal(statement["network_fees"]) for statement in statements), Decimal("0.00"))),
         "by_account": statements,
     }
+
+
+def billing_statement_artifact(account_id: str) -> str:
+    return f"billing-statements/{account_id}.txt"
+
+
+def write_statement_artifacts(runtime_dir: Path, statements: list[dict[str, Any]]) -> int:
+    for statement in statements:
+        artifact_path = runtime_dir / statement["artifact"]
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_text(statement_text(statement))
+    return len(statements)
+
+
+def statement_text(statement: dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "OMNIDAT NETWORK FEE STATEMENT",
+            "EXCHANGE 88 WEEKEND REHEARSAL",
+            f"ACCOUNT {statement['account_id']}",
+            f"NAME {statement['name']}",
+            f"KIND {statement['kind']}",
+            f"GROSS {statement['gross']} {statement['currency']}",
+            f"NETWORK FEES {statement['network_fees']} {statement['currency']}",
+            "STATUS FILED",
+            "",
+        ]
+    )
 
 
 def weekend_order(window: str, sequence: int, passport_id: str, item_id: str, quantity: int, created_at: str) -> dict[str, Any]:

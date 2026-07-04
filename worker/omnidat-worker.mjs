@@ -351,13 +351,13 @@ const weekendSimulation = {
       count: 7,
       totalAssessed: "181.86",
       byAccount: [
-        { accountId: "OMNI-NIGHTMARKT", name: "NiteMarkt", kind: "merchant-pos", gross: "1400.00", networkFees: "17.50", currency: "OmniBucks" },
-        { accountId: "OMNI-TEA", name: "Packet Tea Counter", kind: "merchant-pos", gross: "1600.00", networkFees: "20.00", currency: "OmniBucks" },
-        { accountId: "OMNI-ZINE", name: "Zine Exchange", kind: "merchant-pos", gross: "1800.00", networkFees: "22.50", currency: "OmniBucks" },
-        { accountId: "OMNI-PARTS", name: "Cable Parts Desk", kind: "merchant-pos", gross: "2000.00", networkFees: "25.00", currency: "OmniBucks" },
-        { accountId: "OMNI-MERCH", name: "Camp Merch Table", kind: "merchant-pos", gross: "2200.00", networkFees: "27.50", currency: "OmniBucks" },
-        { accountId: "OMNIDAT-TERMINAL-BUREAU", name: "OMNIDAT Terminal Bureau", kind: "terminal-sessions", gross: "0.00", networkFees: "9.36", currency: "OmniBucks" },
-        { accountId: "OMNIDAT-CAMPSITE-BUREAU", name: "OMNIDAT Campsite Bureau", kind: "campsite-provisioning", gross: "0.00", networkFees: "60.00", currency: "OmniBucks" },
+        { accountId: "OMNI-NIGHTMARKT", name: "NiteMarkt", kind: "merchant-pos", gross: "1400.00", networkFees: "17.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-NIGHTMARKT.txt" },
+        { accountId: "OMNI-TEA", name: "Packet Tea Counter", kind: "merchant-pos", gross: "1600.00", networkFees: "20.00", currency: "OmniBucks", artifact: "billing-statements/OMNI-TEA.txt" },
+        { accountId: "OMNI-ZINE", name: "Zine Exchange", kind: "merchant-pos", gross: "1800.00", networkFees: "22.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-ZINE.txt" },
+        { accountId: "OMNI-PARTS", name: "Cable Parts Desk", kind: "merchant-pos", gross: "2000.00", networkFees: "25.00", currency: "OmniBucks", artifact: "billing-statements/OMNI-PARTS.txt" },
+        { accountId: "OMNI-MERCH", name: "Camp Merch Table", kind: "merchant-pos", gross: "2200.00", networkFees: "27.50", currency: "OmniBucks", artifact: "billing-statements/OMNI-MERCH.txt" },
+        { accountId: "OMNIDAT-TERMINAL-BUREAU", name: "OMNIDAT Terminal Bureau", kind: "terminal-sessions", gross: "0.00", networkFees: "9.36", currency: "OmniBucks", artifact: "billing-statements/OMNIDAT-TERMINAL-BUREAU.txt" },
+        { accountId: "OMNIDAT-CAMPSITE-BUREAU", name: "OMNIDAT Campsite Bureau", kind: "campsite-provisioning", gross: "0.00", networkFees: "60.00", currency: "OmniBucks", artifact: "billing-statements/OMNIDAT-CAMPSITE-BUREAU.txt" },
       ],
     },
   },
@@ -378,6 +378,10 @@ const weekendSimulation = {
     networkFeeLedger: {
       path: "build/weekend-sim/weekend-network-fees.jsonl",
       records: 1544,
+    },
+    billingStatements: {
+      path: "build/weekend-sim/billing-statements",
+      records: 7,
     },
     report: {
       path: "build/weekend-sim/weekend-report.json",
@@ -1081,6 +1085,7 @@ function weekendDashboardPage() {
         bankLedger: "Bank Ledger",
         queueOrders: "Queue Orders",
         networkFeeLedger: "Network Fee Ledger",
+        billingStatements: "Billing Statements",
         report: "Weekend Report",
       };
       const count = item.events || item.records || "filed";
@@ -1097,7 +1102,7 @@ function weekendDashboardPage() {
     .map((session) => `<div><span>${session.program}</span><strong>${session.status}</strong><small>${session.terminalId}</small></div>`)
     .join("");
   const statementRows = weekendSimulation.networkFees.statements.byAccount
-    .map((statement) => `<div><span>${statement.accountId}</span><strong>${statement.networkFees}</strong><small>${statement.kind} / gross ${statement.gross} ${statement.currency}</small></div>`)
+    .map((statement) => `<div><span>${statement.accountId}</span><strong>${statement.networkFees}</strong><small>${statement.kind} / gross ${statement.gross} ${statement.currency} / ${statement.artifact}</small></div>`)
     .join("");
   return new Response(`<!doctype html>
 <html lang="en">
