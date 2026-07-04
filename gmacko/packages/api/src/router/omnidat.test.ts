@@ -878,6 +878,46 @@ describe("omnidat sync and authority procedures", () => {
     ).toBe("field kit unreachable");
   });
 
+  it("dashboard and noc expose sync staleness when a field kit holds authority", async () => {
+    const fake = createSyncFakeDb();
+    const syncSourceRow = fake.rowsFor(omnidatSyncSource)[0];
+    if (syncSourceRow) {
+      syncSourceRow.lastSyncAt = new Date("2026-07-04T14:00:00Z");
+      syncSourceRow.lastPushedSeq = 7;
+    }
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    const dashboard = await syncCaller.omnidat.dashboard({
+      eventId: EVENT_ID,
+      now: "2026-07-04T14:06:00Z",
+    });
+    const noc = await syncCaller.omnidat.noc({
+      eventId: EVENT_ID,
+      now: "2026-07-04T14:06:00Z",
+    });
+
+    expect(dashboard.sync).toMatchObject({
+      holder: "field",
+      epoch: 1,
+      sourceId: "field-kit-01",
+      stalenessSeconds: 360,
+    });
+    expect(noc.sync?.holder).toBe("field");
+    expect(noc.sync?.stalenessSeconds).toBe(360);
+  });
+
+  it("dashboard sync reports cloud authority when no field kit is registered", async () => {
+    const fake = createSyncFakeDb();
+    fake.rowsFor(omnidatSyncSource).length = 0;
+    fake.rowsFor(omnidatEventAuthority).length = 0;
+    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+
+    const dashboard = await syncCaller.omnidat.dashboard({ eventId: EVENT_ID });
+
+    expect(dashboard.sync).toMatchObject({ holder: "cloud", epoch: 0 });
+    expect(dashboard.sync?.sourceId).toBeNull();
+  });
+
   it("transferAuthority refuses a target that has not caught up", async () => {
     const fake = createSyncFakeDb();
     // Cloud holds authority (epoch 2) and has journaled past the kit's view.

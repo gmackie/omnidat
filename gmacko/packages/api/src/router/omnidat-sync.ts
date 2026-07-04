@@ -351,6 +351,50 @@ export async function verifySyncToken(
   return match;
 }
 
+export type SyncStatus = {
+  holder: string;
+  epoch: number;
+  sourceId: string | null;
+  lastSyncAt: Date | null;
+  stalenessSeconds: number | null;
+};
+
+/**
+ * Server-computed sync status for dashboards. Staleness is measured against a
+ * server-supplied `now`, never the browser clock, so stale field data is never
+ * presented as live. Returns the freshest field-kit source while the field
+ * holds authority; reports cloud authority otherwise.
+ */
+export async function computeSyncStatus(
+  db: OmnidatSyncDb | undefined,
+  eventId: string | null | undefined,
+  now: Date = new Date(),
+): Promise<SyncStatus> {
+  const authority = await getCurrentAuthority(db, eventId);
+  const sources = await listSyncSources(db);
+  const holderSource =
+    authority.holder === "field"
+      ? sources
+          .filter((source) => source.sourceId === authority.holderSourceId)
+          .concat(sources.filter((source) => source.sourceKind === "field-kit"))[0]
+      : undefined;
+
+  const lastSyncAt = holderSource?.lastSyncAt
+    ? new Date(holderSource.lastSyncAt)
+    : null;
+  const stalenessSeconds = lastSyncAt
+    ? Math.max(0, Math.round((now.getTime() - lastSyncAt.getTime()) / 1000))
+    : null;
+
+  return {
+    holder: authority.holder,
+    epoch: authority.epoch,
+    sourceId: holderSource?.sourceId ?? null,
+    lastSyncAt,
+    stalenessSeconds,
+  };
+}
+
 export async function listSyncSources(db: OmnidatSyncDb | undefined) {
   if (!db) return [];
   const rows = await selectRows<SyncSourceRow>(db, omnidatSyncSource);

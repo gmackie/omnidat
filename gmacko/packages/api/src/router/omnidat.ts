@@ -41,6 +41,7 @@ import {
 } from "./omnidat-persistence";
 import {
   applyJournalBatch,
+  computeSyncStatus,
   getCurrentAuthority,
   journalCloudWrite,
   listSyncSources,
@@ -54,6 +55,17 @@ import {
   getShadyBankIntegrationProfile,
   type ShadyBankClientConfig,
 } from "./shadybank-client";
+
+const syncViewInput = z
+  .object({
+    eventId: z.string().min(1).nullish(),
+    now: z.string().min(1).optional(),
+  })
+  .optional();
+
+function syncViewNow(input: { now?: string } | null | undefined) {
+  return input?.now ? new Date(input.now) : new Date();
+}
 
 function syncDb(ctx: unknown) {
   return (ctx as { db?: OmnidatSyncDb }).db;
@@ -120,7 +132,7 @@ function settleIsoResponseWithShadyBankAuth(
 }
 
 export const omnidatRouter = {
-  dashboard: publicProcedure.query(async ({ ctx }) => {
+  dashboard: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const operationalState =
       (await loadPersistentOperationalState(
         (ctx as { db?: OmnidatPersistenceDb }).db,
@@ -151,6 +163,11 @@ export const omnidatRouter = {
       },
       recentProvisioning: operationalState.provisioningRequests,
       billingAccounts: operationalState.billingAccounts,
+      sync: await computeSyncStatus(
+        syncDb(ctx),
+        input?.eventId ?? null,
+        syncViewNow(input),
+      ),
     };
   }),
 
@@ -165,7 +182,7 @@ export const omnidatRouter = {
     ).services,
   })),
 
-  noc: publicProcedure.query(async ({ ctx }) => {
+  noc: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const snapshot = buildNetworkSnapshot();
     const operationalState =
       (await loadPersistentOperationalState(
@@ -181,6 +198,11 @@ export const omnidatRouter = {
       },
       circuits: operationalState.circuits,
       services: operationalState.services,
+      sync: await computeSyncStatus(
+        syncDb(ctx),
+        input?.eventId ?? null,
+        syncViewNow(input),
+      ),
     };
   }),
 

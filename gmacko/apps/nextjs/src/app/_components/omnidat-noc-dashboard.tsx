@@ -16,6 +16,7 @@ export function OmnidatNocDashboard() {
           {noc.data?.center ?? "Exchange 88 Network Operations Center"}
         </p>
         <h1 className="mt-2 text-3xl font-black">Network Operations Center</h1>
+        {noc.data?.sync ? <SyncBanner sync={noc.data.sync} /> : null}
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <Status label="Protocol" value={noc.data?.adapter.protocol ?? "X.25"} />
           <Status label="Adapter" value={noc.data?.adapter.source ?? "loading"} />
@@ -130,5 +131,51 @@ function Status(props: { label: string; value: string }) {
       <p className="text-sm text-[#c0a36e]">{props.label}</p>
       <p className="mt-2 font-mono text-lg font-bold">{props.value}</p>
     </div>
+  );
+}
+
+type SyncState = {
+  holder: string;
+  epoch: number;
+  sourceId: string | null;
+  lastSyncAt: string | Date | null;
+  stalenessSeconds: number | null;
+};
+
+const STALENESS_ESCALATION_SECONDS = 300;
+
+// Renders the honest field-data banner from the server-computed staleness.
+// The browser clock is never consulted, so stale field data is never shown as
+// live.
+export function syncBannerText(sync: SyncState): string {
+  if (sync.holder !== "field") {
+    return `CLOUD PRIMARY (EPOCH ${sync.epoch})`;
+  }
+  if (sync.stalenessSeconds === null || sync.lastSyncAt === null) {
+    return "FIELD AUTHORITATIVE — AWAITING FIRST SYNC";
+  }
+  const at = new Date(sync.lastSyncAt);
+  const clock = `${String(at.getUTCHours()).padStart(2, "0")}:${String(
+    at.getUTCMinutes(),
+  ).padStart(2, "0")}`;
+  const minutes = Math.floor(sync.stalenessSeconds / 60);
+  const age = minutes < 1 ? "LESS THAN 1 MIN AGO" : `${minutes} MIN AGO`;
+  return `FIELD DATA AS OF ${clock} (${age})`;
+}
+
+function SyncBanner(props: { sync: SyncState }) {
+  const escalated =
+    props.sync.holder === "field" &&
+    (props.sync.stalenessSeconds ?? 0) > STALENESS_ESCALATION_SECONDS;
+  const tone = escalated
+    ? "border-[#a1471f] bg-[#2c1a12] text-[#f0a875]"
+    : "border-[#4f6b3a] bg-[#1a2413] text-[#9ed783]";
+  return (
+    <p
+      className={`mt-3 rounded border px-3 py-2 font-mono text-sm font-bold uppercase ${tone}`}
+      data-testid="sync-banner"
+    >
+      {syncBannerText(props.sync)}
+    </p>
   );
 }
