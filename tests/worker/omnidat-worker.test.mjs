@@ -406,6 +406,10 @@ test("admin and NOC APIs expose billing, provisioning, and circuit state", async
   assert.ok(admin.body.provisioning.pending.some((request) => request.campsiteName === "Camp Laminar"));
   assert.equal(noc.response.status, 200);
   assert.ok(noc.body.circuits.some((circuit) => circuit.x121 === "311088030100" && circuit.status === "up"));
+  assert.equal(noc.body.weekendOperations.scenario, "omnidat-full-camp-weekend");
+  assert.equal(noc.body.weekendOperations.evidence.eventLog.events, 5888);
+  assert.equal(noc.body.terminalHealth.totalSessions, 312);
+  assert.ok(noc.body.incidentQueue.some((incident) => incident.kind === "radio-degradation" && incident.status === "watching"));
   assert.equal(billing.response.status, 200);
   assert.ok(billing.body.accounts.some((account) => account.type === "atm-settlement"));
 });
@@ -453,6 +457,10 @@ test("admin and NOC pages render operational controls", async () => {
   assert.match(nocHtml, /Network Operations Center/);
   assert.match(nocHtml, /Circuit State/);
   assert.match(nocHtml, /X\.25 Adapter/);
+  assert.match(nocHtml, /Weekend Operations/);
+  assert.match(nocHtml, /Incident Queue/);
+  assert.match(nocHtml, /Terminal Health/);
+  assert.match(nocHtml, /5888 events/);
 });
 
 test("terminal directory endpoint returns campsite app entries", async () => {

@@ -382,6 +382,46 @@ const weekendSimulation = {
   ],
 };
 
+const nocIncidentQueue = [
+  {
+    id: "NOC-2028-0001",
+    kind: "radio-degradation",
+    status: "watching",
+    severity: "medium",
+    circuit: "311088040777",
+    summary: "Meshtastic PAD latency is elevated but reachable.",
+  },
+  {
+    id: "NOC-2028-0002",
+    kind: "food-window-load",
+    status: "tracking",
+    severity: "low",
+    circuit: "311088020501",
+    summary: "Miliways queue is at simulated dinner load with all tickets accepted.",
+  },
+];
+
+function nocWeekendOperations() {
+  return {
+    scenario: weekendSimulation.scenario,
+    status: weekendSimulation.status,
+    campers: weekendSimulation.campers.count,
+    nightMarketSales: weekendSimulation.nightMarket.sales,
+    miliwaysOrders: weekendSimulation.miliways.orders,
+    formsFiled: weekendSimulation.forms.totalFiled,
+    x121Verified: weekendSimulation.x121.verified,
+    evidence: weekendSimulation.evidence,
+  };
+}
+
+function nocTerminalHealth() {
+  return {
+    totalSessions: weekendSimulation.terminals.totalSessions,
+    byProgram: weekendSimulation.terminals.byProgram,
+    recent: weekendSimulation.samples.terminalSessions,
+  };
+}
+
 const htmlHeaders = {
   "content-type": "text/html; charset=utf-8",
   "cache-control": "public, max-age=60",
@@ -919,11 +959,35 @@ function adminPage() {
 }
 
 function nocPage() {
+  const operations = nocWeekendOperations();
+  const terminalHealth = nocTerminalHealth();
+  const incidentRows = nocIncidentQueue
+    .map((incident) => `<section class="panel"><div class="label">${incident.id}</div><p>${incident.summary}</p><p>Status: ${incident.status}</p><p>Severity: ${incident.severity}</p></section>`)
+    .join("");
+  const terminalRows = Object.entries(terminalHealth.byProgram)
+    .map(([program, count]) => `<section class="panel"><div class="label">${program}</div><p>${count} sessions</p><p>Status: reporting</p></section>`)
+    .join("");
   return operationalPage("Network Operations Center", `
     <h1>Network Operations Center</h1>
     <p>Monitor X.25 Adapter status, Circuit State, service reachability, PAD transports, and degraded radio links.</p>
+    <h2>X.25 Adapter</h2>
     <div class="grid">
       ${circuitState.map((circuit) => `<section class="panel"><div class="label">${circuit.x121}</div><p>${circuit.service}</p><p>Status: ${circuit.status}</p><p>Transport: ${circuit.transport}</p></section>`).join("")}
+    </div>
+    <h2>Weekend Operations</h2>
+    <div class="grid">
+      <section class="panel"><div class="label">Campers</div><p>${operations.campers} OmniAuth identities seeded.</p></section>
+      <section class="panel"><div class="label">Night Market</div><p>${operations.nightMarketSales} OmniBank POS sales captured.</p></section>
+      <section class="panel"><div class="label">Miliways</div><p>${operations.miliwaysOrders} food orders accepted.</p></section>
+      <section class="panel"><div class="label">Evidence</div><p>${operations.evidence.eventLog.events} events / ${operations.evidence.bankLedger.events} bank ledger entries.</p></section>
+    </div>
+    <h2>Incident Queue</h2>
+    <div class="grid">
+      ${incidentRows}
+    </div>
+    <h2>Terminal Health</h2>
+    <div class="grid">
+      ${terminalRows}
     </div>
   `);
 }
@@ -1447,6 +1511,9 @@ function nocStatusResponse() {
       status: "operational",
     },
     circuits: circuitState,
+    weekendOperations: nocWeekendOperations(),
+    incidentQueue: nocIncidentQueue,
+    terminalHealth: nocTerminalHealth(),
   });
 }
 
