@@ -347,6 +347,19 @@ const weekendSimulation = {
       flat: { records: 12, assessed: "60.00" },
       waived: { records: 220, assessed: "0.00" },
     },
+    statements: {
+      count: 7,
+      totalAssessed: "181.86",
+      byAccount: [
+        { accountId: "OMNI-NIGHTMARKT", name: "NiteMarkt", kind: "merchant-pos", gross: "1400.00", networkFees: "17.50", currency: "OmniBucks" },
+        { accountId: "OMNI-TEA", name: "Packet Tea Counter", kind: "merchant-pos", gross: "1600.00", networkFees: "20.00", currency: "OmniBucks" },
+        { accountId: "OMNI-ZINE", name: "Zine Exchange", kind: "merchant-pos", gross: "1800.00", networkFees: "22.50", currency: "OmniBucks" },
+        { accountId: "OMNI-PARTS", name: "Cable Parts Desk", kind: "merchant-pos", gross: "2000.00", networkFees: "25.00", currency: "OmniBucks" },
+        { accountId: "OMNI-MERCH", name: "Camp Merch Table", kind: "merchant-pos", gross: "2200.00", networkFees: "27.50", currency: "OmniBucks" },
+        { accountId: "OMNIDAT-TERMINAL-BUREAU", name: "OMNIDAT Terminal Bureau", kind: "terminal-sessions", gross: "0.00", networkFees: "9.36", currency: "OmniBucks" },
+        { accountId: "OMNIDAT-CAMPSITE-BUREAU", name: "OMNIDAT Campsite Bureau", kind: "campsite-provisioning", gross: "0.00", networkFees: "60.00", currency: "OmniBucks" },
+      ],
+    },
   },
   evidence: {
     eventLog: {
@@ -1083,6 +1096,9 @@ function weekendDashboardPage() {
   const terminalEvidenceRows = weekendSimulation.samples.terminalSessions
     .map((session) => `<div><span>${session.program}</span><strong>${session.status}</strong><small>${session.terminalId}</small></div>`)
     .join("");
+  const statementRows = weekendSimulation.networkFees.statements.byAccount
+    .map((statement) => `<div><span>${statement.accountId}</span><strong>${statement.networkFees}</strong><small>${statement.kind} / gross ${statement.gross} ${statement.currency}</small></div>`)
+    .join("");
   return new Response(`<!doctype html>
 <html lang="en">
 <head>
@@ -1191,6 +1207,13 @@ ${weekendSimulation.terminalFeed.join("\n")}</pre>
       <div class="grid">
         <section class="panel ledger-list">${merchantRows}</section>
         <section class="panel"><div class="label">Settlement</div><p>${weekendSimulation.merchants.count} merchants have OmniAuth identities, OmniBank accounts, OmniBucks settlement, and Verifone terminal IDs ready for X.25 POS traffic.</p></section>
+      </div>
+    </section>
+    <section class="band">
+      <h2>Billing Statements</h2>
+      <div class="grid">
+        <section class="panel ledger-list">${statementRows}</section>
+        <section class="panel"><div class="label">Network Fees</div><p>${weekendSimulation.networkFees.statements.count} statements total ${weekendSimulation.networkFees.statements.totalAssessed} ${weekendSimulation.networkFees.currency} across merchant POS, terminal sessions, and campsite provisioning.</p></section>
       </div>
     </section>
     <section class="band">

@@ -339,6 +339,10 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.networkFees.totalAssessed, "181.86");
   assert.equal(body.networkFees.byMode.percentage.records, 1000);
   assert.equal(body.networkFees.byMode["per-message"].records, 312);
+  assert.equal(body.networkFees.statements.count, 7);
+  assert.equal(body.networkFees.statements.totalAssessed, "181.86");
+  assert.equal(body.networkFees.statements.byAccount[0].accountId, "OMNI-NIGHTMARKT");
+  assert.equal(body.networkFees.statements.byAccount[0].networkFees, "17.50");
   assert.equal(body.samples.forms[0].formType, "campsite-provisioning");
   assert.equal(body.samples.terminalSessions[0].program, "OMNISALE.TCL");
   assert.equal(body.samples.merchantSetups[0].settlementCurrency, "OmniBucks");
@@ -361,6 +365,8 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /Evidence Files/);
   assert.match(html, /Network Fee Ledger/);
   assert.match(html, /181\.86/);
+  assert.match(html, /Billing Statements/);
+  assert.match(html, /OMNIDAT-CAMPSITE-BUREAU/);
   assert.match(html, /Merchant Accounts/);
   assert.match(html, /Form Inbox/);
   assert.match(html, /Recent Terminal Evidence/);

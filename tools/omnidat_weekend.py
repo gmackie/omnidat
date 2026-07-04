@@ -235,6 +235,7 @@ def run_night_market(
     sales = 0
     captured = 0
     totals_by_night = {}
+    totals_by_merchant = {merchant["merchant_id"]: Decimal("0.00") for merchant in MERCHANTS}
     sale_count_per_night = max(1, camper_count // 2)
     for night_index, night in enumerate(NIGHT_MARKET_NIGHTS):
         night_total = Decimal("0.00")
@@ -270,6 +271,7 @@ def run_night_market(
             }, created_at=created_at)
             camper["balance"] -= amount
             merchant_balances[merchant["merchant_id"]] += amount
+            totals_by_merchant[merchant["merchant_id"]] += amount
             sales += 1
             captured += 1
             night_total += amount
@@ -293,6 +295,7 @@ def run_night_market(
         "sales": sales,
         "captured": captured,
         "totals_by_night": totals_by_night,
+        "totals_by_merchant": {merchant_id: money(total) for merchant_id, total in totals_by_merchant.items()},
     }
 
 
@@ -444,7 +447,49 @@ def assess_network_fees(
             mode: {"records": values["records"], "assessed": money(values["assessed"])}
             for mode, values in by_mode.items()
         },
+        "statements": fee_statements(night_market, by_mode),
         "policies": policies,
+    }
+
+
+def fee_statements(night_market: dict[str, Any], by_mode: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    statements = []
+    for merchant in MERCHANTS:
+        gross = Decimal(night_market["totals_by_merchant"][merchant["merchant_id"]])
+        statements.append(
+            {
+                "account_id": merchant["merchant_id"],
+                "name": merchant["name"],
+                "kind": "merchant-pos",
+                "gross": money(gross),
+                "network_fees": money(gross * Decimal("0.0125")),
+                "currency": "OmniBucks",
+            }
+        )
+    statements.append(
+        {
+            "account_id": "OMNIDAT-TERMINAL-BUREAU",
+            "name": "OMNIDAT Terminal Bureau",
+            "kind": "terminal-sessions",
+            "gross": "0.00",
+            "network_fees": money(by_mode["per-message"]["assessed"]),
+            "currency": "OmniBucks",
+        }
+    )
+    statements.append(
+        {
+            "account_id": "OMNIDAT-CAMPSITE-BUREAU",
+            "name": "OMNIDAT Campsite Bureau",
+            "kind": "campsite-provisioning",
+            "gross": "0.00",
+            "network_fees": money(by_mode["flat"]["assessed"]),
+            "currency": "OmniBucks",
+        }
+    )
+    return {
+        "count": len(statements),
+        "total_assessed": money(sum((Decimal(statement["network_fees"]) for statement in statements), Decimal("0.00"))),
+        "by_account": statements,
     }
 
 
