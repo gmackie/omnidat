@@ -58,6 +58,65 @@ Production smoke on `https://omnidat.gmac.io`:
   - exposes links for event log, bank ledger, queue orders, network fee ledger,
     and billing statements.
 
+## Validation Refresh: Local V1 Progress
+
+The local `main` branch has advanced beyond the deployed Worker simulation:
+
+- `df1f904` adds `omnidat_event`, `omnidat_evidence_artifact`, and
+  `omnidat_operator_role` schema/migration support.
+- `d8da7e9` loads persistent campsite, address-allocation, service,
+  service-verb, audit, incident, evidence, and infra rows into the OMNIDAT
+  operational snapshot.
+- These commits are local because the Forge remote is returning HTTP 500 on
+  `git push forge main`.
+
+Fresh local validation on 2026-07-04:
+
+- `npm test`
+  - 100 Python tests passed.
+  - 35 Worker tests passed.
+- `./scripts/validate-data`
+  - all seed data validated.
+- `npm run deploy:worker:dry-run --silent`
+  - Worker bundles with `postgres-shared-fryos-v1`, `OMNIDAT_PERSISTENCE=database`,
+    and the `omnidat` schema binding.
+- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/api typecheck`
+  - passed.
+- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/api test -- omnidat-persistence`
+  - 5 test files and 40 tests passed.
+- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/db test -- omnidat-schema`
+  - 3 test files and 11 tests passed.
+- `corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/nextjs build`
+  - fails without required auth/database environment variables.
+  - passes when placeholder `AUTH_*`, `AUTH_SECRET`, and `DATABASE_URL` values
+    are supplied, which means the code compiles but the build environment path
+    needs cleanup/documentation.
+- `corepack pnpm@10.32.1 --dir gmacko test`
+  - currently fails before tests run because Turbo detects a cyclic build graph
+    among `@omnidat/api`, `@omnidat/trpc-client`, and
+    `@omnidat/operator-core`.
+
+Fresh production smoke on `https://omnidat.gmac.io`:
+
+- `/api/health`: healthy, database `postgres-shared-fryos-v1`.
+- `/api/network`: `X.25`, operational, 5 directory entries, 5 services.
+- `/api/provisioning`: 1 queued provisioning record, first X.121
+  `311088020184`.
+- `/api/weekend-simulation`: 1,000 campers, 2,000 bank ledger events, 181.86
+  OmniBucks assessed in network fees.
+- `/dashboard`: event log, bank ledger, queue orders, network fee ledger, and
+  billing statement links render.
+- Downloadable evidence artifacts still respond:
+  - 5,888 event log lines.
+  - 2,000 bank ledger lines.
+  - 1,600 queue orders.
+  - 1,544 network fee ledger lines.
+  - `OMNI-NIGHTMARKT` billing statement.
+
+This refresh changes the readiness picture: persistent operational state is now
+partially real in the gmacko V1 path, but it is not yet exposed through complete
+operator CRUD, not pushed to Forge, and not deployed.
+
 ## What Is Leadership-Ready Now
 
 OMNIDAT can be presented as a scoped pilot, not as a guaranteed event utility.
@@ -85,7 +144,10 @@ These are hard blockers before OMNIDAT should be relied on by a real camp.
 
 ### Real Provisioning
 
-Current provisioning is mostly static/demo-backed. We need persistent CRUD for:
+Current production provisioning is still mostly static/demo-backed. Local V1
+work now has schema and loader support for persistent events, campsites,
+services, service verbs, address allocations, audit events, incidents, evidence
+artifacts, and infra endpoints. We still need persistent operator CRUD for:
 
 - events and historical festivals.
 - campsites, villages, vendors, and operators.
@@ -95,6 +157,20 @@ Current provisioning is mostly static/demo-backed. We need persistent CRUD for:
 
 The signup path should produce an operator-reviewable work order, not just a
 sample response.
+
+### Release Engineering
+
+Before this can be taken seriously by camp leadership as a deployable system,
+the repo needs clean release gates:
+
+- Forge push must recover or a working alternate remote must be configured.
+- gmacko's Turbo cycle among `@omnidat/api`, `@omnidat/trpc-client`, and
+  `@omnidat/operator-core` must be broken so `corepack pnpm@10.32.1 --dir gmacko
+  test` can run.
+- Next.js build needs a documented local/CI env path. The app builds with
+  placeholder auth/database values, but fails when those variables are absent.
+- Production deployment must include the local persistent schema/migration and
+  operator-state loader work, then rerun production smoke.
 
 ### Real Network Bridge
 
