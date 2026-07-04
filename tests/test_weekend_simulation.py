@@ -52,6 +52,13 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertEqual(report["evidence"]["event_log"]["events"], 5888)
             self.assertEqual(report["evidence"]["bank_ledger"]["events"], 2000)
             self.assertEqual(report["evidence"]["queue_orders"]["records"], 1600)
+            self.assertEqual(report["network_fees"]["ledger_records"], 1544)
+            self.assertEqual(report["network_fees"]["total_assessed"], "181.86")
+            self.assertEqual(report["network_fees"]["by_mode"]["percentage"]["records"], 1000)
+            self.assertEqual(report["network_fees"]["by_mode"]["per-message"]["records"], 312)
+            self.assertEqual(report["network_fees"]["by_mode"]["flat"]["records"], 12)
+            self.assertEqual(report["network_fees"]["by_mode"]["waived"]["records"], 220)
+            self.assertEqual(report["evidence"]["network_fee_ledger"]["records"], 1544)
             self.assertEqual(report["samples"]["forms"][0]["form_type"], "campsite-provisioning")
             self.assertEqual(report["samples"]["terminal_sessions"][0]["program"], "OMNISALE.TCL")
             self.assertEqual(report["samples"]["merchant_setups"][0]["settlement_currency"], "OmniBucks")
@@ -59,6 +66,7 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertTrue((runtime_dir / "weekend-report.json").exists())
             self.assertTrue((runtime_dir / "weekend-events.jsonl").exists())
             self.assertTrue((runtime_dir / "weekend-bank-ledger.jsonl").exists())
+            self.assertTrue((runtime_dir / "weekend-network-fees.jsonl").exists())
 
 
 if __name__ == "__main__":

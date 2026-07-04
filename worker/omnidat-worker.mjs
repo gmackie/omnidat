@@ -337,6 +337,17 @@ const weekendSimulation = {
     settlementAccountsLinked: 5,
     posTerminalsConnected: 5,
   },
+  networkFees: {
+    currency: "OmniBucks",
+    ledgerRecords: 1544,
+    totalAssessed: "181.86",
+    byMode: {
+      percentage: { records: 1000, assessed: "112.50" },
+      "per-message": { records: 312, assessed: "9.36" },
+      flat: { records: 12, assessed: "60.00" },
+      waived: { records: 220, assessed: "0.00" },
+    },
+  },
   evidence: {
     eventLog: {
       path: "build/weekend-sim/weekend-events.jsonl",
@@ -350,6 +361,10 @@ const weekendSimulation = {
     queueOrders: {
       path: "build/weekend-sim/miliways-queue/orders.json",
       records: 1600,
+    },
+    networkFeeLedger: {
+      path: "build/weekend-sim/weekend-network-fees.jsonl",
+      records: 1544,
     },
     report: {
       path: "build/weekend-sim/weekend-report.json",
@@ -445,6 +460,7 @@ function nocWeekendOperations() {
     miliwaysOrders: weekendSimulation.miliways.orders,
     formsFiled: weekendSimulation.forms.totalFiled,
     x121Verified: weekendSimulation.x121.verified,
+    networkFees: weekendSimulation.networkFees,
     evidence: weekendSimulation.evidence,
   };
 }
@@ -1036,6 +1052,7 @@ function weekendDashboardPage() {
     ["Forms Filed", weekendSimulation.forms.totalFiled, "business paperwork"],
     ["Terminal Sessions", weekendSimulation.terminals.totalSessions, "TCL program runs"],
     ["X.121 Provisioning", weekendSimulation.x121.verified, "verified campsites"],
+    ["Network Fees", weekendSimulation.networkFees.totalAssessed, "OmniBucks assessed"],
   ];
   const timeline = weekendSimulation.timeline.map((item) => {
     const percent = Math.round((item.value / item.max) * 100);
@@ -1050,6 +1067,7 @@ function weekendDashboardPage() {
         eventLog: "Event Log",
         bankLedger: "Bank Ledger",
         queueOrders: "Queue Orders",
+        networkFeeLedger: "Network Fee Ledger",
         report: "Weekend Report",
       };
       const count = item.events || item.records || "filed";

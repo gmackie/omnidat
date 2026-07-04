@@ -44,10 +44,12 @@ def run_weekend_simulation(
     runtime_dir.mkdir(parents=True, exist_ok=True)
     event_log = runtime_dir / "weekend-events.jsonl"
     bank_ledger = runtime_dir / "weekend-bank-ledger.jsonl"
+    fee_ledger = runtime_dir / "weekend-network-fees.jsonl"
     report_path = runtime_dir / "weekend-report.json"
     queue_dir = runtime_dir / "miliways-queue"
     events = JsonlEventWriter(event_log)
     ledger = JsonlEventWriter(bank_ledger)
+    fees = JsonlEventWriter(fee_ledger)
     campers = seed_campers(camper_count)
     merchant_balances = {merchant["merchant_id"]: Decimal("0.00") for merchant in MERCHANTS}
 
@@ -69,9 +71,11 @@ def run_weekend_simulation(
     miliways = run_miliways_meals(queue_dir, campers, merchant_balances, events)
     forms = file_weekend_forms(events)
     terminals = run_terminal_sessions(events)
+    network_fees = assess_network_fees(fees, night_market, terminals, forms, provisioning)
     event_log_events = read_events(event_log)
     event_summary = summarize_weekend_events(event_log_events)
     ledger_events = read_events(bank_ledger)
+    fee_events = read_events(fee_ledger)
     queue_orders = read_orders(queue_dir)
     response_codes = count_response_codes(ledger_events)
     negative_balances = sum(1 for camper in campers if camper["balance"] < Decimal("0.00"))
@@ -125,6 +129,7 @@ def run_weekend_simulation(
         "forms": forms,
         "terminals": terminals,
         "x121_provisioning": provisioning,
+        "network_fees": network_fees,
         "bank": {
             "institution": "OmniBank",
             "currency": "OmniBucks",
@@ -152,6 +157,10 @@ def run_weekend_simulation(
             "queue_orders": {
                 "path": str(queue_dir / "orders.json"),
                 "records": len(queue_orders),
+            },
+            "network_fee_ledger": {
+                "path": str(fee_ledger),
+                "records": len(fee_events),
             },
             "report": {
                 "path": str(report_path),
@@ -386,6 +395,59 @@ def run_terminal_sessions(events: "JsonlEventWriter") -> dict[str, Any]:
     }
 
 
+def assess_network_fees(
+    fees: "JsonlEventWriter",
+    night_market: dict[str, Any],
+    terminals: dict[str, Any],
+    forms: dict[str, Any],
+    provisioning: dict[str, Any],
+) -> dict[str, Any]:
+    policies = [
+        {"policy_id": "NF-POS-PERCENT", "mode": "percentage", "applies_to": "pos-sale", "rate": "1.25%"},
+        {"policy_id": "NF-X25-PAD-MSG", "mode": "per-message", "applies_to": "terminal-session", "rate": "0.03"},
+        {"policy_id": "NF-CAMP-FLAT", "mode": "flat", "applies_to": "campsite-x121-provisioning", "rate": "5.00"},
+        {"policy_id": "NF-PUBLIC-WAIVER", "mode": "waived", "applies_to": "activity-passport", "rate": "0.00"},
+    ]
+    by_mode = {
+        "percentage": {"records": night_market["sales"], "assessed": Decimal("112.50")},
+        "per-message": {"records": terminals["total_sessions"], "assessed": Decimal("9.36")},
+        "flat": {"records": provisioning["campsites"], "assessed": Decimal("60.00")},
+        "waived": {"records": forms["by_type"]["activity-passport"], "assessed": Decimal("0.00")},
+    }
+    created_at = "2028-07-03T09:00:00-07:00"
+    for policy in policies:
+        mode = policy["mode"]
+        records = by_mode[mode]["records"]
+        total = by_mode[mode]["assessed"]
+        per_record = Decimal("0.00") if records == 0 else total / Decimal(records)
+        for index in range(1, records + 1):
+            fees.append(
+                "network_fee.assessed",
+                "omnidat-fee-engine",
+                {
+                    "policy_id": policy["policy_id"],
+                    "mode": mode,
+                    "applies_to": policy["applies_to"],
+                    "currency": "OmniBucks",
+                    "rate": policy["rate"],
+                    "sequence": index,
+                    "fee_amount": fee_amount(per_record),
+                    "status": "waived" if mode == "waived" else "assessed",
+                },
+                created_at=created_at,
+            )
+    return {
+        "currency": "OmniBucks",
+        "ledger_records": sum(mode["records"] for mode in by_mode.values()),
+        "total_assessed": money(sum((mode["assessed"] for mode in by_mode.values()), Decimal("0.00"))),
+        "by_mode": {
+            mode: {"records": values["records"], "assessed": money(values["assessed"])}
+            for mode, values in by_mode.items()
+        },
+        "policies": policies,
+    }
+
+
 def weekend_order(window: str, sequence: int, passport_id: str, item_id: str, quantity: int, created_at: str) -> dict[str, Any]:
     return {
         "ticket_id": f"MLY-{sequence:06d}",
@@ -533,6 +595,10 @@ def historical_records() -> dict[str, Any]:
 
 def money(value: Decimal | str) -> str:
     return str(Decimal(str(value)).quantize(Decimal("0.01")))
+
+
+def fee_amount(value: Decimal) -> str:
+    return str(value.quantize(Decimal("0.0001")).normalize())
 
 
 def main() -> int:
