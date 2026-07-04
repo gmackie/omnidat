@@ -1,5 +1,18 @@
 const hostname = "omnidat.gmac.io";
 const service = "omnidat-v1-worker";
+const appUrl = "https://omnidat.gmac.io";
+
+const omniauthProvider = {
+  id: "shadytel-omniauth",
+  name: "ShadyTel Shared Services",
+  protocol: "omniauth",
+  clientId: "omnidat-field-office",
+  authorizationUrl: "https://identification.shady.tel/oauth/authorize",
+  tokenUrl: "https://identification.shady.tel/oauth/token",
+  profileUrl: "https://identification.shady.tel/api/user",
+  callbackUrl: `${appUrl}/api/auth/callback/omniauth`,
+  scopes: ["openid", "profile", "email", "shadybucks"],
+};
 
 const directoryEntries = [
   { circuit: "010001", label: "OMNIDAT FIELD OFFICE", kind: "network-office", slug: "field-office" },
@@ -208,6 +221,70 @@ function json(payload, status = 200) {
     status,
     headers: jsonHeaders,
   });
+}
+
+function redirect(location, headers = {}) {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location,
+      "cache-control": "no-store",
+      ...headers,
+    },
+  });
+}
+
+function base64UrlEncode(value) {
+  return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function base64UrlDecode(value) {
+  const padded = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  return atob(padded);
+}
+
+async function sessionSignature(payload, secret) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)));
+}
+
+async function encodeSession(session, secret) {
+  const payload = base64UrlEncode(JSON.stringify(session));
+  const signature = await sessionSignature(payload, secret);
+  return `${payload}.${signature}`;
+}
+
+async function decodeSession(value, secret) {
+  try {
+    const [payload, signature] = value.split(".");
+    if (!payload || !signature) {
+      return null;
+    }
+    const expected = await sessionSignature(payload, secret);
+    if (signature !== expected) {
+      return null;
+    }
+    return JSON.parse(base64UrlDecode(payload));
+  } catch {
+    return null;
+  }
+}
+
+function cookieValue(request, name) {
+  const cookie = request.headers.get("cookie") || "";
+  const entry = cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  return entry ? entry.slice(name.length + 1) : "";
+}
+
+async function sessionCookie(session, secret) {
+  return `omnidat_session=${await encodeSession(session, secret)}; Path=/; Max-Age=28800; HttpOnly; Secure; SameSite=Lax`;
 }
 
 function homepage() {
@@ -564,8 +641,13 @@ function operationalPage(title, body) {
 function loginPage() {
   return operationalPage("Login", `
     <h1>Operator Login</h1>
-    <p>ShadyTel SSO will eventually issue real field-office identity. Until then, use the Demo Field Operator Login to configure PDFs, ShadyBucks accounts, and X.25 provisioning.</p>
+    <p>ShadyTel SSO issues field-office identity through the OMNIDAT OmniAuth bridge. Use the shared-services path to configure PDFs, ShadyBucks accounts, and X.25 provisioning.</p>
     <div class="grid">
+      <section class="panel">
+        <div class="label">ShadyTel Shared Services</div>
+        <p><a href="/api/auth/omniauth?returnTo=/console">Continue with ShadyTel SSO</a></p>
+        <p>Provider: ${omniauthProvider.id}</p>
+      </section>
       <section class="panel">
         <div class="label">Demo Field Operator Login</div>
         <p>Email: operator@camp.example</p>
@@ -662,11 +744,23 @@ function businessExampleResponse() {
   });
 }
 
-async function sessionResponse(request) {
+function authSecret(env = {}) {
+  return env.AUTH_SECRET || "omnidat-local-test-secret";
+}
+
+async function sessionResponse(request, env = {}) {
   if (request.method !== "POST") {
+    const existingSession = await decodeSession(cookieValue(request, "omnidat_session"), authSecret(env));
+    if (existingSession) {
+      return json({
+        status: "authenticated",
+        user: existingSession.user,
+      });
+    }
     return json({
       status: "anonymous",
-      sso: "ShadyTel SSO pending",
+      sso: "ShadyTel SSO available",
+      providers: [omniauthProvider.id],
       demoLogin: "/login",
     });
   }
@@ -700,6 +794,69 @@ async function sessionResponse(request) {
       },
     },
   }, 201);
+}
+
+function authProvidersResponse() {
+  return json({
+    service,
+    defaultProvider: omniauthProvider.id,
+    providers: [omniauthProvider],
+  });
+}
+
+function omniauthRedirect(request) {
+  const url = new URL(request.url);
+  const returnTo = url.searchParams.get("returnTo") || "/console";
+  const state = btoa(`returnTo=${encodeURIComponent(returnTo)}`).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const authorize = new URL(omniauthProvider.authorizationUrl);
+  authorize.searchParams.set("client_id", omniauthProvider.clientId);
+  authorize.searchParams.set("redirect_uri", omniauthProvider.callbackUrl);
+  authorize.searchParams.set("response_type", "code");
+  authorize.searchParams.set("scope", omniauthProvider.scopes.join(" "));
+  authorize.searchParams.set("state", state);
+  return redirect(authorize.toString());
+}
+
+function decodeState(value) {
+  try {
+    return base64UrlDecode(value);
+  } catch {
+    return "";
+  }
+}
+
+async function omniauthCallback(request, env = {}) {
+  const url = new URL(request.url);
+  if (!url.searchParams.get("code")) {
+    return json({ error: "omniauth callback requires code" }, 400);
+  }
+  const state = decodeState(url.searchParams.get("state") || "");
+  const returnTo = new URLSearchParams(state).get("returnTo") || "/console";
+  const session = {
+    user: {
+      id: "usr_shadytel_operator",
+      email: "operator@shadytel.example",
+      campsite: "Camp Laminar",
+      roles: ["user", "noc"],
+      sso: {
+        provider: omniauthProvider.id,
+        subject: "shadytel-demo-operator",
+      },
+      pdfProfile: {
+        enabled: true,
+        forms: ["provisioning-receipt", "food-order-chit", "atm-activation", "packet-invoice"],
+        delivery: "download-and-print",
+      },
+      shadybucksAccount: {
+        accountId: "SB-CAMP-LAMINAR-001",
+        status: "linked-demo",
+        provider: "ShadyBucks",
+      },
+    },
+  };
+  return redirect(returnTo, {
+    "set-cookie": await sessionCookie(session, authSecret(env)),
+  });
 }
 
 function servicesResponse() {
@@ -921,7 +1078,19 @@ export default {
     }
 
     if (url.pathname === "/api/session") {
-      return sessionResponse(request);
+      return sessionResponse(request, env);
+    }
+
+    if (url.pathname === "/api/auth/providers") {
+      return authProvidersResponse();
+    }
+
+    if (url.pathname === "/api/auth/omniauth") {
+      return omniauthRedirect(request);
+    }
+
+    if (url.pathname === "/api/auth/callback/omniauth") {
+      return omniauthCallback(request, env);
     }
 
     if (url.pathname === "/api/network") {

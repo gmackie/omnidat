@@ -28,6 +28,7 @@ npm run deploy:worker --silent
 ```sh
 curl -fsS https://omnidat.gmac.io/api/health
 curl -fsS https://omnidat.gmac.io/ | rg 'OMNIDAT Field Office'
+curl -fsS https://omnidat.gmac.io/api/auth/providers | rg 'shadytel-omniauth'
 curl -fsS 'https://omnidat.gmac.io/radio?command=DIR' | rg 'MILIWAYS ORDER ENTRY'
 curl -fsS https://omnidat.gmac.io/api/campsite-apps | rg 'MILIWAYS|PASSPORT'
 curl -fsS -X POST https://omnidat.gmac.io/api/signup \

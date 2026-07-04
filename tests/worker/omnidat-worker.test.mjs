@@ -113,6 +113,74 @@ test("session endpoint returns demo user, roles, PDFs, and ShadyBucks account", 
   assert.match(body.user.shadybucksAccount.accountId, /^SB-/);
 });
 
+test("omniauth provider metadata exposes ShadyTel shared services SSO", async () => {
+  const { response, body } = await fetchJson("/api/auth/providers");
+
+  assert.equal(response.status, 200);
+  assert.equal(body.defaultProvider, "shadytel-omniauth");
+  assert.equal(body.providers[0].id, "shadytel-omniauth");
+  assert.equal(body.providers[0].protocol, "omniauth");
+  assert.equal(body.providers[0].authorizationUrl, "https://identification.shady.tel/oauth/authorize");
+  assert.equal(body.providers[0].callbackUrl, "https://omnidat.gmac.io/api/auth/callback/omniauth");
+});
+
+test("omniauth login redirects to ShadyTel with callback and state", async () => {
+  const response = await fetchPath("/api/auth/omniauth?returnTo=/console");
+  const location = response.headers.get("location");
+
+  assert.equal(response.status, 302);
+  assert.match(location, /^https:\/\/identification\.shady\.tel\/oauth\/authorize\?/);
+  assert.match(location, /client_id=omnidat-field-office/);
+  assert.match(location, /redirect_uri=https%3A%2F%2Fomnidat\.gmac\.io%2Fapi%2Fauth%2Fcallback%2Fomniauth/);
+  assert.match(location, /scope=openid\+profile\+email\+shadybucks/);
+  assert.match(location, /state=/);
+});
+
+test("omniauth callback issues session cookie and session endpoint reads it", async () => {
+  const env = { AUTH_SECRET: "test-auth-secret" };
+  const callback = await worker.fetch(
+    new Request("https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-shadytel-code&state=returnTo%3D%252Fconsole"),
+    env,
+    {},
+  );
+  const cookie = callback.headers.get("set-cookie");
+
+  assert.equal(callback.status, 302);
+  assert.equal(callback.headers.get("location"), "/console");
+  assert.match(cookie, /omnidat_session=/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Lax/);
+
+  const session = await worker.fetch(new Request("https://omnidat.gmac.io/api/session", {
+    headers: { cookie },
+  }), env, {});
+  const body = await session.json();
+
+  assert.equal(session.status, 200);
+  assert.equal(body.status, "authenticated");
+  assert.equal(body.user.email, "operator@shadytel.example");
+  assert.deepEqual(body.user.roles, ["user", "noc"]);
+  assert.equal(body.user.sso.provider, "shadytel-omniauth");
+});
+
+test("session endpoint rejects tampered omniauth cookies", async () => {
+  const env = { AUTH_SECRET: "test-auth-secret" };
+  const callback = await worker.fetch(
+    new Request("https://omnidat.gmac.io/api/auth/callback/omniauth?code=demo-shadytel-code&state=returnTo%3D%252Fconsole"),
+    env,
+    {},
+  );
+  const cookie = callback.headers.get("set-cookie").replace(/omnidat_session=([^;.]+)(.)/, "omnidat_session=$1x");
+  const session = await worker.fetch(new Request("https://omnidat.gmac.io/api/session", {
+    headers: { cookie },
+  }), env, {});
+  const body = await session.json();
+
+  assert.equal(session.status, 200);
+  assert.equal(body.status, "anonymous");
+  assert.equal(body.sso, "ShadyTel SSO available");
+});
+
 test("network status reports X.25 source, directory, and live service reachability", async () => {
   const { response, body } = await fetchJson("/api/network");
 
