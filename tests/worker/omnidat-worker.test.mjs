@@ -319,6 +319,39 @@ test("network status reports X.25 source, directory, and live service reachabili
   assert.ok(body.services.some((entry) => entry.slug === "shadybucks-atm" && entry.reachable === true));
 });
 
+test("weekend simulation API exposes camp-scale dashboard metrics", async () => {
+  const { response, body } = await fetchJson("/api/weekend-simulation");
+
+  assert.equal(response.status, 200);
+  assert.equal(body.scenario, "omnidat-full-camp-weekend");
+  assert.equal(body.status, "running");
+  assert.equal(body.campers.count, 1000);
+  assert.equal(body.currency.primary, "OmniBucks");
+  assert.equal(body.identity.uniqueSubjects, 1000);
+  assert.equal(body.nightMarket.sales, 1000);
+  assert.equal(body.miliways.orders, 1600);
+  assert.equal(body.forms.totalFiled, 340);
+  assert.equal(body.terminals.totalSessions, 312);
+  assert.equal(body.x121.verified, 12);
+  assert.ok(body.timeline.some((entry) => entry.label === "Night Market Friday"));
+});
+
+test("weekend dashboard renders visual operations board", async () => {
+  const response = await fetchPath("/dashboard");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /Camp Weekend Operations Dashboard/);
+  assert.match(html, /1000/);
+  assert.match(html, /OmniBucks/);
+  assert.match(html, /Night Market Friday/);
+  assert.match(html, /Forms Filed/);
+  assert.match(html, /Terminal Sessions/);
+  assert.match(html, /X\.121 Provisioning/);
+  assert.match(html, /OMNISALE\.TCL/);
+  assert.match(html, /class="bar"/);
+});
+
 test("services define verbs inputs outputs and X.121 addresses", async () => {
   const { response, body } = await fetchJson("/api/services");
 

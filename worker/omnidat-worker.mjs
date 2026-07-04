@@ -235,6 +235,89 @@ const shadybucksAtmProtocol = {
   verbs: serviceDefinitions.find((entry) => entry.slug === "shadybucks-atm").verbs,
 };
 
+const weekendSimulation = {
+  scenario: "omnidat-full-camp-weekend",
+  status: "running",
+  campers: {
+    count: 1000,
+    seedAmount: "80.00",
+    totalSeeded: "80000.00",
+    endingBalanceTotal: "61400.00",
+    negativeBalances: 0,
+  },
+  identity: {
+    provider: "omniauth",
+    accounts: 1000,
+    uniqueSubjects: 1000,
+    sampleDomain: "campers.omnidat.gmac.io",
+  },
+  currency: {
+    primary: "OmniBucks",
+    issuer: "OmniBank",
+    controlledBy: "OMNIDAT",
+    shadybucksConversion: "2028 bridge-ledger boundary",
+  },
+  nightMarket: {
+    nights: 2,
+    sales: 1000,
+    captured: 1000,
+    totalsByNight: {
+      "friday-night": "4500.00",
+      "saturday-night": "4500.00",
+    },
+  },
+  miliways: {
+    serviceWindows: 4,
+    orders: 1600,
+    ticketsIssued: 1600,
+    gross: "9600.00",
+  },
+  forms: {
+    totalFiled: 340,
+    byType: {
+      "campsite-provisioning": 12,
+      "merchant-onboarding": 5,
+      "activity-passport": 220,
+      "lost-property": 38,
+      "volunteer-shift": 65,
+    },
+  },
+  terminals: {
+    totalSessions: 312,
+    byProgram: {
+      "OMNISALE.TCL": 120,
+      "OMNIFOOD.TCL": 82,
+      "OMNIDIR.TCL": 55,
+      "OMNIPASS.TCL": 55,
+    },
+  },
+  x121: {
+    campsites: 12,
+    verified: 12,
+    activeAddresses: ["311088020601", "311088020602", "311088020603", "311088020604"],
+  },
+  merchants: {
+    count: 5,
+    accountsConfigured: 5,
+    settlementAccountsLinked: 5,
+    posTerminalsConnected: 5,
+  },
+  timeline: [
+    { label: "Campers Seeded", value: 1000, max: 1000, detail: "OmniAuth and OmniBucks accounts opened" },
+    { label: "Night Market Friday", value: 500, max: 500, detail: "POS captures over OMNISALE.TCL" },
+    { label: "Miliways Saturday", value: 800, max: 800, detail: "Breakfast and dinner windows" },
+    { label: "Forms Filed", value: 340, max: 340, detail: "Provisioning, merchant, passport, lost-property, volunteer" },
+    { label: "X.121 Verified", value: 12, max: 12, detail: "Campsite circuits tested" },
+  ],
+  terminalFeed: [
+    "OMNISALE.TCL  VF-NITEMARKT-01  SALE 9.00 OB AUTH 00",
+    "OMNIFOOD.TCL  VF-FOOD-07       ORDER MLY-001244 ACCEPTED",
+    "OMNIDIR.TCL   VF-FIELD-02      DIR CAMP.* COMPLETE",
+    "OMNIPASS.TCL  VF-PASS-19       FORM ACTIVITY-PASSPORT FILED",
+    "X25 PAD       CAMP SWITCHYARD   VERIFY 311088020604 OK",
+  ],
+};
+
 const htmlHeaders = {
   "content-type": "text/html; charset=utf-8",
   "cache-control": "public, max-age=60",
@@ -781,6 +864,119 @@ function nocPage() {
   `);
 }
 
+function weekendDashboardPage() {
+  const metrics = [
+    ["Campers", weekendSimulation.campers.count, "OmniAuth identities"],
+    ["Night Market", weekendSimulation.nightMarket.sales, "captured POS sales"],
+    ["Miliways", weekendSimulation.miliways.orders, "meal orders"],
+    ["Forms Filed", weekendSimulation.forms.totalFiled, "business paperwork"],
+    ["Terminal Sessions", weekendSimulation.terminals.totalSessions, "TCL program runs"],
+    ["X.121 Provisioning", weekendSimulation.x121.verified, "verified campsites"],
+  ];
+  const timeline = weekendSimulation.timeline.map((item) => {
+    const percent = Math.round((item.value / item.max) * 100);
+    return `<section class="panel"><div class="label">${item.label}</div><p>${item.detail}</p><div class="bar" aria-label="${item.label} ${percent}%"><span style="width:${percent}%"></span></div><p>${item.value} / ${item.max}</p></section>`;
+  }).join("");
+  const terminalRows = Object.entries(weekendSimulation.terminals.byProgram)
+    .map(([program, count]) => `<div><span>${program}</span><strong>${count}</strong></div>`)
+    .join("");
+  return new Response(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camp Weekend Operations Dashboard - OMNIDAT</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #f3e8c8;
+      --muted: #cbb985;
+      --green: #98e07a;
+      --amber: #e5b45c;
+      --blue: #8ab7d8;
+      --red: #d4745d;
+      --line: #5a4325;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0f0d09; color: var(--paper); }
+    main { width: min(1380px, calc(100vw - 28px)); margin: 0 auto; padding: 22px 0 36px; }
+    nav { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+    a { color: var(--green); }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 4.6rem); line-height: 0.95; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; color: var(--blue); font-size: 1rem; letter-spacing: 0; text-transform: uppercase; }
+    p { color: #e8d9b9; line-height: 1.45; }
+    .topline { color: var(--amber); text-transform: uppercase; margin-bottom: 6px; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr); gap: 18px; align-items: stretch; }
+    .metrics, .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(243, 228, 191, 0.055);
+      padding: 14px;
+    }
+    .metric strong { display: block; font-size: clamp(1.7rem, 4vw, 3rem); color: var(--green); line-height: 1; margin: 8px 0; }
+    .label { color: var(--muted); text-transform: uppercase; font-size: 0.78rem; }
+    .bar { height: 12px; border: 1px solid var(--line); border-radius: 3px; background: #080906; overflow: hidden; }
+    .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--green), var(--amber)); }
+    .terminal {
+      min-height: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #070806;
+      padding: 14px;
+    }
+    pre { margin: 0; color: var(--green); white-space: pre-wrap; line-height: 1.35; overflow-x: auto; }
+    .band { margin-top: 18px; }
+    .programs div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(90,67,37,.55); padding: 7px 0; }
+    .programs strong { color: var(--green); }
+    @media (max-width: 820px) { .hero { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <nav>
+      <a href="/">Field Office</a>
+      <a href="/console">Console</a>
+      <a href="/noc">NOC</a>
+      <a href="/api/weekend-simulation">JSON Feed</a>
+    </nav>
+    <section class="hero">
+      <div>
+        <div class="topline">Exchange 88 live rehearsal</div>
+        <h1>Camp Weekend Operations Dashboard</h1>
+        <p>Read-only operations view for the OMNIDAT camp weekend simulation and eventual field dashboard. The board tracks campers, OmniAuth identity, OmniBank and OmniBucks settlement, X.25 provisioning, business forms, Miliways, Night Market, and terminal activity.</p>
+        <div class="metrics">
+          ${metrics.map(([label, value, detail]) => `<section class="panel metric"><div class="label">${label}</div><strong>${value}</strong><p>${detail}</p></section>`).join("")}
+        </div>
+      </div>
+      <div class="terminal" aria-label="Terminal activity feed">
+        <pre>OMNIDAT CAMP DASHBOARD
+STATUS ${weekendSimulation.status.toUpperCase()}
+CURRENCY ${weekendSimulation.currency.primary} / ${weekendSimulation.currency.issuer}
+IDENTITY ${weekendSimulation.identity.provider.toUpperCase()} ${weekendSimulation.identity.uniqueSubjects}
+
+${weekendSimulation.terminalFeed.join("\n")}</pre>
+      </div>
+    </section>
+    <section class="band">
+      <h2>Operating Timeline</h2>
+      <div class="grid">${timeline}</div>
+    </section>
+    <section class="band">
+      <h2>Terminal Sessions</h2>
+      <div class="grid">
+        <section class="panel programs">${terminalRows}</section>
+        <section class="panel"><div class="label">Forms Filed</div><p>${weekendSimulation.forms.totalFiled} forms filed across campsite provisioning, merchant onboarding, activity passport, lost-property, and volunteer workflows.</p></section>
+        <section class="panel"><div class="label">X.121 Provisioning</div><p>${weekendSimulation.x121.verified} of ${weekendSimulation.x121.campsites} campsite X.121 assignments verified.</p></section>
+        <section class="panel"><div class="label">OmniBank</div><p>${weekendSimulation.merchants.settlementAccountsLinked} merchant settlement accounts linked. ShadyBucks conversion remains a ${weekendSimulation.currency.shadybucksConversion}.</p></section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>`, { headers: htmlHeaders });
+}
+
 function notFound() {
   return new Response("NO CARRIER\nREQUESTED CIRCUIT NOT LISTED\n", {
     status: 404,
@@ -820,6 +1016,13 @@ function businessExampleResponse() {
     service,
     network: "X.25 Packet Clearing Network",
     examples: businessExamples,
+  });
+}
+
+function weekendSimulationResponse() {
+  return json({
+    service,
+    ...weekendSimulation,
   });
 }
 
@@ -1222,6 +1425,10 @@ export default {
       return requirePageSession(request, env, ["noc", "admin"], () => nocPage());
     }
 
+    if (url.pathname === "/dashboard") {
+      return weekendDashboardPage();
+    }
+
     if (url.pathname === "/api/session") {
       return sessionResponse(request, env);
     }
@@ -1254,6 +1461,10 @@ export default {
 
     if (url.pathname === "/api/business-examples") {
       return businessExampleResponse();
+    }
+
+    if (url.pathname === "/api/weekend-simulation") {
+      return weekendSimulationResponse();
     }
 
     if (url.pathname === "/api/provisioning") {

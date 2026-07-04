@@ -67,6 +67,8 @@ def run_weekend_simulation(
     provisioning = provision_campsites(events)
     night_market = run_night_market(camper_count, campers, merchant_balances, ledger, events)
     miliways = run_miliways_meals(queue_dir, campers, merchant_balances, events)
+    forms = file_weekend_forms(events)
+    terminals = run_terminal_sessions(events)
     event_summary = summarize_weekend_events(event_log)
     ledger_events = read_events(bank_ledger)
     response_codes = count_response_codes(ledger_events)
@@ -118,6 +120,8 @@ def run_weekend_simulation(
         },
         "night_market": night_market,
         "miliways": miliways,
+        "forms": forms,
+        "terminals": terminals,
         "x121_provisioning": provisioning,
         "bank": {
             "institution": "OmniBank",
@@ -299,6 +303,59 @@ def run_miliways_meals(
         "orders": orders,
         "tickets_issued": len(all_orders),
         "gross": money(total),
+    }
+
+
+def file_weekend_forms(events: "JsonlEventWriter") -> dict[str, Any]:
+    by_type = {
+        "campsite-provisioning": 12,
+        "merchant-onboarding": 5,
+        "activity-passport": 220,
+        "lost-property": 38,
+        "volunteer-shift": 65,
+    }
+    for form_type, count in by_type.items():
+        for index in range(1, count + 1):
+            events.append(
+                "form.filed",
+                "weekend-simulator",
+                {
+                    "form_type": form_type,
+                    "form_id": f"FORM-{form_type.upper()}-{index:04d}",
+                    "status": "filed",
+                },
+                created_at="2028-07-02T15:00:00-07:00",
+            )
+    return {
+        "total_filed": sum(by_type.values()),
+        "by_type": by_type,
+        "status": "filed",
+    }
+
+
+def run_terminal_sessions(events: "JsonlEventWriter") -> dict[str, Any]:
+    by_program = {
+        "OMNISALE.TCL": 120,
+        "OMNIFOOD.TCL": 82,
+        "OMNIDIR.TCL": 55,
+        "OMNIPASS.TCL": 55,
+    }
+    for program, count in by_program.items():
+        for index in range(1, count + 1):
+            events.append(
+                "terminal.session",
+                "weekend-simulator",
+                {
+                    "program": program,
+                    "terminal_id": f"VF-{program.removesuffix('.TCL')}-{index:04d}",
+                    "status": "complete",
+                },
+                created_at="2028-07-02T16:00:00-07:00",
+            )
+    return {
+        "total_sessions": sum(by_program.values()),
+        "by_program": by_program,
+        "status": "complete",
     }
 
 
