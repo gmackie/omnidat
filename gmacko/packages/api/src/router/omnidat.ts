@@ -32,6 +32,7 @@ import {
   omnidatOperatorReadProcedure,
 } from "./omnidat-operator-procedure";
 import { OMNIDAT_ROLES } from "./omnidat-roles";
+import { buildOmnidatDocument } from "./omnidat-documents";
 import { recordOperationalMetric } from "./omnidat-kpi";
 import {
   IllegalProvisioningTransition,
@@ -975,6 +976,21 @@ export const omnidatRouter = {
     .mutation(({ ctx, input }) =>
       persistEventEvidenceExport(dbOf(ctx), input, auditActor(ctx)),
     ),
+
+  renderDocument: omnidatOperatorReadProcedure
+    .input(
+      z.object({
+        kind: z.enum([
+          "address-assignment",
+          "demarc-sheet",
+          "service-certificate",
+          "provisioning-transcript",
+          "daily-noc-summary",
+        ]),
+        data: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .query(({ input }) => buildOmnidatDocument(input.kind, input.data)),
 
   // Sync procedures authenticate with a per-source sync token instead of a
   // capability from the H1a matrix; the H1a router-walk test annotates them
