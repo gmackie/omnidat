@@ -29,17 +29,17 @@ describe("OMNIDAT KPI choke point", () => {
     process.env.OMNIDAT_PERSISTENCE = "database";
     const fake = metricFakeDb();
 
-    await recordOperationalMetric(fake.db, {
+    await recordOperationalMetric(fake.db as never, {
       metricName: "packet.session.opened",
       value: 1,
       unit: "session",
     });
-    await recordOperationalMetric(fake.db, {
+    await recordOperationalMetric(fake.db as never, {
       metricName: "packet.session.cleared.cause.0",
       value: 1,
       unit: "session",
     });
-    await recordOperationalMetric(fake.db, {
+    await recordOperationalMetric(fake.db as never, {
       metricName: "service.verb.called",
       value: 1,
       unit: "verb",
@@ -59,7 +59,7 @@ describe("OMNIDAT KPI choke point", () => {
     process.env.OMNIDAT_PERSISTENCE = "seed";
     const fake = metricFakeDb();
 
-    await recordOperationalMetric(fake.db, {
+    await recordOperationalMetric(fake.db as never, {
       metricName: "packet.session.opened",
       value: 1,
       unit: "session",
