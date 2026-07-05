@@ -1732,14 +1732,16 @@ describe("omnidat H3 camp utility apps", () => {
 
   it("rejects an unknown app kind", async () => {
     const fake = appDb("user-packet", ["packet-operator"]);
+    const badInput = {
+      campsiteId: "camp-1",
+      address: "311088021999",
+      name: "bad app",
+      appKind: "not-a-real-kind",
+    } as unknown as Parameters<
+      ReturnType<typeof call>["omnidat"]["createCampsiteApp"]
+    >[0];
     await expect(
-      // @ts-expect-error deliberately invalid kind
-      call(fake, "user-packet").omnidat.createCampsiteApp({
-        campsiteId: "camp-1",
-        address: "311088021999",
-        name: "bad app",
-        appKind: "not-a-real-kind",
-      }),
+      call(fake, "user-packet").omnidat.createCampsiteApp(badInput),
     ).rejects.toThrow();
   });
 
