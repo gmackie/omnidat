@@ -1,12 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "omnidat",
+  "name": "omnidat-console",
   "compatibility_date": "2026-06-30",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./worker/index.ts",
   "routes": [
     {
-      "pattern": "omnidat.cc",
+      "pattern": "console.omnidat.cc",
       "custom_domain": true
     }
   ],
@@ -26,8 +26,8 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    "APP_URL": "https://omnidat.cc",
-    "NEXT_PUBLIC_APP_URL": "https://omnidat.cc",
+    "APP_URL": "https://console.omnidat.cc",
+    "NEXT_PUBLIC_APP_URL": "https://console.omnidat.cc",
     "OMNIDAT_PERSISTENCE": "database",
     "OMNIDAT_DB_SCHEMA": "omnidat",
     "SHADYBANK_API_URL": "https://bucks.shady.tel",

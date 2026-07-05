@@ -122,7 +122,10 @@ class GmackoV1AppTests(unittest.TestCase):
             "pnpm build:vinext && pnpm with-env wrangler deploy --env staging",
         )
         self.assertIn("vinext", package["devDependencies"])
-        self.assertIn('"pattern": "omnidat.cc"', wrangler)
+        # The gmacko operator app is served on console.omnidat.cc; the public
+        # Worker owns the bare omnidat.cc apex.
+        self.assertIn('"pattern": "console.omnidat.cc"', wrangler)
+        self.assertIn('"name": "omnidat-console"', wrangler)
         self.assertTrue((app_root / "vite.config.ts").exists())
         self.assertTrue((app_root / "worker/index.ts").exists())
         self.assertTrue((app_root / "src/cloudflare-env.ts").exists())
