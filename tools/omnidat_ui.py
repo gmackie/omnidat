@@ -267,6 +267,65 @@ def handle_health(
     )
 
 
+def handle_state(
+    data_dir: Path,
+    queue_dir: Path,
+    activity_dir: Path,
+    journal_db: Path | None = None,
+) -> tuple[int, dict[str, str], str]:
+    """Machine-readable field-office status for the Raspi/PBX dashboard.
+
+    Bundles the operational state (apps, passports, orders, activity), the
+    health check, and — when a field kit journal exists — its authority and
+    sync backlog, so a local dashboard can render without scraping HTML.
+    """
+    state = build_state(data_dir, queue_dir, activity_dir)
+    checks = {
+        "seed_data": check_seed_data(data_dir),
+        "runtime_dirs": check_runtime_dirs(queue_dir, activity_dir),
+    }
+    status = determine_status(checks)
+    payload = {
+        "service": "omnidat-field-office",
+        "status": status,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "uptime": int(time.monotonic() - START_TIME),
+        "checks": checks,
+        "counts": {
+            "apps": state["app_count"],
+            "passports": state["passport_count"],
+            "orders": state["order_count"],
+            "activities": state["activity_count"],
+        },
+        "state": state,
+        "journal": journal_status(journal_db),
+    }
+    return (
+        200 if status in {"healthy", "degraded"} else 503,
+        {"Content-Type": "application/json"},
+        json.dumps(payload, sort_keys=True) + "\n",
+    )
+
+
+def journal_status(journal_db: Path | None) -> dict[str, Any]:
+    if journal_db is None or not journal_db.exists():
+        return {"present": False}
+    from tools.omnidat_journal import JournalStore
+
+    store = JournalStore(journal_db)
+    try:
+        entries = store.entries()
+        unpushed = store.unpushed()
+        return {
+            "present": True,
+            "source_id": store.source_id,
+            "total": len(entries),
+            "unpushed": len(unpushed),
+        }
+    finally:
+        store.close()
+
+
 def check_seed_data(data_dir: Path) -> dict[str, str]:
     missing = [
         filename
@@ -349,7 +408,13 @@ def render_shell_response(command: str, response: str) -> str:
 """
 
 
-def make_handler(data_dir: Path, queue_dir: Path, activity_dir: Path, log_path: Path) -> type[BaseHTTPRequestHandler]:
+def make_handler(
+    data_dir: Path,
+    queue_dir: Path,
+    activity_dir: Path,
+    log_path: Path,
+    journal_db: Path | None = None,
+) -> type[BaseHTTPRequestHandler]:
     class OmnidatHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 - stdlib method name
             parsed = urlparse(self.path)
@@ -359,6 +424,9 @@ def make_handler(data_dir: Path, queue_dir: Path, activity_dir: Path, log_path: 
                 return
             if parsed.path in {"/api/health", "/api/health/live", "/api/health/ready"}:
                 self.respond(*handle_health(data_dir, queue_dir, activity_dir))
+                return
+            if parsed.path == "/api/state":
+                self.respond(*handle_state(data_dir, queue_dir, activity_dir, journal_db))
                 return
             if parsed.path == "/radio":
                 self.respond(*handle_radio_query(parse_qs(parsed.query), data_dir, queue_dir, activity_dir, log_path))
@@ -398,9 +466,17 @@ def main() -> int:
     parser.add_argument("--log", default="build/events.jsonl", type=Path)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8828)
+    parser.add_argument(
+        "--journal-db",
+        type=Path,
+        default=None,
+        help="Field kit journal SQLite path; exposed via /api/state when present.",
+    )
     args = parser.parse_args()
 
-    handler = make_handler(args.data_dir, args.queue_dir, args.activity_dir, args.log)
+    handler = make_handler(
+        args.data_dir, args.queue_dir, args.activity_dir, args.log, args.journal_db
+    )
     server = ThreadingHTTPServer((args.host, args.port), handler)
     print(f"http://{args.host}:{args.port}")
     server.serve_forever()

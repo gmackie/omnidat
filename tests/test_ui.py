@@ -4,7 +4,13 @@ import unittest
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from tools.omnidat_ui import build_state, handle_health, handle_radio_query, render_home
+from tools.omnidat_ui import (
+    build_state,
+    handle_health,
+    handle_radio_query,
+    handle_state,
+    render_home,
+)
 
 
 class UiTests(unittest.TestCase):
@@ -97,6 +103,54 @@ class UiTests(unittest.TestCase):
             self.assertEqual(status, 503)
             self.assertEqual(payload["status"], "unhealthy")
             self.assertEqual(payload["checks"]["seed_data"]["status"], "fail")
+
+    def test_handle_state_returns_machine_readable_field_office_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "data"
+            queue_dir = root / "queue"
+            activity_dir = root / "activity"
+            write_ui_seed_data(data_dir, queue_dir, activity_dir)
+
+            status, headers, body = handle_state(data_dir, queue_dir, activity_dir)
+            payload = json.loads(body)
+
+            self.assertEqual(status, 200)
+            self.assertEqual(headers["Content-Type"], "application/json")
+            self.assertEqual(payload["service"], "omnidat-field-office")
+            self.assertEqual(payload["status"], "healthy")
+            self.assertIn("counts", payload)
+            self.assertEqual(payload["counts"]["apps"], payload["counts"]["apps"])
+            self.assertIn("apps", payload["state"])
+            self.assertIn("passports", payload["state"])
+            self.assertIn("timestamp", payload)
+            # No field kit journal present in a fresh runtime dir.
+            self.assertEqual(payload["journal"]["present"], False)
+
+    def test_handle_state_reports_journal_when_present(self):
+        from tools.omnidat_journal import JournalStore
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "data"
+            queue_dir = root / "queue"
+            activity_dir = root / "activity"
+            write_ui_seed_data(data_dir, queue_dir, activity_dir)
+            store = JournalStore(root / "field-kit-journal.db", source_id="field-kit-01")
+            store.set_authority("event-1", "field-kit-01", 3)
+            store.append("event-1", "queue.order.accepted", {"ticket": "MLY-1"})
+            store.close()
+
+            status, _headers, body = handle_state(
+                data_dir, queue_dir, activity_dir, journal_db=root / "field-kit-journal.db"
+            )
+            payload = json.loads(body)
+
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["journal"]["present"], True)
+            self.assertEqual(payload["journal"]["source_id"], "field-kit-01")
+            self.assertEqual(payload["journal"]["total"], 1)
+            self.assertEqual(payload["journal"]["unpushed"], 1)
 
 
 def write_ui_seed_data(data_dir: Path, queue_dir: Path, activity_dir: Path) -> None:
