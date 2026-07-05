@@ -261,6 +261,11 @@ adds PBX/modem/PAD richness and spectacle.
 - Suspended service returns `CLR 05 SERVICE SUSPENDED`.
 - Maintenance service returns `CLR 09 MAINTENANCE`.
 - Busy queue-capacity returns `CLR 11 SERVICE BUSY`.
+- Superseded: the four legacy `CLR` codes above are kept for history only.
+  [Protocol Fidelity](protocol-fidelity.md) is the normative cause-code
+  source; it renders these as `CLR NP C:13 D:0` (no such address),
+  `CLR NA C:11 D:70` (suspended, access barred), `CLR DER C:9`
+  (maintenance), and `CLR OCC C:1` (busy).
 - Radio PAD commands are single transaction calls unless explicitly continued.
 - Hosted apps receive a synthetic terminal/session identity.
 - Remote apps receive only the fields needed to serve the request.

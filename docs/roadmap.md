@@ -18,6 +18,18 @@ web / POTS / Wi-Fi / MeshCore / Meshtastic / hosted nodes = access transports
 printed receipts / forms / ledgers = human-visible truth
 ```
 
+The authority model between the field kit and the cloud is decided:
+
+```text
+event active + field kit online -> field kit authoritative, cloud follows
+field kit offline or failed     -> cloud primary (operator failover)
+no active event                 -> cloud authoritative
+simulation                      -> runs on a sim field kit, same sync path
+```
+
+See [Roadmap Expansion](plans/2026-07-04-roadmap-expansion.md) for the
+journal/epoch sync design and the workstreams added in the 2026-07-04 review.
+
 ToorCamp 2028 is the flagship target, especially if ShadyTel can provide a real
 phone or T1/PRI handoff. The product should still work at smaller camps,
 Vibecamp-adjacent events, villages, night markets, and local rehearsals without
@@ -116,6 +128,16 @@ Exit gates:
 
 Goal: make OMNIDAT administrable through the web app.
 
+H1 is delivered in two slices so the packet bridge does not wait behind admin
+forms:
+
+- **H1a (operator core slice):** role-gated tRPC, audit events on every write,
+  and only the CRUD the bridge needs — services, service verbs, X.121
+  allocations, packet sessions, and evidence artifacts. H2 starts as soon as
+  H1a passes.
+- **H1b (full operator system):** everything else below, proceeding in
+  parallel with H2 and H3.
+
 Build:
 
 - route `omnidat.gmac.io` to the authoritative V1 surface, or document the
@@ -198,6 +220,12 @@ Build:
 - NOC visibility for active and recently cleared sessions.
 - evidence export for terminal transcript and service result.
 - fallback simulator mode for demos.
+- protocol fidelity spec (`docs/protocol-fidelity.md`) written alongside the
+  bridge: X.121 numbering plan, X.3 PAD parameter subset, X.29 procedures,
+  real X.25 clear cause and diagnostic codes, facilities handling, and XOT
+  per RFC 1613 as the interop boundary.
+- all bridge writes land in the field kit journal first (field kit is
+  authoritative during events; see the authority model above).
 
 Then add:
 
@@ -213,6 +241,8 @@ Exit gates:
 - the service result is persisted.
 - the operator can export or print a receipt.
 - failure paths produce explicit clear reasons, not silent errors.
+- a third-party XOT client completes CALL, data, and CLR against a
+  provisioned service with correct cause/diagnostic codes.
 
 ## H3: Camp Utility Apps
 
@@ -257,6 +287,17 @@ Priority apps:
   - daily summary.
   - fax metadata.
   - spool review.
+- Participant collateral:
+  - printed camp phone book / directory zine generated from the live service
+    directory.
+  - PAD cheat-sheet card at every terminal.
+  - `HELP` verb on every service and in the PAD.
+  - terminal idle attract mode.
+  - "get an X.121 address for your campsite" signage and form.
+- Open-namespace moderation:
+  - written policy for bulletins, classifieds, and open apps.
+  - takedown/delist tooling in the operator console, audited.
+  - appeal path.
 
 Exit gates:
 
@@ -265,6 +306,9 @@ Exit gates:
 - operators can promote or delist services.
 - daily summary includes provisioning, sessions, incidents, orders, activity,
   and billing artifacts.
+- a first-time user completes a directory lookup and one service call using
+  only printed material.
+- a takedown can be executed and appealed entirely from the operator UI.
 
 ## H4: Merchant And Bank Rails
 
@@ -324,6 +368,10 @@ Exit gates:
 - ATM setup and balance/withdraw/deposit work in simulation.
 - fee statements reconcile against terminal and bank ledgers.
 - ShadyBank/OmniBank team signs off before any redeemable value is exposed.
+- a written legal sanity pass on bearer instruments is on file before any
+  pilot issues them.
+- ledger entries are hash-chained (tamper-evident), and a restore drill
+  rebuilds the ledger from evidence artifacts with zero unexplained variance.
 
 ## H5: Field Hardware Kit
 
@@ -374,6 +422,15 @@ Build:
   - MeshCore managed loaner path.
   - Meshtastic guest path.
   - rate limits and retry behavior.
+- field kit offline operation:
+  - local journal store; printing, NOC, and evidence export work with no
+    uplink.
+  - store-and-forward sync with reconciliation report.
+  - authority failover drill (field kit -> cloud and back).
+- budget and sourcing:
+  - per-tier cost estimate against the hardware BOM.
+  - borrow-versus-buy plan with ShadyTel and other villages.
+  - long-lead acquisition list with acquire-by dates.
 
 Exit gates:
 
@@ -382,6 +439,9 @@ Exit gates:
 - startup/shutdown runbooks are printable.
 - all critical spares are labeled.
 - field operators can recover from one simulated device failure.
+- pulling the uplink for 60 minutes loses zero records and produces a clean
+  reconciliation report on resync.
+- Table Pilot tier is fully costed and funded.
 
 ## H6: Rehearsals And Pilot Events
 
@@ -404,6 +464,15 @@ Rehearsal 2: operator tabletop
 - run terminal calls.
 - create incident.
 - export daily summary.
+- run the authority failover drill.
+- doubles as the operator licensing exam (see Operator Pipeline track).
+
+Rehearsal 2.5: red team
+
+- invite-only adversarial rehearsal against the full stack under the published
+  rules of engagement.
+- findings triaged; criticals fixed before any public pilot.
+- NOC abuse and rate-limit signals verified during the exercise.
 
 Rehearsal 3: human evening
 
@@ -555,6 +624,45 @@ Exit gates:
 - public/open namespace content removal path.
 - no secrets in terminal packages or printed artifacts.
 
+### Offline And Split Authority
+
+- field kit is authoritative for event-scoped data during an active event;
+  cloud follows as replica and public status surface.
+- cloud is primary when the field kit is offline, has failed over, or no
+  event is active.
+- authority transfers use epochs; stale-epoch writes are rejected, making
+  split-brain structurally impossible.
+- append-only journal sync, store-and-forward, idempotent apply,
+  reconciliation reports.
+- cloud dashboards show sync staleness honestly, never stale data as live.
+- the weekend simulation runs on a sim field kit through the same sync path.
+
+### Adversarial Play And Fair Game
+
+- attacking OMNIDAT is sanctioned play under published rules of engagement.
+- in-bounds: protocol fuzzing, application-logic attacks on your own accounts,
+  planted phreak/packet challenges.
+- out-of-bounds: denial of service, other participants' data, physical
+  damage, ShadyTel and camp infrastructure, cloud-provider surface.
+- disclosure desk with OmniBucks bounties and a hall of fame in the service
+  directory.
+- hash-chained ledgers, rate limits, and NOC abuse signals as the hardening
+  counterpart.
+- red-team rehearsal before any public pilot.
+
+### Participant Experience
+
+- printed camp phone book generated from the live service directory.
+- PAD cheat-sheet cards, `HELP` verbs, attract mode, and signage.
+- a first-time camper must succeed at a terminal with zero coaching.
+
+### Operator Pipeline
+
+- operator licensing program with role-specific training material.
+- practical exam doubles as the tabletop rehearsal script.
+- printed license cards; every H7 role staffed with a licensed primary and
+  backup before the pilot.
+
 ### Privacy
 
 - default to handles/passport IDs.
@@ -572,6 +680,11 @@ Exit gates:
   transactions, and evidence exports.
 - post-deploy smoke for production.
 - daily printed summary.
+- defined KPI set instrumented in the field kit journal: sessions per day,
+  unique identities, verb calls per service, failed-call rate by clear cause,
+  orders, fee totals, incident time-to-clear, sync staleness percentiles.
+- daily summaries and post-event reports generate from the KPI data, not
+  hand-assembly.
 
 ### Developer Experience
 
@@ -590,7 +703,17 @@ Exit gates:
 
 ## Decision Points
 
-These need explicit decisions before event-ready work:
+Decided 2026-07-04 (see [Roadmap Expansion](plans/2026-07-04-roadmap-expansion.md)):
+
+- **Authority model:** field kit is authoritative during an active event and
+  syncs to the cloud; cloud is primary when the field kit is offline or no
+  event is active; simulation runs on a sim field kit.
+- **Adversarial play:** attacking OMNIDAT is sanctioned under published rules
+  of engagement, disclosure, and fair-play boundaries.
+- **Protocol fidelity:** interoperable where practical — real XOT, honest
+  clear cause codes, documented X.3/X.29 subset, published interop profile.
+
+Still needing explicit decisions before event-ready work:
 
 - Is `omnidat.gmac.io` the gmacko V1 app, the Worker demo, or a split surface?
 - What is the first real packet bridge: browser XOT, POTS/modem, MeshCore, or
@@ -603,20 +726,33 @@ These need explicit decisions before event-ready work:
   Carrier Lab, or Full ToorCamp?
 - What does event leadership allow for RF, power, network, phone, signage, and
   participant data?
+- Which named 2026/2027 events host the human rehearsal and the pilot
+  (decide by 2026-10-01).
+- X.121 numbering plan governance: DNIC choice, collision policy with
+  historic assignments, partner sub-allocation rules.
+
+Each open decision should get an owner, a decide-by date, and a
+default-if-undecided.
 
 ## Near-Term Build Order
 
-1. Make gmacko V1 the authoritative operator app or document the split.
-2. Role-gate OMNIDAT tRPC operations.
-3. Add operator CRUD for events, campsites, services, X.121 allocations, and
-   provisioning lifecycle.
-4. Build browser XOT terminal slice with NOC/evidence output.
-5. Add local field-office `/api/state`.
-6. Generate leadership PDF/deck from the pilot package.
-7. Inventory hardware and create bench-check records.
-8. Add POS batch-close and money-policy artifacts.
-9. Run tabletop rehearsal.
-10. Run 10-20 person human rehearsal.
+1. Design doc + implementation plan for the field kit journal/sync/epoch
+   model — it constrains H1a schema decisions and must land first.
+2. Make gmacko V1 the authoritative operator app or document the split.
+3. H1a slice: role-gate OMNIDAT tRPC, audit events, and bridge-critical CRUD
+   (services, X.121 allocations, sessions, evidence), with KPI instrumentation
+   from day one.
+4. Build browser XOT terminal slice with NOC/evidence output, alongside
+   `docs/protocol-fidelity.md`.
+5. Draft `docs/rules-of-engagement.md` and fold it into the leadership pack's
+   risk register.
+6. Add local field-office `/api/state`.
+7. Generate leadership PDF/deck from the pilot package.
+8. H1b: remaining operator CRUD and provisioning lifecycle.
+9. Inventory hardware, cost the kit tiers, and create bench-check records.
+10. Add POS batch-close and money-policy artifacts.
+11. Run tabletop rehearsal (doubles as operator licensing exam).
+12. Run red-team rehearsal, then the 10-20 person human rehearsal.
 
 ## Non-Goals Until After First Pilot
 
@@ -630,6 +766,7 @@ These need explicit decisions before event-ready work:
 
 ## Canonical References
 
+- [Roadmap Expansion: Split Authority, Fair Play, And Interop](plans/2026-07-04-roadmap-expansion.md)
 - [Hacker Camp Readiness Validation](plans/2026-07-04-hackercamp-readiness-validation.md)
 - [Leadership Pilot Package](leadership-pilot-package.md)
 - [Architecture](architecture.md)
