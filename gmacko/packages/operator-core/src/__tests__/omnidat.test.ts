@@ -111,7 +111,7 @@ describe("OMNIDAT operational model", () => {
     expect(provisioned.billing.ledgerEntry.memo).toContain(
       "X.121 provisioning",
     );
-    expect(pad.profile).toContain(`XOT HOST omnidat.gmac.io`);
+    expect(pad.profile).toContain(`XOT HOST omnidat.cc`);
     expect(call.transcript).toContain("CONNECT OSCILLATOR BULLETIN BOARD");
     expect(directory.transcript).toContain(provisioned.assignment.assignedX121);
     expect(state.pads.map((entry) => entry.x121)).toContain(

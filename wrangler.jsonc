@@ -5,7 +5,7 @@
   "main": "./worker/omnidat-worker.mjs",
   "routes": [
     {
-      "pattern": "omnidat.gmac.io",
+      "pattern": "omnidat.cc",
       "custom_domain": true
     }
   ],
@@ -17,7 +17,7 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    "APP_URL": "https://omnidat.gmac.io",
+    "APP_URL": "https://omnidat.cc",
     "OMNIDAT_PERSISTENCE": "database",
     "OMNIDAT_DB_SCHEMA": "omnidat",
     "DATABASE_PROVIDER": "postgres-shared-fryos-v1"

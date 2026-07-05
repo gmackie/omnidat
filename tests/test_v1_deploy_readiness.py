@@ -11,10 +11,10 @@ class V1DeployReadinessTests(unittest.TestCase):
         self.assertEqual(config["main"], "./worker/omnidat-worker.mjs")
         self.assertEqual(
             config["routes"],
-            [{"pattern": "omnidat.gmac.io", "custom_domain": True}],
+            [{"pattern": "omnidat.cc", "custom_domain": True}],
         )
         self.assertEqual(config["vars"]["APP_ENV"], "production")
-        self.assertEqual(config["vars"]["APP_URL"], "https://omnidat.gmac.io")
+        self.assertEqual(config["vars"]["APP_URL"], "https://omnidat.cc")
         self.assertEqual(config["vars"]["OMNIDAT_PERSISTENCE"], "database")
         self.assertEqual(config["vars"]["OMNIDAT_DB_SCHEMA"], "omnidat")
         self.assertEqual(config["vars"]["DATABASE_PROVIDER"], "postgres-shared-fryos-v1")
@@ -56,8 +56,8 @@ class V1DeployReadinessTests(unittest.TestCase):
 
         self.assertIn("canonical public web UI", runbook)
         self.assertIn("npm run deploy:worker --silent", runbook)
-        self.assertIn("https://omnidat.gmac.io/api/campsite-apps", runbook)
-        self.assertIn("POST https://omnidat.gmac.io/api/signup", runbook)
+        self.assertIn("https://omnidat.cc/api/campsite-apps", runbook)
+        self.assertIn("POST https://omnidat.cc/api/signup", runbook)
         self.assertNotIn("temporary public edge deploy", runbook)
         self.assertNotIn("full v1 application is still expected to move", runbook)
 

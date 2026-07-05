@@ -104,7 +104,7 @@ describe("OMNIDAT persistence projections", () => {
 
     expect(rows.padConfig.x121).toBe(provisioned.assignment.assignedX121);
     expect(rows.padConfig.padKind).toBe("xot-terminal");
-    expect(rows.padConfig.profile).toContain("XOT HOST omnidat.gmac.io");
+    expect(rows.padConfig.profile).toContain("XOT HOST omnidat.cc");
     expect(rows.auditEvent.eventType).toBe("pad.configured");
   });
 
@@ -298,7 +298,7 @@ describe("OMNIDAT persistence projections", () => {
             id: "infra-db-1",
             endpointKind: "xot-gateway",
             label: "XOT Gateway",
-            url: "https://omnidat.gmac.io/xot",
+            url: "https://omnidat.cc/xot",
             healthStatus: "healthy",
             owner: "OMNIDAT",
           },

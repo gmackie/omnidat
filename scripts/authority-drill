@@ -6,7 +6,7 @@ set -eu
 # rehearsal evidence. See runbooks/authority-failover.md.
 #
 # Required env or flags:
-#   OMNIDAT_SYNC_TARGET  gmacko base URL (e.g. https://omnidat.gmac.io)
+#   OMNIDAT_SYNC_TARGET  gmacko base URL (e.g. https://omnidat.cc)
 #   OMNIDAT_SYNC_TOKEN   NOC sync token
 # Required flags:
 #   --event-id <id>      the active event

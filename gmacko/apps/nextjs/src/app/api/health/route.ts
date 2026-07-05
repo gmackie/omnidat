@@ -8,6 +8,6 @@ export function GET() {
     status: "healthy",
     database: "postgres-shared-fryos-v1",
     schema: process.env.OMNIDAT_DB_SCHEMA ?? "omnidat",
-    hostname: "omnidat.gmac.io",
+    hostname: "omnidat.cc",
   });
 }

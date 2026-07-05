@@ -14,4 +14,4 @@ stages:
 # healthcheck path: /api/health
 # database strategy: shared-fryos-postgres-schema
 # preview domain: omnidat-staging.gmac.io
-# production domain: omnidat.gmac.io
+# production domain: omnidat.cc

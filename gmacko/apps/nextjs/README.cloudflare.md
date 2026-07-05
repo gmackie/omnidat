@@ -26,7 +26,7 @@ pnpm --filter @omnidat/nextjs exec wrangler secret put SHADYBANK_MERCHANT_TOKEN
 After deploy, verify the integration state:
 
 ```bash
-curl -fsS 'https://omnidat.gmac.io/api/trpc/omnidat.shadyBankStatus?batch=1&input=%7B%7D'
+curl -fsS 'https://omnidat.cc/api/trpc/omnidat.shadyBankStatus?batch=1&input=%7B%7D'
 ```
 
 The status is production-ready for settlement only when `configured` is `true`
@@ -34,6 +34,6 @@ and `merchantLinkStatus` is `ready`.
 
 ## Notes
 
-- This lane is the OMNIDAT Workers deployment path for `omnidat.gmac.io`.
+- This lane is the OMNIDAT Workers deployment path for `omnidat.cc`.
 - The app-local Worker config lives in `apps/nextjs/wrangler.jsonc`.
 - The root Worker is legacy and should not be used for the create-gmacko app UI.

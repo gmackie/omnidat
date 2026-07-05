@@ -28,7 +28,7 @@ class RuntimeManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["name"], "omnidat")
         self.assertEqual(manifest["main"], "./worker/omnidat-worker.mjs")
-        self.assertEqual(manifest["routes"][0]["pattern"], "omnidat.gmac.io")
+        self.assertEqual(manifest["routes"][0]["pattern"], "omnidat.cc")
         self.assertTrue(manifest["routes"][0]["custom_domain"])
 
     def test_portless_manifest_exposes_omnidat_app(self):

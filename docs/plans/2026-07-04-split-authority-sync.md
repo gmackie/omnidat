@@ -861,7 +861,7 @@ This implementation is complete when:
   `omnidatSecurityCredential` rows scoped by role once H1a role-gating
   lands still needs a decision there.
 - **Sync endpoint host.** This plan targets the gmacko tRPC surface. The
-  roadmap decision "is `omnidat.gmac.io` the gmacko V1 app, the Worker
+  roadmap decision "is `omnidat.cc` the gmacko V1 app, the Worker
   demo, or a split surface?" is still open; if the Worker remains the public
   edge, the sync procedures stay gmacko-only and are unaffected, but the
   staleness banner must also reach the Worker status pages.

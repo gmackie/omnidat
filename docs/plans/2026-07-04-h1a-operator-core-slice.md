@@ -887,7 +887,7 @@ This slice is complete when:
   `gmacko/packages/api/src/trpc.ts`.
 - Whether `dashboard`/`noc`/`billing`/`operations` should stay publicly
   readable on the demo surface or move behind `operator.read` as specified
-  here depends on the unresolved `omnidat.gmac.io` production-split decision
+  here depends on the unresolved `omnidat.cc` production-split decision
   (roadmap decision point). Default here: gate them in gmacko; the Worker
   demo remains the public status surface.
 - `OMNIDAT_BOOTSTRAP_ADMINS` as the first-admin mechanism is a proposal;

@@ -33,7 +33,7 @@ Local verification:
   - Production config points at `postgres-shared-fryos-v1`.
   - Hyperdrive binding is present.
 
-Production smoke on `https://omnidat.gmac.io`:
+Production smoke on `https://omnidat.cc`:
 
 - `/api/health`
   - healthy.
@@ -98,7 +98,7 @@ Fresh local verification:
   - passed with a Verifone-style `OMNISALE.TCL` dial sale through X.121
     `311088002010`, fake OmniBank authorization, capture, and evidence logs.
 
-Fresh production smoke on `https://omnidat.gmac.io`:
+Fresh production smoke on `https://omnidat.cc`:
 
 - `/api/health`
   - healthy.
@@ -299,7 +299,7 @@ Camp leadership will need documents that do not assume they know the repo:
 These are the concrete gaps to close before asking for an event-ready approval:
 
 1. **Authoritative production surface**
-   - Decide whether `omnidat.gmac.io` serves the gmacko V1 app, the Worker demo,
+   - Decide whether `omnidat.cc` serves the gmacko V1 app, the Worker demo,
      or a split where the Worker is a status/demo edge and gmacko is the
      operator system.
    - Right now the deployed Worker is good for leadership demo and public
@@ -373,7 +373,7 @@ proposal:
 - dependency list for ShadyTel, ShadyBank/OmniBank, FryOS, vendors, and
   campsite operators.
 - risk register.
-- demo script using `https://omnidat.gmac.io/dashboard`.
+- demo script using `https://omnidat.cc/dashboard`.
 - field footprint diagram.
 
 ### Phase 2: Persistent Operator System

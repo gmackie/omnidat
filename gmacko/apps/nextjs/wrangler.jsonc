@@ -6,7 +6,7 @@
   "main": "./worker/index.ts",
   "routes": [
     {
-      "pattern": "omnidat.gmac.io",
+      "pattern": "omnidat.cc",
       "custom_domain": true
     }
   ],
@@ -26,8 +26,8 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    "APP_URL": "https://omnidat.gmac.io",
-    "NEXT_PUBLIC_APP_URL": "https://omnidat.gmac.io",
+    "APP_URL": "https://omnidat.cc",
+    "NEXT_PUBLIC_APP_URL": "https://omnidat.cc",
     "OMNIDAT_PERSISTENCE": "database",
     "OMNIDAT_DB_SCHEMA": "omnidat",
     "SHADYBANK_API_URL": "https://bucks.shady.tel",

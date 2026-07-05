@@ -1,6 +1,6 @@
-const hostname = "omnidat.gmac.io";
+const hostname = "omnidat.cc";
 const service = "omnidat-v1-worker";
-const appUrl = "https://omnidat.gmac.io";
+const appUrl = "https://omnidat.cc";
 
 const authProviders = [
   {
@@ -284,7 +284,7 @@ const weekendSimulation = {
     provider: "omniauth",
     accounts: 1000,
     uniqueSubjects: 1000,
-    sampleDomain: "campers.omnidat.gmac.io",
+    sampleDomain: "campers.omnidat.cc",
   },
   currency: {
     primary: "OmniBucks",

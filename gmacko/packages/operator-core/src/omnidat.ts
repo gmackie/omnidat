@@ -1679,7 +1679,7 @@ function padProfile(input: {
 }) {
   if (input.padKind === "xot-terminal") {
     return [
-      "XOT HOST omnidat.gmac.io",
+      "XOT HOST omnidat.cc",
       "XOT PORT 1998",
       `XOT CALLING ${input.x121}`,
       "PAD SET WINDOW 2",

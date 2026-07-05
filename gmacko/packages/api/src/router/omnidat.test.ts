@@ -174,7 +174,7 @@ describe("omnidat tRPC router", () => {
     const noc = await adminCaller.omnidat.noc();
 
     expect(provisioned.status).toBe("verified");
-    expect(pad.profile).toContain("XOT HOST omnidat.gmac.io");
+    expect(pad.profile).toContain("XOT HOST omnidat.cc");
     expect(terminal.transcript).toContain("CONNECT OSCILLATOR BULLETIN BOARD");
     expect(operations.pads.map((entry) => entry.x121)).toContain(x121);
     expect(operations.ledger[0]?.memo).toContain("X.121 provisioning");
@@ -699,7 +699,7 @@ describe("omnidat tRPC router", () => {
             padKind: "xot-terminal",
             endpointLabel: "Camp Database terminal",
             status: "configured",
-            profile: "XOT HOST omnidat.gmac.io\nCALL 311088029999",
+            profile: "XOT HOST omnidat.cc\nCALL 311088029999",
           },
         ],
       ],

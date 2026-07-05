@@ -136,7 +136,7 @@ def run_weekend_simulation(
             "provider": "omniauth",
             "accounts": len(campers),
             "unique_subjects": len({camper["omniauth_subject"] for camper in campers}),
-            "sample_domain": "campers.omnidat.gmac.io",
+            "sample_domain": "campers.omnidat.cc",
         },
         "merchants": {
             "count": len(MERCHANTS),
@@ -225,7 +225,7 @@ def seed_campers(camper_count: int) -> list[dict[str, Any]]:
                 "passport_id": f"PASS-{index:05d}",
                 "account_id": f"SB-CAMPER-{index:04d}",
                 "omniauth_subject": f"omniauth|omnidat-camper-{index:04d}",
-                "omniauth_email": f"camper-{index:04d}@campers.omnidat.gmac.io",
+                "omniauth_email": f"camper-{index:04d}@campers.omnidat.cc",
                 "pan": f"42424242{index:08d}",
                 "balance": CAMPER_SEED_AMOUNT,
             }

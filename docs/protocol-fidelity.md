@@ -57,7 +57,7 @@ What exists today, so nobody mistakes this spec for shipped behavior:
 - PAD profiles: `configurePad` knows five PAD kinds (`meshcore-pad`,
   `meshtastic-pad`, `wifi-terminal`, `pots-pad`, `xot-terminal`;
   `gmacko/packages/api/src/router/omnidat.ts:253-259`) and advertises
-  `XOT HOST omnidat.gmac.io / XOT PORT 1998 / WINDOW 2 / PACKET-SIZE 128`
+  `XOT HOST omnidat.cc / XOT PORT 1998 / WINDOW 2 / PACKET-SIZE 128`
   (`gmacko/packages/operator-core/src/omnidat.ts:1680-1689`). No TCP listener
   exists yet; a Cloudflare Worker cannot accept raw TCP, so the real XOT
   listener lands on the field kit or a VPS node (see Open Questions).

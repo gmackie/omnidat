@@ -467,7 +467,7 @@ npm run smoke:production
 npm run smoke:production
 ```
 
-Expected: pass against `https://omnidat.gmac.io`.
+Expected: pass against `https://omnidat.cc`.
 
 **Step 5: Commit**
 

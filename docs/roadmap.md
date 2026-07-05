@@ -42,7 +42,7 @@ camp-critical operation.
 
 Currently proven:
 
-- public Worker demo at `https://omnidat.gmac.io`.
+- public Worker demo at `https://omnidat.cc`.
 - X.25 network status, service directory, verbs, and X.121 records.
 - 1,000-camper weekend simulation with Night Market, Miliways, OmniBank,
   OmniBucks, network fees, forms, terminal sessions, and evidence artifacts.
@@ -108,7 +108,7 @@ Build:
 - decide the production split:
   - Worker remains public demo/status edge.
   - gmacko V1 becomes authenticated operator system.
-  - or gmacko V1 replaces the Worker at `omnidat.gmac.io`.
+  - or gmacko V1 replaces the Worker at `omnidat.cc`.
 - publish one clear "what is real today" page:
   - simulation is real.
   - event-critical utility is not yet promised.
@@ -140,7 +140,7 @@ forms:
 
 Build:
 
-- route `omnidat.gmac.io` to the authoritative V1 surface, or document the
+- route `omnidat.cc` to the authoritative V1 surface, or document the
   split if Worker and gmacko remain separate.
 - run `omnidat` schema migrations against shared FryOS Postgres through a
   controlled deploy path.
@@ -715,7 +715,7 @@ Decided 2026-07-04 (see [Roadmap Expansion](plans/2026-07-04-roadmap-expansion.m
 
 Still needing explicit decisions before event-ready work:
 
-- Is `omnidat.gmac.io` the gmacko V1 app, the Worker demo, or a split surface?
+- Is `omnidat.cc` the gmacko V1 app, the Worker demo, or a split surface?
 - What is the first real packet bridge: browser XOT, POTS/modem, MeshCore, or
   Verifone dial path?
 - Is OmniBank a forked ShadyBank service, a thin test fixture, or a separate

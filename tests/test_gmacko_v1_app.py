@@ -92,8 +92,8 @@ class GmackoV1AppTests(unittest.TestCase):
 
         self.assertIn('DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gmacko_dev"', env)
         self.assertIn('OMNIDAT_DB_SCHEMA="omnidat"', env)
-        self.assertIn('APP_URL="https://omnidat.gmac.io"', env)
-        self.assertIn('NEXT_PUBLIC_APP_URL="https://omnidat.gmac.io"', env)
+        self.assertIn('APP_URL="https://omnidat.cc"', env)
+        self.assertIn('NEXT_PUBLIC_APP_URL="https://omnidat.cc"', env)
         self.assertIn('AUTH_GITHUB_ID=""', env)
         self.assertIn('AUTH_GITHUB_SECRET=""', env)
         self.assertIn('AUTH_GOOGLE_ID=""', env)
@@ -106,7 +106,7 @@ class GmackoV1AppTests(unittest.TestCase):
         self.assertIn("server: https://forge.gmac.io", config)
         self.assertIn("# healthcheck path: /api/health", config)
         self.assertIn("# database strategy: shared-fryos-postgres-schema", config)
-        self.assertIn("# production domain: omnidat.gmac.io", config)
+        self.assertIn("# production domain: omnidat.cc", config)
 
     def test_next_app_has_cloudflare_workers_vinext_deploy_lane(self):
         app_root = Path("gmacko/apps/nextjs")
@@ -122,7 +122,7 @@ class GmackoV1AppTests(unittest.TestCase):
             "pnpm build:vinext && pnpm with-env wrangler deploy --env staging",
         )
         self.assertIn("vinext", package["devDependencies"])
-        self.assertIn('"pattern": "omnidat.gmac.io"', wrangler)
+        self.assertIn('"pattern": "omnidat.cc"', wrangler)
         self.assertTrue((app_root / "vite.config.ts").exists())
         self.assertTrue((app_root / "worker/index.ts").exists())
         self.assertTrue((app_root / "src/cloudflare-env.ts").exists())

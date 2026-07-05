@@ -40,7 +40,7 @@ bridge, identity, provisioning, and money policy pass a human rehearsal.
 - Field-kit-authoritative sync with a failover drill; a field-office
   `/api/state` dashboard endpoint.
 - A 1,000-camper simulated weekend with downloadable evidence at
-  `https://omnidat.gmac.io/dashboard`.
+  `https://omnidat.cc/dashboard`.
 
 **What is not promised yet:** event-critical utility, real terminal hardware in
 the field, or redeemable money.
@@ -119,7 +119,7 @@ Default to handles/passport IDs; minimal fields; event-specific retention.
 
 ## Demo script
 
-1. `https://omnidat.gmac.io` — landing page frames X.25 business infrastructure.
+1. `https://omnidat.cc` — landing page frames X.25 business infrastructure.
 2. `/dashboard` — the simulated weekend: 1,000 campers, Night Market, Miliways,
    campsite X.121 provisioning, OmniBank ledgers, network fee statements.
 3. Evidence artifacts — events, bank ledger, queue orders, fee ledger, billing

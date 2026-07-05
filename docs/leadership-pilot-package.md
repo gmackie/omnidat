@@ -18,7 +18,7 @@ policy have passed a human rehearsal.
 The pilot can still be useful. It can run a packet directory, campsite app
 signup, activity passport logging, food-order/line demos, Night Market merchant
 simulation, ShadyBucks/OmniBucks ATM experiments, and a NOC dashboard. The
-public production surface at `https://omnidat.gmac.io/dashboard` already shows a
+public production surface at `https://omnidat.cc/dashboard` already shows a
 1,000-camper simulated weekend with downloadable event, bank, queue, network
 fee, and billing evidence.
 
@@ -85,10 +85,10 @@ The pilot is successful if:
 
 Use this script before asking for space or phone/network commitments.
 
-1. Open `https://omnidat.gmac.io`.
+1. Open `https://omnidat.cc`.
 2. Show that the landing page frames OMNIDAT as X.25 business infrastructure and
    links "business" language to `https://haha.business`.
-3. Open `https://omnidat.gmac.io/dashboard`.
+3. Open `https://omnidat.cc/dashboard`.
 4. Show the simulated weekend:
    - 1,000 campers.
    - Night Market and Miliways activity.

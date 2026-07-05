@@ -64,8 +64,8 @@ COPY . .
 ARG DATABASE_URL
 ARG AUTH_SECRET
 ARG OMNIDAT_DB_SCHEMA=omnidat
-ARG APP_URL=https://omnidat.gmac.io
-ARG NEXT_PUBLIC_APP_URL=https://omnidat.gmac.io
+ARG APP_URL=https://omnidat.cc
+ARG NEXT_PUBLIC_APP_URL=https://omnidat.cc
 ARG SKIP_ENV_VALIDATION=true
 ARG DOCKER_BUILD=true
 
@@ -98,8 +98,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV OMNIDAT_DB_SCHEMA=omnidat
-ENV APP_URL=https://omnidat.gmac.io
-ENV NEXT_PUBLIC_APP_URL=https://omnidat.gmac.io
+ENV APP_URL=https://omnidat.cc
+ENV NEXT_PUBLIC_APP_URL=https://omnidat.cc
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
