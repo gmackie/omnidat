@@ -292,6 +292,13 @@ const weekendSimulation = {
     controlledBy: "OMNIDAT",
     shadybucksConversion: "2028 bridge-ledger boundary",
   },
+  journal: {
+    sourceId: "sim-field-kit",
+    total: 9432,
+    authority: "field",
+    epoch: 1,
+    note: "Every op journaled through the sim field kit and synced to cloud",
+  },
   nightMarket: {
     nights: 2,
     sales: 1000,
@@ -1079,6 +1086,7 @@ function weekendDashboardPage() {
     ["Terminal Sessions", weekendSimulation.terminals.totalSessions, "TCL program runs"],
     ["X.121 Provisioning", weekendSimulation.x121.verified, "verified campsites"],
     ["Network Fees", weekendSimulation.networkFees.totalAssessed, "OmniBucks assessed"],
+    ["Sim Field Kit Journal", weekendSimulation.journal.total, `${weekendSimulation.journal.sourceId} entries synced`],
   ];
   const timeline = weekendSimulation.timeline.map((item) => {
     const percent = Math.round((item.value / item.max) * 100);

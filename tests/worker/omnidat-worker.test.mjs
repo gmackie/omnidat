@@ -367,6 +367,10 @@ test("weekend simulation API exposes camp-scale dashboard metrics", async () => 
   assert.equal(body.samples.terminalSessions[0].program, "OMNISALE.TCL");
   assert.equal(body.samples.merchantSetups[0].settlementCurrency, "OmniBucks");
   assert.ok(body.timeline.some((entry) => entry.label === "Night Market Friday"));
+  // Sim field kit journal (H-slice): every op journaled and synced.
+  assert.equal(body.journal.sourceId, "sim-field-kit");
+  assert.equal(body.journal.total, 9432);
+  assert.equal(body.journal.authority, "field");
 });
 
 test("weekend dashboard renders visual operations board", async () => {
@@ -381,6 +385,8 @@ test("weekend dashboard renders visual operations board", async () => {
   assert.match(html, /Forms Filed/);
   assert.match(html, /Terminal Sessions/);
   assert.match(html, /X\.121 Provisioning/);
+  assert.match(html, /Sim Field Kit Journal/);
+  assert.match(html, /9432/);
   assert.match(html, /OMNISALE\.TCL/);
   assert.match(html, /Evidence Files/);
   assert.match(html, /href="\/api\/weekend-simulation\/weekend-events\.jsonl"/);

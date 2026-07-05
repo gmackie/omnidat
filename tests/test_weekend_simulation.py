@@ -144,6 +144,20 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertIn("OMNIDAT NETWORK FEE STATEMENT", (runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").read_text())
             self.assertIn("NETWORK FEES 17.50 OmniBucks", (runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").read_text())
 
+    def test_worker_dashboard_journal_total_matches_the_sim(self):
+        # The public dashboard embeds the sim field kit journal total; it must
+        # equal what the simulation actually produces so the dashboard cannot
+        # silently drift from the run it claims to show.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report = run_weekend_simulation(
+                runtime_dir=Path(temp_dir),
+                data_dir=Path("data"),
+                camper_count=1000,
+            )
+        worker = Path("worker/omnidat-worker.mjs").read_text()
+        self.assertIn(f"total: {report['journal']['total']}", worker)
+        self.assertIn('sourceId: "sim-field-kit"', worker)
+
     def test_weekend_simulation_journals_through_sim_field_kit(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             runtime_dir = Path(temp_dir)
