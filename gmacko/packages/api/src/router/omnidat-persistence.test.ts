@@ -189,6 +189,36 @@ describe("OMNIDAT persistence projections", () => {
     ).toBe(true);
   });
 
+  it("attributes audit rows to the acting OMNIDAT operator", async () => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+    const { db, writes } = createFakeDb();
+    const provisioned = provisionCampsiteService({
+      campsiteName: "Camp Actor",
+      namespace: "camp",
+      contact: "actor@example.test",
+      appName: "Actor Bulletin",
+      appKind: "message-board",
+      transport: "wifi",
+    });
+
+    await persistProvisioningResult(db, provisioned, {
+      userId: "user-packet-1",
+      roles: ["packet-operator"],
+      ipAddress: "198.51.100.10",
+    });
+
+    expect(
+      writes.find((write) => write.table === omnidatAuditEvent)?.value,
+    ).toMatchObject({
+      eventType: "provisioning.verified",
+      actorUserId: "user-packet-1",
+      ipAddress: "198.51.100.10",
+      details: expect.objectContaining({
+        actorRoles: ["packet-operator"],
+      }),
+    });
+  });
+
   it("loads persistent registry, audit, incident, and evidence rows", async () => {
     process.env.OMNIDAT_PERSISTENCE = "database";
     const rowsByTable = new Map<unknown, unknown[]>([

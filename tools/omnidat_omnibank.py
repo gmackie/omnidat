@@ -25,10 +25,19 @@ class OmniBankFake:
         self,
         ledger_path: Path = Path("build/omnibank-ledger.jsonl"),
         profile_path: Path = DEFAULT_PROFILE,
+        journal: Any | None = None,
     ) -> None:
         self.ledger_path = ledger_path
         self.profile = load_omnibank_profile(profile_path)
+        self.journal = journal
         self._authorizations: dict[tuple[str, str], dict[str, Any]] = {}
+
+    def _journal_posting(self, ledger_event: str, payload: dict[str, Any]) -> None:
+        if self.journal is not None:
+            self.journal.append(
+                "omnibucks.ledger.posted",
+                {"ledger_event": ledger_event, **payload},
+            )
 
     def authorize(
         self,
@@ -52,6 +61,7 @@ class OmniBankFake:
             "response_code": "00",
         }
         append_event(self.ledger_path, "omnibank.authorized", "omnibank-fake", payload, created_at=created_at)
+        self._journal_posting("omnibank.authorized", payload)
         self._authorizations[(auth_code, merchant_id)] = payload
         return payload
 
@@ -79,6 +89,7 @@ class OmniBankFake:
             "response_code": "00",
         }
         append_event(self.ledger_path, "omnibank.captured", "omnibank-fake", payload, created_at=created_at)
+        self._journal_posting("omnibank.captured", payload)
         return payload
 
     def find_authorization(self, auth_code: str, merchant_id: str) -> dict[str, Any]:

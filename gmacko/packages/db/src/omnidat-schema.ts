@@ -450,6 +450,78 @@ export const omnidatOperatorRole = omnidatNamespace.table("omnidat_operator_role
   unique("omnidat_operator_role_user_event_role_unique").on(table.userId, table.eventId, table.role),
 ]);
 
+export const omnidatSyncSource = omnidatNamespace.table("omnidat_sync_source", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  sourceId: t.varchar({ length: 80 }).notNull(),
+  sourceKind: t.varchar({ length: 32 }).notNull().default("field-kit"),
+  tokenHash: t.text().notNull(),
+  lastPushedSeq: t.bigint({ mode: "number" }).notNull().default(0),
+  lastSyncAt: t.timestamp({ mode: "date", withTimezone: true }),
+  active: t.boolean().notNull().default(true),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+}), (table) => [
+  unique("omnidat_sync_source_source_id_unique").on(table.sourceId),
+]);
+
+export const omnidatPacketSession = omnidatNamespace.table("omnidat_packet_session", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  eventId: t.uuid().references(() => omnidatEvent.id, { onDelete: "set null" }),
+  serviceId: t.uuid().references(() => omnidatService.id, { onDelete: "set null" }),
+  sourceIdentity: t.varchar({ length: 160 }).notNull(),
+  sourceTransport: t.varchar({ length: 80 }).notNull(),
+  sourceX121: t.varchar({ length: 32 }),
+  destinationX121: t.varchar({ length: 32 }).notNull(),
+  status: t.varchar({ length: 32 }).notNull().default("connected"),
+  connectedAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+  clearedAt: t.timestamp({ mode: "date", withTimezone: true }),
+  // Raw X.25 clear cause and diagnostic code points (locked protocol-fidelity
+  // decision), never free-text failure strings.
+  clearCause: t.integer(),
+  clearDiagnostic: t.integer(),
+  transcriptHash: t.varchar({ length: 128 }),
+  evidenceArtifactId: t
+    .uuid()
+    .references(() => omnidatEvidenceArtifact.id, { onDelete: "set null" }),
+}));
+
+export const omnidatJournalEntry = omnidatNamespace.table("omnidat_journal_entry", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  sourceId: t.varchar({ length: 80 }).notNull(),
+  seq: t.bigint({ mode: "number" }).notNull(),
+  eventId: t.uuid().references(() => omnidatEvent.id, { onDelete: "set null" }),
+  epoch: t.integer().notNull(),
+  opType: t.varchar({ length: 120 }).notNull(),
+  payload: t.json().$type<Record<string, unknown>>().notNull().default({}),
+  idempotencyKey: t.varchar({ length: 160 }).notNull(),
+  payloadChecksum: t.varchar({ length: 64 }).notNull(),
+  recordedAt: t.timestamp({ mode: "date", withTimezone: true }).notNull(),
+  receivedAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+  applyStatus: t.varchar({ length: 32 }).notNull().default("pending"),
+  appliedAt: t.timestamp({ mode: "date", withTimezone: true }),
+}), (table) => [
+  unique("omnidat_journal_source_seq_unique").on(table.sourceId, table.seq),
+  unique("omnidat_journal_idempotency_unique").on(table.idempotencyKey),
+]);
+
+export const omnidatEventAuthority = omnidatNamespace.table("omnidat_event_authority", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  eventId: t
+    .uuid()
+    .notNull()
+    .references(() => omnidatEvent.id, { onDelete: "cascade" }),
+  epoch: t.integer().notNull(),
+  holder: t.varchar({ length: 16 }).notNull(),
+  holderSourceId: t.varchar({ length: 80 }).notNull(),
+  fenceSeq: t.bigint({ mode: "number" }),
+  transferredByUserId: t
+    .text()
+    .references(() => user.id, { onDelete: "set null" }),
+  reason: t.text(),
+  createdAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+}), (table) => [
+  unique("omnidat_event_authority_event_epoch_unique").on(table.eventId, table.epoch),
+]);
+
 export const omnidatNocIncident = omnidatNamespace.table("omnidat_noc_incident", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   networkId: t

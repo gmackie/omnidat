@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from tools.omnidat_events import read_events
+from tools.omnidat_journal import JournalStore, JournalWriter
 from tools.omnidat_queue import (
     create_order,
     get_order_status,
@@ -50,6 +51,34 @@ class QueueTests(unittest.TestCase):
             self.assertEqual(order["queue_position"], 1)
             self.assertEqual(read_orders(queue_dir), [order])
             self.assertEqual(read_events(log_path)[0]["type"], "queue.order.accepted")
+
+    def test_create_order_appends_journal_entry_when_store_attached(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "data"
+            queue_dir = root / "queue"
+            write_queue_seed_data(data_dir)
+            store = JournalStore(root / "journal.db", source_id="field-kit-01")
+            self.addCleanup(store.close)
+            store.set_authority("event-sim", "field-kit-01", 1)
+            journal = JournalWriter(store, "event-sim")
+
+            order = create_order(
+                data_dir,
+                queue_dir,
+                queue_id="miliways",
+                passport_id="PASS-04271",
+                item_id="tea",
+                quantity=1,
+                created_at="2028-07-01T10:00:00-07:00",
+                journal=journal,
+            )
+
+            entries = store.entries()
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["op_type"], "queue.order.accepted")
+            self.assertEqual(entries[0]["event_id"], "event-sim")
+            self.assertEqual(entries[0]["payload"], order)
 
     def test_create_order_bridges_to_fryos_when_item_has_mapping(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,3 +1,4 @@
+import { eq } from "@omnidat/db";
 import {
   omnidatAddressAllocation,
   omnidatAuditEvent,
@@ -8,6 +9,7 @@ import {
   omnidatFoodOrder,
   omnidatInfraEndpoint,
   omnidatNocIncident,
+  omnidatPacketSession,
   omnidatPadConfig,
   omnidatPassportStamp,
   omnidatProvisioningRequest,
@@ -32,6 +34,8 @@ import type {
   stampActivityPassport,
 } from "@omnidat/operator-core/omnidat";
 import { createHash } from "node:crypto";
+
+import type { OmnidatRole } from "./omnidat-roles";
 
 type ProvisioningResult = ReturnType<typeof provisionCampsiteService>;
 type PadResult = ReturnType<typeof configurePad>;
@@ -81,6 +85,12 @@ type OmnidatOperationalSnapshot = {
 
 type InsertValue<T> = T extends { $inferInsert: infer U } ? U : never;
 
+export type OmnidatAuditActor = {
+  userId: string;
+  roles: OmnidatRole[];
+  ipAddress?: string;
+};
+
 export type OmnidatPersistenceDb = {
   insert: (table: unknown) => {
     values: (value: unknown) => {
@@ -95,6 +105,22 @@ export type OmnidatPersistenceDb = {
 
 function activationHash(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function withAuditActor(
+  auditEvent: InsertValue<typeof omnidatAuditEvent>,
+  actor?: OmnidatAuditActor,
+): InsertValue<typeof omnidatAuditEvent> {
+  if (!actor) return auditEvent;
+  return {
+    ...auditEvent,
+    actorUserId: actor.userId,
+    ipAddress: actor.ipAddress,
+    details: {
+      ...(auditEvent.details ?? {}),
+      actorRoles: actor.roles,
+    },
+  };
 }
 
 export function projectProvisioningPersistenceRows(result: ProvisioningResult) {
@@ -842,6 +868,7 @@ async function upsertBillingAccount(
 export async function persistProvisioningResult(
   db: OmnidatPersistenceDb | undefined,
   result: ProvisioningResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectProvisioningPersistenceRows(result);
@@ -852,12 +879,13 @@ export async function persistProvisioningResult(
     ...rows.ledgerEntry,
     accountId,
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistPadResult(
   db: OmnidatPersistenceDb | undefined,
   result: PadResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectPadPersistenceRows(result);
@@ -872,12 +900,13 @@ export async function persistPadResult(
       profile: rows.padConfig.profile,
     },
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistAtmResult(
   db: OmnidatPersistenceDb | undefined,
   result: AtmResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectAtmPersistenceRows(result);
@@ -900,7 +929,7 @@ export async function persistAtmResult(
     ...rows.ledgerEntry,
     accountId,
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistXotCommandResult(
@@ -910,16 +939,18 @@ export async function persistXotCommandResult(
     command: string;
     result: XotResult;
   },
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   await db
     .insert(omnidatAuditEvent)
-    .values(projectXotCommandPersistenceRows(input).auditEvent);
+    .values(withAuditActor(projectXotCommandPersistenceRows(input).auditEvent, actor));
 }
 
 export async function persistFoodOrderResult(
   db: OmnidatPersistenceDb | undefined,
   result: FoodOrderResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectFoodOrderPersistenceRows(result);
@@ -930,24 +961,322 @@ export async function persistFoodOrderResult(
     ...rows.ledgerEntry,
     accountId,
   });
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistPassportStampResult(
   db: OmnidatPersistenceDb | undefined,
   result: PassportStampResult,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   const rows = projectPassportStampPersistenceRows(result);
 
   await db.insert(omnidatPassportStamp).values(rows.passportStamp);
-  await db.insert(omnidatAuditEvent).values(rows.auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(rows.auditEvent, actor));
 }
 
 export async function persistAuditEvent(
   db: OmnidatPersistenceDb | undefined,
   auditEvent: InsertValue<typeof omnidatAuditEvent>,
+  actor?: OmnidatAuditActor,
 ) {
   if (!db || !databasePersistenceEnabled()) return;
-  await db.insert(omnidatAuditEvent).values(auditEvent);
+  await db.insert(omnidatAuditEvent).values(withAuditActor(auditEvent, actor));
+}
+
+type OmnidatSessionDb = OmnidatPersistenceDb & {
+  update?: (table: unknown) => {
+    set: (value: unknown) => { where: (condition: unknown) => unknown };
+  };
+};
+
+export type PacketSessionOpenInput = {
+  eventId?: string | null;
+  serviceId?: string | null;
+  sourceIdentity: string;
+  sourceTransport: string;
+  sourceX121?: string | null;
+  destinationX121: string;
+};
+
+export type PacketSessionView = {
+  id: string;
+  eventId: string | null;
+  serviceId: string | null;
+  sourceIdentity: string;
+  sourceTransport: string;
+  sourceX121: string | null;
+  destinationX121: string;
+  status: string;
+  clearCause: number | null;
+  clearDiagnostic: number | null;
+  transcriptHash: string | null;
+  evidenceArtifactId: string | null;
+};
+
+export async function persistPacketSessionOpen(
+  db: OmnidatSessionDb | undefined,
+  input: PacketSessionOpenInput,
+  actor?: OmnidatAuditActor,
+): Promise<PacketSessionView> {
+  const row = {
+    eventId: input.eventId ?? null,
+    serviceId: input.serviceId ?? null,
+    sourceIdentity: input.sourceIdentity,
+    sourceTransport: input.sourceTransport,
+    sourceX121: input.sourceX121 ?? null,
+    destinationX121: input.destinationX121,
+    status: "connected" as const,
+  };
+  let id = `session-${input.destinationX121}`;
+  if (db && databasePersistenceEnabled()) {
+    const insert = db
+      .insert(omnidatPacketSession)
+      .values(row) as ReturningInsert;
+    id = (await returningId(insert, { id: omnidatPacketSession.id })) ?? id;
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "session.opened",
+        subjectKind: "packet-session",
+        subjectId: id,
+        details: {
+          destinationX121: input.destinationX121,
+          sourceTransport: input.sourceTransport,
+        },
+      },
+      actor,
+    );
+  }
+  return { id, clearCause: null, clearDiagnostic: null, transcriptHash: null, evidenceArtifactId: null, ...row };
+}
+
+export async function persistPacketSessionClear(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    sessionId: string;
+    clearCause: number;
+    clearDiagnostic: number;
+    transcript: string;
+    evidenceArtifactId?: string | null;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  const transcriptHash = activationHash(input.transcript);
+  if (db && databasePersistenceEnabled() && db.update) {
+    await db
+      .update(omnidatPacketSession)
+      .set({
+        status: "cleared",
+        clearedAt: new Date(),
+        clearCause: input.clearCause,
+        clearDiagnostic: input.clearDiagnostic,
+        transcriptHash,
+        evidenceArtifactId: input.evidenceArtifactId ?? null,
+      })
+      .where(eq(omnidatPacketSession.id, input.sessionId));
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "session.cleared",
+        subjectKind: "packet-session",
+        subjectId: input.sessionId,
+        details: {
+          clearCause: input.clearCause,
+          clearDiagnostic: input.clearDiagnostic,
+        },
+      },
+      actor,
+    );
+  }
+  return {
+    id: input.sessionId,
+    status: "cleared" as const,
+    clearCause: input.clearCause,
+    clearDiagnostic: input.clearDiagnostic,
+    transcriptHash,
+    evidenceArtifactId: input.evidenceArtifactId ?? null,
+  };
+}
+
+export async function persistEvidenceArtifact(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    eventId?: string | null;
+    artifactKind: string;
+    label: string;
+    url: string;
+    recordCount?: number | null;
+    contentType?: string;
+    checksum?: string | null;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  let id = `artifact-${input.label}`;
+  if (db && databasePersistenceEnabled()) {
+    const insert = db
+      .insert(omnidatEvidenceArtifact)
+      .values({
+        eventId: input.eventId ?? null,
+        artifactKind: input.artifactKind,
+        label: input.label,
+        url: input.url,
+        recordCount: input.recordCount ?? null,
+        contentType: input.contentType ?? "application/json",
+        checksum: input.checksum ?? null,
+      }) as ReturningInsert;
+    id = (await returningId(insert, { id: omnidatEvidenceArtifact.id })) ?? id;
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "evidence.created",
+        subjectKind: "evidence-artifact",
+        subjectId: id,
+        details: { artifactKind: input.artifactKind, url: input.url },
+      },
+      actor,
+    );
+  }
+  return { id, artifactKind: input.artifactKind, label: input.label, url: input.url };
+}
+
+type EvidenceArtifactRowFull = {
+  id?: string;
+  eventId?: string | null;
+  artifactKind?: string | null;
+  label?: string | null;
+  url?: string | null;
+  recordCount?: number | null;
+  contentType?: string | null;
+};
+
+export async function loadEvidenceArtifacts(
+  db: OmnidatSessionDb | undefined,
+  artifactKind?: string,
+) {
+  if (!db || !databasePersistenceEnabled()) return [];
+  const rows = await selectRows<EvidenceArtifactRowFull>(
+    db,
+    omnidatEvidenceArtifact,
+  );
+  return rows
+    .filter((row) => row.url && (!artifactKind || row.artifactKind === artifactKind))
+    .map((row) => ({
+      id: row.id ?? `artifact-${row.label}`,
+      eventId: row.eventId ?? null,
+      artifactKind: row.artifactKind ?? "artifact",
+      label: row.label ?? row.url ?? "",
+      url: row.url ?? "",
+      recordCount: row.recordCount ?? null,
+      contentType: row.contentType ?? "application/json",
+    }));
+}
+
+export async function persistServiceVerbUpsert(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    serviceId: string;
+    verb: string;
+    description?: string | null;
+    inputs?: string[];
+    outputs?: string[];
+    securityPolicy?: Record<string, unknown>;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  if (db && databasePersistenceEnabled()) {
+    const insert = db.insert(omnidatServiceVerb).values({
+      serviceId: input.serviceId,
+      verb: input.verb,
+      description: input.description ?? null,
+      inputs: input.inputs ?? [],
+      outputs: input.outputs ?? [],
+      securityPolicy: input.securityPolicy ?? {},
+      active: true,
+    }) as ReturningInsert;
+    await insert.onConflictDoUpdate?.({
+      target: [omnidatServiceVerb.serviceId, omnidatServiceVerb.verb],
+      set: {
+        description: input.description ?? null,
+        inputs: input.inputs ?? [],
+        outputs: input.outputs ?? [],
+        securityPolicy: input.securityPolicy ?? {},
+        active: true,
+      },
+    });
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "verb.upserted",
+        subjectKind: "service-verb",
+        subjectId: `${input.serviceId}:${input.verb}`,
+        details: { verb: input.verb },
+      },
+      actor,
+    );
+  }
+  return { serviceId: input.serviceId, verb: input.verb, active: true };
+}
+
+export async function persistServiceVerbDisable(
+  db: OmnidatSessionDb | undefined,
+  input: { serviceId: string; verb: string },
+  actor?: OmnidatAuditActor,
+) {
+  if (db && databasePersistenceEnabled() && db.update) {
+    await db
+      .update(omnidatServiceVerb)
+      .set({ active: false })
+      .where(eq(omnidatServiceVerb.verb, input.verb));
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "verb.disabled",
+        subjectKind: "service-verb",
+        subjectId: `${input.serviceId}:${input.verb}`,
+        details: { verb: input.verb },
+      },
+      actor,
+    );
+  }
+  return { serviceId: input.serviceId, verb: input.verb, active: false };
+}
+
+type PacketSessionRow = {
+  id?: string;
+  eventId?: string | null;
+  serviceId?: string | null;
+  sourceIdentity?: string | null;
+  sourceTransport?: string | null;
+  sourceX121?: string | null;
+  destinationX121?: string | null;
+  status?: string | null;
+  clearCause?: number | null;
+  clearDiagnostic?: number | null;
+  transcriptHash?: string | null;
+  evidenceArtifactId?: string | null;
+};
+
+export async function loadPacketSessions(
+  db: OmnidatSessionDb | undefined,
+): Promise<PacketSessionView[]> {
+  if (!db || !databasePersistenceEnabled()) return [];
+  const rows = await selectRows<PacketSessionRow>(db, omnidatPacketSession);
+  return rows
+    .filter((row) => row.destinationX121)
+    .map((row) => ({
+      id: row.id ?? `session-${row.destinationX121}`,
+      eventId: row.eventId ?? null,
+      serviceId: row.serviceId ?? null,
+      sourceIdentity: row.sourceIdentity ?? "",
+      sourceTransport: row.sourceTransport ?? "",
+      sourceX121: row.sourceX121 ?? null,
+      destinationX121: row.destinationX121 ?? "",
+      status: row.status ?? "connected",
+      clearCause: row.clearCause ?? null,
+      clearDiagnostic: row.clearDiagnostic ?? null,
+      transcriptHash: row.transcriptHash ?? null,
+      evidenceArtifactId: row.evidenceArtifactId ?? null,
+    }));
 }

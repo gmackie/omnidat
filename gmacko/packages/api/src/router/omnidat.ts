@@ -1,3 +1,8 @@
+import { and, eq } from "@omnidat/db";
+import {
+  omnidatAuditEvent,
+  omnidatOperatorRole,
+} from "@omnidat/db/schema";
 import {
   buildNetworkSnapshot,
   buildProvisioningTranscript,
@@ -22,20 +27,77 @@ import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
 import {
+  omnidatOperatorProcedure,
+  omnidatOperatorReadProcedure,
+} from "./omnidat-operator-procedure";
+import { OMNIDAT_ROLES } from "./omnidat-roles";
+import { recordOperationalMetric } from "./omnidat-kpi";
+import {
+  loadEvidenceArtifacts,
+  loadPacketSessions,
   loadPersistentOperationalState,
+  type OmnidatAuditActor,
   type OmnidatPersistenceDb,
   persistAtmResult,
+  persistEvidenceArtifact,
   persistFoodOrderResult,
+  persistPacketSessionClear,
+  persistPacketSessionOpen,
   persistPadResult,
   persistPassportStampResult,
   persistProvisioningResult,
+  persistServiceVerbDisable,
+  persistServiceVerbUpsert,
   persistXotCommandResult,
 } from "./omnidat-persistence";
+import {
+  applyJournalBatch,
+  computeSyncStatus,
+  getCurrentAuthority,
+  journalCloudWrite,
+  listSyncSources,
+  type OmnidatSyncDb,
+  pullJournalEntries,
+  transferEventAuthority,
+  verifySyncToken,
+} from "./omnidat-sync";
 import {
   createShadyBankClient,
   getShadyBankIntegrationProfile,
   type ShadyBankClientConfig,
 } from "./shadybank-client";
+
+const syncViewInput = z
+  .object({
+    eventId: z.string().min(1).nullish(),
+    now: z.string().min(1).optional(),
+  })
+  .optional();
+
+function syncViewNow(input: { now?: string } | null | undefined) {
+  return input?.now ? new Date(input.now) : new Date();
+}
+
+function syncDb(ctx: unknown) {
+  return (ctx as { db?: OmnidatSyncDb }).db;
+}
+
+function auditActor(ctx: unknown): OmnidatAuditActor | undefined {
+  const operator = (ctx as { operator?: OmnidatAuditActor }).operator;
+  if (!operator) return undefined;
+  return operator;
+}
+
+const journalEntryInput = z.object({
+  seq: z.number().int().positive(),
+  eventId: z.string().min(1).nullish(),
+  epoch: z.number().int().min(0),
+  opType: z.string().min(1),
+  payload: z.record(z.string(), z.unknown()),
+  idempotencyKey: z.string().min(1),
+  payloadChecksum: z.string().min(1),
+  recordedAt: z.string().min(1),
+});
 
 function shadyBankConfig(ctx: unknown): ShadyBankClientConfig {
   return (
@@ -81,7 +143,7 @@ function settleIsoResponseWithShadyBankAuth(
 }
 
 export const omnidatRouter = {
-  dashboard: publicProcedure.query(async ({ ctx }) => {
+  dashboard: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const operationalState =
       (await loadPersistentOperationalState(
         (ctx as { db?: OmnidatPersistenceDb }).db,
@@ -112,6 +174,11 @@ export const omnidatRouter = {
       },
       recentProvisioning: operationalState.provisioningRequests,
       billingAccounts: operationalState.billingAccounts,
+      sync: await computeSyncStatus(
+        syncDb(ctx),
+        input?.eventId ?? null,
+        syncViewNow(input),
+      ),
     };
   }),
 
@@ -126,7 +193,7 @@ export const omnidatRouter = {
     ).services,
   })),
 
-  noc: publicProcedure.query(async ({ ctx }) => {
+  noc: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const snapshot = buildNetworkSnapshot();
     const operationalState =
       (await loadPersistentOperationalState(
@@ -142,6 +209,11 @@ export const omnidatRouter = {
       },
       circuits: operationalState.circuits,
       services: operationalState.services,
+      sync: await computeSyncStatus(
+        syncDb(ctx),
+        input?.eventId ?? null,
+        syncViewNow(input),
+      ),
     };
   }),
 
@@ -201,7 +273,7 @@ export const omnidatRouter = {
     getVintageTerminalProgramPack(),
   ),
 
-  vintageTerminalDownloadPackage: publicProcedure
+  vintageTerminalDownloadPackage: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         terminalId: z.string().min(1),
@@ -215,7 +287,7 @@ export const omnidatRouter = {
     profile: getShadyBankIntegrationProfile(shadyBankConfig(ctx)),
   })),
 
-  verifyProvisioning: publicProcedure
+  verifyProvisioning: omnidatOperatorProcedure("provisioning.write")
     .input(
       z.object({
         campsiteName: z.string().min(1),
@@ -225,7 +297,7 @@ export const omnidatRouter = {
     )
     .mutation(({ input }) => buildProvisioningTranscript(input)),
 
-  provisionCampsiteService: publicProcedure
+  provisionCampsiteService: omnidatOperatorProcedure("provisioning.write")
     .input(
       z.object({
         campsiteName: z.string().min(1),
@@ -241,11 +313,16 @@ export const omnidatRouter = {
       await persistProvisioningResult(
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
+        auditActor(ctx),
       );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "provisioning.verified",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
-  configurePad: publicProcedure
+  configurePad: omnidatOperatorProcedure("provisioning.write")
     .input(
       z.object({
         x121: z.string().min(6),
@@ -262,11 +339,19 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = configurePad(input);
-      await persistPadResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistPadResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+        auditActor(ctx),
+      );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "pad.configured",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
-  setupAtmTerminal: publicProcedure
+  setupAtmTerminal: omnidatOperatorProcedure("bank.write")
     .input(
       z.object({
         terminalId: z.string().min(1),
@@ -277,11 +362,19 @@ export const omnidatRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const result = setupAtmTerminal(input);
-      await persistAtmResult((ctx as { db?: OmnidatPersistenceDb }).db, result);
+      await persistAtmResult(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        result,
+        auditActor(ctx),
+      );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "atm.activated",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
-  createFoodOrder: publicProcedure
+  createFoodOrder: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         itemIds: z.array(z.string().min(1)).min(1),
@@ -294,11 +387,16 @@ export const omnidatRouter = {
       await persistFoodOrderResult(
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
+        auditActor(ctx),
       );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "food.order.created",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
-  stampActivityPassport: publicProcedure
+  stampActivityPassport: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         passportId: z.string().min(1),
@@ -312,11 +410,16 @@ export const omnidatRouter = {
       await persistPassportStampResult(
         (ctx as { db?: OmnidatPersistenceDb }).db,
         result,
+        auditActor(ctx),
       );
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "passport.stamped",
+        payload: result as unknown as Record<string, unknown>,
+      });
       return result;
     }),
 
-  iso8583Transaction: publicProcedure
+  iso8583Transaction: omnidatOperatorProcedure("bank.write")
     .input(
       z.object({
         mti: z.enum(["0100", "0200", "0400", "0800"]),
@@ -335,7 +438,7 @@ export const omnidatRouter = {
     )
     .mutation(({ input }) => simulateIso8583Transaction(input)),
 
-  iso8583ShadyBankPurchase: publicProcedure
+  iso8583ShadyBankPurchase: omnidatOperatorProcedure("bank.write")
     .input(iso8583ShadyBankPurchaseInput)
     .mutation(async ({ ctx, input }) => {
       const cardReference = input.track2
@@ -369,7 +472,7 @@ export const omnidatRouter = {
       };
     }),
 
-  vintagePosSale: publicProcedure
+  vintagePosSale: omnidatOperatorProcedure("vendor.write")
     .input(
       z.object({
         terminalId: z.string().min(1),
@@ -390,7 +493,7 @@ export const omnidatRouter = {
     )
     .mutation(({ input }) => processVintagePosSale(input)),
 
-  xotCommand: publicProcedure
+  xotCommand: omnidatOperatorProcedure("session.write")
     .input(
       z.object({
         sourceX121: z.string().min(6),
@@ -402,7 +505,277 @@ export const omnidatRouter = {
       await persistXotCommandResult((ctx as { db?: OmnidatPersistenceDb }).db, {
         ...input,
         result,
+      }, auditActor(ctx));
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "xot.command",
+        payload: { ...input, result } as unknown as Record<string, unknown>,
       });
       return result;
+    }),
+
+  openPacketSession: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        eventId: z.string().min(1).nullish(),
+        serviceId: z.string().min(1).nullish(),
+        sourceIdentity: z.string().min(1),
+        sourceTransport: z.string().min(1),
+        sourceX121: z.string().min(1).nullish(),
+        destinationX121: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await persistPacketSessionOpen(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: "packet.session.opened",
+        value: 1,
+        unit: "session",
+      });
+      return session;
+    }),
+
+  clearPacketSession: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        // Raw X.25 clear cause and diagnostic code points (protocol-fidelity).
+        clearCause: z.number().int().min(0).max(255),
+        clearDiagnostic: z.number().int().min(0).max(255),
+        transcript: z.string().min(1),
+        evidenceArtifactId: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const cleared = await persistPacketSessionClear(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: `packet.session.cleared.cause.${input.clearCause}`,
+        value: 1,
+        unit: "session",
+      });
+      return cleared;
+    }),
+
+  listPacketSessions: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
+    sessions: await loadPacketSessions((ctx as { db?: OmnidatPersistenceDb }).db),
+  })),
+
+  createEvidenceArtifact: omnidatOperatorProcedure("evidence.write")
+    .input(
+      z.object({
+        eventId: z.string().min(1).nullish(),
+        artifactKind: z.string().min(1),
+        label: z.string().min(1),
+        url: z.string().min(1),
+        recordCount: z.number().int().nonnegative().nullish(),
+        contentType: z.string().min(1).optional(),
+        checksum: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const artifact = await persistEvidenceArtifact(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: "evidence.artifact.created",
+        value: 1,
+        unit: "artifact",
+      });
+      return artifact;
+    }),
+
+  listEvidenceArtifacts: omnidatOperatorReadProcedure
+    .input(z.object({ artifactKind: z.string().min(1).optional() }).optional())
+    .query(async ({ ctx, input }) => ({
+      artifacts: await loadEvidenceArtifacts(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input?.artifactKind,
+      ),
+    })),
+
+  upsertServiceVerb: omnidatOperatorProcedure("verb.write")
+    .input(
+      z.object({
+        serviceId: z.string().min(1),
+        verb: z.string().min(1),
+        description: z.string().min(1).nullish(),
+        inputs: z.array(z.string().min(1)).optional(),
+        outputs: z.array(z.string().min(1)).optional(),
+        securityPolicy: z.record(z.string(), z.unknown()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const verb = await persistServiceVerbUpsert(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: "service.verb.called",
+        value: 1,
+        unit: "verb",
+        serviceId: input.serviceId,
+      });
+      return verb;
+    }),
+
+  disableServiceVerb: omnidatOperatorProcedure("verb.write")
+    .input(z.object({ serviceId: z.string().min(1), verb: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) =>
+      persistServiceVerbDisable(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      ),
+    ),
+
+  grantOperatorRole: omnidatOperatorProcedure("role.write")
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        role: z.enum(OMNIDAT_ROLES),
+        eventId: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const grant = {
+        userId: input.userId,
+        role: input.role,
+        eventId: input.eventId ?? null,
+        active: true,
+      };
+      await ctx.db
+        .insert(omnidatOperatorRole)
+        .values(grant)
+        .onConflictDoUpdate({
+          target: [
+            omnidatOperatorRole.userId,
+            omnidatOperatorRole.eventId,
+            omnidatOperatorRole.role,
+          ],
+          set: { active: true },
+        });
+      await ctx.db.insert(omnidatAuditEvent).values({
+        actorUserId: ctx.operator.userId,
+        eventType: "role.granted",
+        subjectKind: "operator-role",
+        subjectId: input.userId,
+        details: {
+          grantedRole: input.role,
+          eventId: input.eventId ?? null,
+          actorRoles: ctx.operator.roles,
+        },
+      });
+      return grant;
+    }),
+
+  revokeOperatorRole: omnidatOperatorProcedure("role.write")
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        role: z.enum(OMNIDAT_ROLES),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(omnidatOperatorRole)
+        .set({ active: false })
+        .where(
+          and(
+            eq(omnidatOperatorRole.userId, input.userId),
+            eq(omnidatOperatorRole.role, input.role),
+          ),
+        );
+      await ctx.db.insert(omnidatAuditEvent).values({
+        actorUserId: ctx.operator.userId,
+        eventType: "role.revoked",
+        subjectKind: "operator-role",
+        subjectId: input.userId,
+        details: {
+          revokedRole: input.role,
+          actorRoles: ctx.operator.roles,
+        },
+      });
+      return { ...input, active: false };
+    }),
+
+  // Sync procedures authenticate with a per-source sync token instead of a
+  // capability from the H1a matrix; the H1a router-walk test annotates them
+  // as exceptions until the sync credential model lands (see
+  // docs/plans/2026-07-04-split-authority-sync.md).
+  syncPush: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string().min(1),
+        syncToken: z.string().min(1),
+        entries: z.array(journalEntryInput),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      await verifySyncToken(db, input.syncToken, input.sourceId);
+      return applyJournalBatch(db, {
+        sourceId: input.sourceId,
+        entries: input.entries,
+      });
+    }),
+
+  syncPull: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string().min(1),
+        syncToken: z.string().min(1),
+        eventId: z.string().min(1).nullish(),
+        watermarks: z.record(z.string(), z.number()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      await verifySyncToken(db, input.syncToken, input.sourceId);
+      const entries = await pullJournalEntries(db, {
+        sourceId: input.sourceId,
+        watermarks: input.watermarks,
+      });
+      return {
+        entries,
+        authority: await getCurrentAuthority(db, input.eventId ?? null),
+      };
+    }),
+
+  authorityStatus: publicProcedure
+    .input(z.object({ eventId: z.string().min(1).nullish() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      return {
+        authority: await getCurrentAuthority(db, input?.eventId ?? null),
+        sources: await listSyncSources(db),
+      };
+    }),
+
+  transferAuthority: publicProcedure
+    .input(
+      z.object({
+        eventId: z.string().min(1),
+        toHolder: z.enum(["field", "cloud"]),
+        toSourceId: z.string().min(1),
+        reason: z.string().min(1),
+        operatorId: z.string().min(1),
+        syncToken: z.string().min(1),
+        targetWatermarks: z.record(z.string(), z.number()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = syncDb(ctx);
+      await verifySyncToken(db, input.syncToken);
+      return transferEventAuthority(db, input);
     }),
 } satisfies TRPCRouterRecord;

@@ -62,6 +62,7 @@ def create_order(
     created_at: str | None = None,
     fryos_bridge: FryosBridge | None = None,
     payment_method: str = "shadybucks",
+    journal: Any | None = None,
 ) -> dict[str, Any]:
     queue = get_queue(load_queues(data_dir), queue_id)
     passports = load_passports(data_dir)
@@ -122,6 +123,8 @@ def create_order(
     order = get_order_status(queue_dir, order["ticket_id"], fryos_bridge=fryos_bridge)
     if log_path is not None:
         append_event(log_path, "queue.order.accepted", "queue-service", order, created_at=created_at)
+    if journal is not None:
+        journal.append("queue.order.accepted", order)
     return order
 
 
@@ -145,6 +148,7 @@ def update_order_status(
     status: str,
     updated_at: str | None = None,
     log_path: Path | None = None,
+    journal: Any | None = None,
 ) -> dict[str, Any]:
     orders = read_orders(queue_dir)
     updated_at = updated_at or now()
@@ -161,6 +165,8 @@ def update_order_status(
     updated = get_order_status(queue_dir, ticket_id)
     if log_path is not None:
         append_event(log_path, "queue.order.updated", "queue-service", updated, created_at=updated_at)
+    if journal is not None:
+        journal.append("queue.order.updated", updated)
     return updated
 
 

@@ -1,8 +1,70 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
+from tools.omnidat_journal import JournalStore
 from tools.omnidat_weekend import run_weekend_simulation
+
+
+class FakeResponse:
+    def __init__(self, body):
+        self._body = json.dumps(body).encode("utf-8")
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class RecordingTransport:
+    """Fake sync transport: every syncPush applies all sent entries."""
+
+    def __init__(self):
+        self.pushes = 0
+
+    def __call__(self, request):
+        procedure = request.full_url.rsplit("/", 1)[-1]
+        body = json.loads(request.data.decode("utf-8"))["json"]
+        if procedure == "omnidat.syncPush":
+            self.pushes += 1
+            count = len(body["entries"])
+            return FakeResponse(
+                {
+                    "result": {
+                        "data": {
+                            "json": {
+                                "applied": count,
+                                "duplicate": 0,
+                                "rejectedStale": 0,
+                                "quarantined": 0,
+                                "highWatermark": count,
+                                "authority": {"holder": "field", "epoch": 1},
+                            }
+                        }
+                    }
+                }
+            )
+        return FakeResponse(
+            {
+                "result": {
+                    "data": {
+                        "json": {
+                            "entries": [],
+                            "authority": {
+                                "holder": "field",
+                                "holderSourceId": "sim-field-kit",
+                                "epoch": 1,
+                            },
+                        }
+                    }
+                }
+            }
+        )
 
 
 class WeekendSimulationTests(unittest.TestCase):
@@ -81,6 +143,91 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertTrue((runtime_dir / "billing-statements" / "OMNIDAT-CAMPSITE-BUREAU.txt").exists())
             self.assertIn("OMNIDAT NETWORK FEE STATEMENT", (runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").read_text())
             self.assertIn("NETWORK FEES 17.50 OmniBucks", (runtime_dir / "billing-statements" / "OMNI-NIGHTMARKT.txt").read_text())
+
+    def test_weekend_simulation_journals_through_sim_field_kit(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir)
+
+            report = run_weekend_simulation(
+                runtime_dir=runtime_dir,
+                data_dir=Path("data"),
+                camper_count=1000,
+            )
+
+            journal = report["journal"]
+            self.assertEqual(journal["source_id"], "sim-field-kit")
+            expected_total = (
+                report["evidence"]["event_log"]["events"]
+                + report["evidence"]["bank_ledger"]["events"]
+                + report["evidence"]["network_fee_ledger"]["records"]
+            )
+            self.assertEqual(journal["total"], expected_total)
+            self.assertGreater(len(journal["per_op_type"]), 1)
+            self.assertEqual(
+                sum(journal["per_op_type"].values()), journal["total"]
+            )
+            # The journal database is a durable artifact on the sim field kit.
+            store = JournalStore(
+                runtime_dir / "sim-field-kit-journal.db", source_id="sim-field-kit"
+            )
+            self.addCleanup(store.close)
+            self.assertEqual(len(store.entries()), expected_total)
+            # No sync target configured: journal-local, no reconciliation.
+            self.assertIsNone(journal["sync"])
+
+    def test_uplink_outage_window_loses_zero_records(self):
+        # Exit gate: pull the uplink for a 60+ simulated-minute window mid-sim.
+        # Every journaled op must still reach the cloud on recovery with a clean
+        # reconciliation, and field-office flows must complete during the outage.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir)
+            transport = RecordingTransport()
+
+            report = run_weekend_simulation(
+                runtime_dir=runtime_dir,
+                data_dir=Path("data"),
+                camper_count=1000,
+                sync_target="https://cloud.test",
+                sync_token="sim-secret",
+                sync_transport=transport,
+                outage_window=("2028-07-01T09:00:00-07:00", "2028-07-02T13:00:00-07:00"),
+            )
+
+            outage = report["journal"]["outage"]
+            self.assertGreaterEqual(outage["refused_pushes"], 1)
+            self.assertGreaterEqual(outage["simulated_minutes"], 60)
+            sync = report["journal"]["sync"]
+            self.assertEqual(sync["status"], "ok")
+            self.assertEqual(
+                sync["applied"] + sync["duplicate"], report["journal"]["total"]
+            )
+            self.assertEqual(sync["rejected_stale"], 0)
+            # Field-office flows completed during the outage window: Miliways
+            # orders (created during the window) are present in the journal.
+            self.assertGreater(
+                report["journal"]["per_op_type"].get("queue.order.accepted", 0), 0
+            )
+
+    def test_weekend_simulation_pushes_journal_when_sync_target_configured(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir)
+            transport = RecordingTransport()
+
+            report = run_weekend_simulation(
+                runtime_dir=runtime_dir,
+                data_dir=Path("data"),
+                camper_count=1000,
+                sync_target="https://cloud.test",
+                sync_token="sim-secret",
+                sync_transport=transport,
+            )
+
+            sync = report["journal"]["sync"]
+            self.assertIsNotNone(sync)
+            self.assertGreaterEqual(transport.pushes, 1)
+            self.assertEqual(sync["applied"], report["journal"]["total"])
+            self.assertEqual(sync["duplicate"], 0)
+            self.assertEqual(sync["rejected_stale"], 0)
 
 
 if __name__ == "__main__":
