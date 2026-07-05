@@ -36,6 +36,20 @@ describe("OMNIDAT printable documents", () => {
     expect(summary.body).toContain("INCIDENTS: 2");
   });
 
+  it("renders a printed operator license card", () => {
+    const card = buildOmnidatDocument("operator-license", {
+      operator: "RED-LINE-27",
+      role: "packet-operator",
+      licenseNo: "OP-0007",
+      examDate: "2027-03-14",
+      capabilities: "services, allocations, sessions, evidence",
+    });
+    expect(card.title).toBe("OMNIDAT OPERATOR LICENSE");
+    expect(card.body).toContain("ROLE: PACKET-OPERATOR");
+    expect(card.body).toContain("LICENSE NO: OP-0007");
+    expect(card.body).toContain("CAPABILITIES: SERVICES, ALLOCATIONS");
+  });
+
   it("falls back gracefully for missing fields", () => {
     const document = buildOmnidatDocument("address-assignment", {});
     expect(document.body).toContain("X.121: -");

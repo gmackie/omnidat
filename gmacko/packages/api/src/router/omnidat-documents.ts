@@ -7,7 +7,8 @@ export type OmnidatDocumentKind =
   | "demarc-sheet"
   | "service-certificate"
   | "provisioning-transcript"
-  | "daily-noc-summary";
+  | "daily-noc-summary"
+  | "operator-license";
 
 export type OmnidatDocument = { kind: OmnidatDocumentKind; title: string; body: string };
 
@@ -65,6 +66,18 @@ export function buildOmnidatDocument(
         `ALLOCATIONS: ${field("allocations", "0")}`,
         `ORDERS: ${field("orders", "0")}`,
         `EVIDENCE ARTIFACTS: ${field("evidence", "0")}`,
+      ]);
+    case "operator-license":
+      return doc("operator-license", "OMNIDAT OPERATOR LICENSE", [
+        `OPERATOR: ${field("operator")}`,
+        `ROLE: ${field("role").toUpperCase()}`,
+        `LICENSE NO: ${field("licenseNo")}`,
+        `EVENT: ${field("event", "ALL")}`,
+        `EXAM PASSED: ${field("examDate")}`,
+        "",
+        `CAPABILITIES: ${field("capabilities", "").toUpperCase()}`,
+        "",
+        "PRESENT AT THE NOC DESK FOR OPERATOR ACCESS",
       ]);
   }
 }

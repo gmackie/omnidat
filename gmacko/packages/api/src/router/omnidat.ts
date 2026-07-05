@@ -1169,6 +1169,7 @@ export const omnidatRouter = {
           "service-certificate",
           "provisioning-transcript",
           "daily-noc-summary",
+          "operator-license",
         ]),
         data: z.record(z.string(), z.unknown()),
       }),
