@@ -1,3 +1,4 @@
+import { eq } from "@omnidat/db";
 import {
   omnidatAddressAllocation,
   omnidatAuditEvent,
@@ -8,6 +9,7 @@ import {
   omnidatFoodOrder,
   omnidatInfraEndpoint,
   omnidatNocIncident,
+  omnidatPacketSession,
   omnidatPadConfig,
   omnidatPassportStamp,
   omnidatProvisioningRequest,
@@ -981,4 +983,157 @@ export async function persistAuditEvent(
 ) {
   if (!db || !databasePersistenceEnabled()) return;
   await db.insert(omnidatAuditEvent).values(withAuditActor(auditEvent, actor));
+}
+
+type OmnidatSessionDb = OmnidatPersistenceDb & {
+  update?: (table: unknown) => {
+    set: (value: unknown) => { where: (condition: unknown) => unknown };
+  };
+};
+
+export type PacketSessionOpenInput = {
+  eventId?: string | null;
+  serviceId?: string | null;
+  sourceIdentity: string;
+  sourceTransport: string;
+  sourceX121?: string | null;
+  destinationX121: string;
+};
+
+export type PacketSessionView = {
+  id: string;
+  eventId: string | null;
+  serviceId: string | null;
+  sourceIdentity: string;
+  sourceTransport: string;
+  sourceX121: string | null;
+  destinationX121: string;
+  status: string;
+  clearCause: number | null;
+  clearDiagnostic: number | null;
+  transcriptHash: string | null;
+  evidenceArtifactId: string | null;
+};
+
+export async function persistPacketSessionOpen(
+  db: OmnidatSessionDb | undefined,
+  input: PacketSessionOpenInput,
+  actor?: OmnidatAuditActor,
+): Promise<PacketSessionView> {
+  const row = {
+    eventId: input.eventId ?? null,
+    serviceId: input.serviceId ?? null,
+    sourceIdentity: input.sourceIdentity,
+    sourceTransport: input.sourceTransport,
+    sourceX121: input.sourceX121 ?? null,
+    destinationX121: input.destinationX121,
+    status: "connected" as const,
+  };
+  let id = `session-${input.destinationX121}`;
+  if (db && databasePersistenceEnabled()) {
+    const insert = db
+      .insert(omnidatPacketSession)
+      .values(row) as ReturningInsert;
+    id = (await returningId(insert, { id: omnidatPacketSession.id })) ?? id;
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "session.opened",
+        subjectKind: "packet-session",
+        subjectId: id,
+        details: {
+          destinationX121: input.destinationX121,
+          sourceTransport: input.sourceTransport,
+        },
+      },
+      actor,
+    );
+  }
+  return { id, clearCause: null, clearDiagnostic: null, transcriptHash: null, evidenceArtifactId: null, ...row };
+}
+
+export async function persistPacketSessionClear(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    sessionId: string;
+    clearCause: number;
+    clearDiagnostic: number;
+    transcript: string;
+    evidenceArtifactId?: string | null;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  const transcriptHash = activationHash(input.transcript);
+  if (db && databasePersistenceEnabled() && db.update) {
+    await db
+      .update(omnidatPacketSession)
+      .set({
+        status: "cleared",
+        clearedAt: new Date(),
+        clearCause: input.clearCause,
+        clearDiagnostic: input.clearDiagnostic,
+        transcriptHash,
+        evidenceArtifactId: input.evidenceArtifactId ?? null,
+      })
+      .where(eq(omnidatPacketSession.id, input.sessionId));
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "session.cleared",
+        subjectKind: "packet-session",
+        subjectId: input.sessionId,
+        details: {
+          clearCause: input.clearCause,
+          clearDiagnostic: input.clearDiagnostic,
+        },
+      },
+      actor,
+    );
+  }
+  return {
+    id: input.sessionId,
+    status: "cleared" as const,
+    clearCause: input.clearCause,
+    clearDiagnostic: input.clearDiagnostic,
+    transcriptHash,
+    evidenceArtifactId: input.evidenceArtifactId ?? null,
+  };
+}
+
+type PacketSessionRow = {
+  id?: string;
+  eventId?: string | null;
+  serviceId?: string | null;
+  sourceIdentity?: string | null;
+  sourceTransport?: string | null;
+  sourceX121?: string | null;
+  destinationX121?: string | null;
+  status?: string | null;
+  clearCause?: number | null;
+  clearDiagnostic?: number | null;
+  transcriptHash?: string | null;
+  evidenceArtifactId?: string | null;
+};
+
+export async function loadPacketSessions(
+  db: OmnidatSessionDb | undefined,
+): Promise<PacketSessionView[]> {
+  if (!db || !databasePersistenceEnabled()) return [];
+  const rows = await selectRows<PacketSessionRow>(db, omnidatPacketSession);
+  return rows
+    .filter((row) => row.destinationX121)
+    .map((row) => ({
+      id: row.id ?? `session-${row.destinationX121}`,
+      eventId: row.eventId ?? null,
+      serviceId: row.serviceId ?? null,
+      sourceIdentity: row.sourceIdentity ?? "",
+      sourceTransport: row.sourceTransport ?? "",
+      sourceX121: row.sourceX121 ?? null,
+      destinationX121: row.destinationX121 ?? "",
+      status: row.status ?? "connected",
+      clearCause: row.clearCause ?? null,
+      clearDiagnostic: row.clearDiagnostic ?? null,
+      transcriptHash: row.transcriptHash ?? null,
+      evidenceArtifactId: row.evidenceArtifactId ?? null,
+    }));
 }

@@ -463,6 +463,27 @@ export const omnidatSyncSource = omnidatNamespace.table("omnidat_sync_source", (
   unique("omnidat_sync_source_source_id_unique").on(table.sourceId),
 ]);
 
+export const omnidatPacketSession = omnidatNamespace.table("omnidat_packet_session", (t) => ({
+  id: t.uuid().notNull().primaryKey().defaultRandom(),
+  eventId: t.uuid().references(() => omnidatEvent.id, { onDelete: "set null" }),
+  serviceId: t.uuid().references(() => omnidatService.id, { onDelete: "set null" }),
+  sourceIdentity: t.varchar({ length: 160 }).notNull(),
+  sourceTransport: t.varchar({ length: 80 }).notNull(),
+  sourceX121: t.varchar({ length: 32 }),
+  destinationX121: t.varchar({ length: 32 }).notNull(),
+  status: t.varchar({ length: 32 }).notNull().default("connected"),
+  connectedAt: t.timestamp({ withTimezone: true }).defaultNow().notNull(),
+  clearedAt: t.timestamp({ mode: "date", withTimezone: true }),
+  // Raw X.25 clear cause and diagnostic code points (locked protocol-fidelity
+  // decision), never free-text failure strings.
+  clearCause: t.integer(),
+  clearDiagnostic: t.integer(),
+  transcriptHash: t.varchar({ length: 128 }),
+  evidenceArtifactId: t
+    .uuid()
+    .references(() => omnidatEvidenceArtifact.id, { onDelete: "set null" }),
+}));
+
 export const omnidatJournalEntry = omnidatNamespace.table("omnidat_journal_entry", (t) => ({
   id: t.uuid().notNull().primaryKey().defaultRandom(),
   sourceId: t.varchar({ length: 80 }).notNull(),

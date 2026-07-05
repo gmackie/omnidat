@@ -16,6 +16,7 @@ import {
   omnidatInfraEndpoint,
   omnidatJournalEntry,
   omnidatNetwork,
+  omnidatPacketSession,
   omnidatNetworkMetric,
   omnidatNocIncident,
   omnidatOperatorRole,
@@ -139,6 +140,16 @@ describe("OMNIDAT X.25 operational schema", () => {
     expect(uniqueNames(omnidatOperatorRole)).toContain(
       "omnidat_operator_role_user_event_role_unique",
     );
+  });
+
+  it("exports the packet session table with X.25 clear code points", () => {
+    expect(omnidatPacketSession).toBeDefined();
+    expect(omnidatPacketSession.sourceIdentity).toBeDefined();
+    expect(omnidatPacketSession.destinationX121).toBeDefined();
+    expect(omnidatPacketSession.clearCause).toBeDefined();
+    expect(omnidatPacketSession.clearDiagnostic).toBeDefined();
+    expect(omnidatPacketSession.transcriptHash).toBeDefined();
+    expect(omnidatPacketSession.evidenceArtifactId).toBeDefined();
   });
 
   it("exports journal, authority, and sync source tables", () => {

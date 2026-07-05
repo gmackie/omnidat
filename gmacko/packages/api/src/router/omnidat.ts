@@ -26,14 +26,21 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
-import { omnidatOperatorProcedure } from "./omnidat-operator-procedure";
-import { OMNIDAT_ROLES } from "./omnidat-roles";
 import {
+  omnidatOperatorProcedure,
+  omnidatOperatorReadProcedure,
+} from "./omnidat-operator-procedure";
+import { OMNIDAT_ROLES } from "./omnidat-roles";
+import { recordOperationalMetric } from "./omnidat-kpi";
+import {
+  loadPacketSessions,
   loadPersistentOperationalState,
   type OmnidatAuditActor,
   type OmnidatPersistenceDb,
   persistAtmResult,
   persistFoodOrderResult,
+  persistPacketSessionClear,
+  persistPacketSessionOpen,
   persistPadResult,
   persistPassportStampResult,
   persistProvisioningResult,
@@ -501,6 +508,60 @@ export const omnidatRouter = {
       });
       return result;
     }),
+
+  openPacketSession: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        eventId: z.string().min(1).nullish(),
+        serviceId: z.string().min(1).nullish(),
+        sourceIdentity: z.string().min(1),
+        sourceTransport: z.string().min(1),
+        sourceX121: z.string().min(1).nullish(),
+        destinationX121: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const session = await persistPacketSessionOpen(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: "packet.session.opened",
+        value: 1,
+        unit: "session",
+      });
+      return session;
+    }),
+
+  clearPacketSession: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        // Raw X.25 clear cause and diagnostic code points (protocol-fidelity).
+        clearCause: z.number().int().min(0).max(255),
+        clearDiagnostic: z.number().int().min(0).max(255),
+        transcript: z.string().min(1),
+        evidenceArtifactId: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const cleared = await persistPacketSessionClear(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: `packet.session.cleared.cause.${input.clearCause}`,
+        value: 1,
+        unit: "session",
+      });
+      return cleared;
+    }),
+
+  listPacketSessions: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
+    sessions: await loadPacketSessions((ctx as { db?: OmnidatPersistenceDb }).db),
+  })),
 
   grantOperatorRole: omnidatOperatorProcedure("role.write")
     .input(

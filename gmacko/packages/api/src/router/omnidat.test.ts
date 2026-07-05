@@ -5,6 +5,7 @@ import {
   omnidatEventAuthority,
   omnidatJournalEntry,
   omnidatOperatorRole,
+  omnidatPacketSession,
   omnidatPadConfig,
   omnidatProvisioningRequest,
   omnidatShadyBucksAtm,
@@ -1046,5 +1047,135 @@ describe("omnidat sync and authority procedures", () => {
     });
     expect(accepted.epoch).toBe(3);
     expect(accepted.holder).toBe("field");
+  });
+});
+
+describe("omnidat packet sessions", () => {
+  function sessionFakeDb(userId: string, roles: string[]) {
+    const rows: Record<string, unknown>[] = [];
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    let id = 0;
+    return {
+      rows,
+      writes,
+      db: {
+        select: () => ({
+          from: async (table: unknown) =>
+            table === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : table === omnidatPacketSession
+                ? rows
+                : [],
+        }),
+        insert: (table: unknown) => ({
+          values: (value: Record<string, unknown>) => {
+            const withId = { id: `sess-${++id}`, ...value };
+            writes.push({ table, value: withId });
+            if (table === omnidatPacketSession) rows.push(withId);
+            return {
+              onConflictDoUpdate: () => ({ returning: async () => [withId] }),
+              returning: async () => [withId],
+            };
+          },
+        }),
+        update: (table: unknown) => ({
+          set: (value: Record<string, unknown>) => ({
+            where: () => {
+              if (table === omnidatPacketSession) {
+                for (const row of rows) Object.assign(row, value);
+              }
+              return Promise.resolve();
+            },
+          }),
+        }),
+      },
+    };
+  }
+
+  function caller(fake: ReturnType<typeof sessionFakeDb>) {
+    return appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: "user-packet-operator" } },
+    } as never);
+  }
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("opens a packet session and audits session.opened", async () => {
+    const fake = sessionFakeDb("user-packet-operator", ["packet-operator"]);
+    const opened = await caller(fake).omnidat.openPacketSession({
+      sourceIdentity: "camp-oscillator-terminal",
+      sourceTransport: "xot",
+      destinationX121: "311088020184",
+    });
+
+    expect(opened.status).toBe("connected");
+    expect(
+      fake.writes.some(
+        (w) =>
+          w.table === omnidatAuditEvent &&
+          w.value.eventType === "session.opened",
+      ),
+    ).toBe(true);
+  });
+
+  it("clears a session with honest X.25 cause and diagnostic code points", async () => {
+    const fake = sessionFakeDb("user-packet-operator", ["packet-operator"]);
+    const opened = await caller(fake).omnidat.openPacketSession({
+      sourceIdentity: "camp-oscillator-terminal",
+      sourceTransport: "xot",
+      destinationX121: "311088020184",
+    });
+    const cleared = await caller(fake).omnidat.clearPacketSession({
+      sessionId: opened.id,
+      clearCause: 0,
+      clearDiagnostic: 0,
+      transcript: "CALL 311088020184\nCLR DTE C:0",
+    });
+
+    expect(cleared.clearCause).toBe(0);
+    expect(cleared.clearDiagnostic).toBe(0);
+    expect(cleared.transcriptHash).toHaveLength(64);
+    expect(cleared.status).toBe("cleared");
+    expect(
+      fake.writes.some(
+        (w) =>
+          w.table === omnidatAuditEvent &&
+          w.value.eventType === "session.cleared",
+      ),
+    ).toBe(true);
+  });
+
+  it("lists active and recently cleared sessions for NOC visibility", async () => {
+    const fake = sessionFakeDb("user-packet-operator", ["packet-operator"]);
+    await caller(fake).omnidat.openPacketSession({
+      sourceIdentity: "camp-a",
+      sourceTransport: "xot",
+      destinationX121: "311088020184",
+    });
+    const sessions = await caller(fake).omnidat.listPacketSessions();
+    expect(sessions.sessions.length).toBeGreaterThanOrEqual(1);
+    expect(sessions.sessions[0]?.destinationX121).toBe("311088020184");
+  });
+
+  it("openPacketSession requires session.write (auditor forbidden)", async () => {
+    const fake = sessionFakeDb("user-auditor", ["auditor"]);
+    await expect(
+      appRouter
+        .createCaller({
+          db: fake.db,
+          session: { user: { id: "user-auditor" } },
+        } as never)
+        .omnidat.openPacketSession({
+          sourceIdentity: "camp-a",
+          sourceTransport: "xot",
+          destinationX121: "311088020184",
+        }),
+    ).rejects.toThrow(/operator role required/i);
   });
 });
