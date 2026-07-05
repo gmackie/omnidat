@@ -38,6 +38,10 @@ import {
 } from "./omnidat-clear-codes";
 import { buildOmnidatDocument } from "./omnidat-documents";
 import { recordOperationalMetric } from "./omnidat-kpi";
+import {
+  buildSettlementReport,
+  renderSettlementReport,
+} from "./omnidat-settlement";
 import { checkTransport } from "./omnidat-transports";
 import {
   CAMP_APP_KINDS,
@@ -56,6 +60,7 @@ import {
   persistAllocationAssign,
   persistAllocationStatus,
   persistAtmResult,
+  persistAuditEvent,
   persistBillingAccountCreate,
   persistCampsiteAppCreate,
   persistCampsiteAppStatus,
@@ -1077,6 +1082,43 @@ export const omnidatRouter = {
     .mutation(({ ctx, input }) =>
       persistBillingAccountCreate(dbOf(ctx), input, auditActor(ctx)),
     ),
+
+  posBatchClose: omnidatOperatorProcedure("bank.write")
+    .input(
+      z.object({
+        terminalId: z.string().min(1),
+        batchId: z.string().min(1),
+        transactions: z.array(
+          z.object({
+            kind: z.enum(["sale", "refund", "void"]),
+            amount: z.number().int().nonnegative(),
+            reference: z.string().min(1),
+          }),
+        ),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const report = buildSettlementReport(
+        input.terminalId,
+        input.batchId,
+        input.transactions,
+      );
+      await persistAuditEvent(
+        dbOf(ctx),
+        {
+          eventType: "pos.batch.closed",
+          subjectKind: "pos-terminal",
+          subjectId: input.terminalId,
+          details: {
+            batchId: input.batchId,
+            net: report.net,
+            saleCount: report.saleCount,
+          },
+        },
+        auditActor(ctx),
+      );
+      return { report, receipt: renderSettlementReport(report) };
+    }),
 
   setFeePolicy: omnidatOperatorProcedure("bank.write")
     .input(

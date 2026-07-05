@@ -1757,3 +1757,63 @@ describe("omnidat H3 camp utility apps", () => {
     ).rejects.toThrow(/operator role required/i);
   });
 });
+
+describe("omnidat H4 POS batch close", () => {
+  function bankDb(userId: string, roles: string[]) {
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    return {
+      writes,
+      db: {
+        select: () => ({
+          from: async (t: unknown) =>
+            t === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : [],
+        }),
+        insert: (t: unknown) => ({
+          values: (v: Record<string, unknown>) => {
+            writes.push({ table: t, value: v });
+            return { onConflictDoUpdate: () => ({}), returning: async () => [{ id: "x" }] };
+          },
+        }),
+      },
+    };
+  }
+  const call = (fake: ReturnType<typeof bankDb>, userId: string) =>
+    appRouter.createCaller({ db: fake.db, session: { user: { id: userId } } } as never);
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("closes a POS batch into a reconciled settlement report", async () => {
+    const fake = bankDb("user-bank", ["bank-operator"]);
+    const result = await call(fake, "user-bank").omnidat.posBatchClose({
+      terminalId: "VF-NITEMARKT-01",
+      batchId: "BATCH-001",
+      transactions: [
+        { kind: "sale", amount: 1400, reference: "RRN-1" },
+        { kind: "refund", amount: 200, reference: "RRN-2" },
+      ],
+    });
+    expect(result.report.net).toBe(1200);
+    expect(result.receipt).toContain("SETTLEMENT REPORT");
+    expect(
+      fake.writes.some((w) => w.value.eventType === "pos.batch.closed"),
+    ).toBe(true);
+  });
+
+  it("forbids POS batch close for a packet-operator", async () => {
+    const fake = bankDb("user-packet", ["packet-operator"]);
+    await expect(
+      call(fake, "user-packet").omnidat.posBatchClose({
+        terminalId: "VF-1",
+        batchId: "B-1",
+        transactions: [],
+      }),
+    ).rejects.toThrow(/operator role required/i);
+  });
+});
