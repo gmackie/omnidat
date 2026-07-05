@@ -1630,6 +1630,18 @@ describe("omnidat packetCall browser XOT bridge", () => {
     expect(result.transcript).toContain("NO SUCH ADDRESS 311088099999");
   });
 
+  it("refuses an over-budget guest-radio call with an honest cause", async () => {
+    const result = await sessionCaller(["packet-operator"]).omnidat.packetCall({
+      sourceIdentity: "guest-radio",
+      sourceTransport: "meshtastic",
+      destinationX121: "311088020501",
+      verb: "CALL",
+      callUserData: "X".repeat(100),
+    });
+    expect(result.clearCode.cause).toBe(19);
+    expect(result.transcript).toContain("EXCEEDS");
+  });
+
   it("forbids packetCall for an auditor", async () => {
     await expect(
       sessionCaller(["auditor"], "user-auditor").omnidat.packetCall({

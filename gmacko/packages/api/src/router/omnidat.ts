@@ -38,6 +38,7 @@ import {
 } from "./omnidat-clear-codes";
 import { buildOmnidatDocument } from "./omnidat-documents";
 import { recordOperationalMetric } from "./omnidat-kpi";
+import { checkTransport } from "./omnidat-transports";
 import {
   IllegalProvisioningTransition,
   loadAllocations,
@@ -554,6 +555,7 @@ export const omnidatRouter = {
         destinationX121: z.string().min(1),
         sourceX121: z.string().min(1).nullish(),
         verb: z.string().min(1).default("CALL"),
+        callUserData: z.string().max(512).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -564,7 +566,16 @@ export const omnidatRouter = {
       const service = state.services.find(
         (entry) => entry.x121 === input.destinationX121,
       );
-      const clearCode = clearCodeForService(service);
+      // Enforce the transport's call-user-data budget before anything else; an
+      // over-budget or unknown-transport call clears with an honest cause.
+      const userDataBytes = Buffer.byteLength(
+        `${input.verb} ${input.callUserData ?? ""}`.trim(),
+        "utf8",
+      );
+      const transportCheck = checkTransport(input.sourceTransport, userDataBytes);
+      const clearCode = transportCheck.ok
+        ? clearCodeForService(service)
+        : transportCheck.clearCode;
 
       const session = await persistPacketSessionOpen(
         db,
@@ -590,6 +601,8 @@ export const omnidatRouter = {
           command: `${input.verb} ${input.destinationX121}`,
         });
         transcriptLines.push(result.transcript);
+      } else if (!transportCheck.ok) {
+        transcriptLines.push(transportCheck.reason.toUpperCase());
       } else {
         transcriptLines.push(
           service
