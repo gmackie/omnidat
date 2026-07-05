@@ -72,7 +72,7 @@ const adminCaller = operatorCaller(["admin"]);
 // per-source sync token, not an operator session, so they carry no capability
 // from the role matrix. Any addition here must name its authentication mode.
 // syncPush/syncPull and transferAuthority all verify the sync token in-body.
-const SYNC_TOKEN_EXCEPTIONS = ["syncPush", "syncPull", "transferAuthority"];
+const SYNC_TOKEN_EXCEPTIONS = ["syncPush", "syncPull"];
 
 describe("omnidat router role-gating coverage", () => {
   it("role-gates and audits every omnidat mutation", () => {
@@ -939,7 +939,10 @@ describe("omnidat sync and authority procedures", () => {
 
   it("transferAuthority increments the epoch, records the fence, and audits", async () => {
     const fake = createSyncFakeDb();
-    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+    const syncCaller = appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: "user-admin" } },
+    } as never);
 
     await syncCaller.omnidat.syncPush({
       sourceId: "field-kit-01",
@@ -951,8 +954,6 @@ describe("omnidat sync and authority procedures", () => {
       toHolder: "cloud",
       toSourceId: "cloud",
       reason: "field kit unreachable",
-      operatorId: "noc-operator-1",
-      syncToken: SYNC_TOKEN,
     });
 
     expect(transfer.epoch).toBe(2);
@@ -967,7 +968,7 @@ describe("omnidat sync and authority procedures", () => {
     expect(auditWrites).toHaveLength(1);
     expect(
       (auditWrites[0]?.value.details as Record<string, unknown>).operatorId,
-    ).toBe("noc-operator-1");
+    ).toBe("user-admin");
     expect(
       (auditWrites[0]?.value.details as Record<string, unknown>).reason,
     ).toBe("field kit unreachable");
@@ -1042,7 +1043,10 @@ describe("omnidat sync and authority procedures", () => {
       recordedAt: new Date(),
       applyStatus: "applied",
     });
-    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+    const syncCaller = appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: "user-admin" } },
+    } as never);
 
     await expect(
       syncCaller.omnidat.transferAuthority({
@@ -1050,8 +1054,6 @@ describe("omnidat sync and authority procedures", () => {
         toHolder: "field",
         toSourceId: "field-kit-01",
         reason: "kit recovered",
-        operatorId: "noc-operator-1",
-        syncToken: SYNC_TOKEN,
         targetWatermarks: { cloud: 2 },
       }),
     ).rejects.toThrow(/caught up|watermark/i);
@@ -1061,8 +1063,6 @@ describe("omnidat sync and authority procedures", () => {
       toHolder: "field",
       toSourceId: "field-kit-01",
       reason: "kit recovered",
-      operatorId: "noc-operator-1",
-      syncToken: SYNC_TOKEN,
       targetWatermarks: { cloud: 3 },
     });
     expect(accepted.epoch).toBe(3);

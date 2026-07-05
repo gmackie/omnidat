@@ -41,6 +41,10 @@ def run_authority_drill(
 ) -> dict[str, Any]:
     """Drive an authority failover in both directions against a live target.
 
+    `token` is a NOC operator API key (``gmk_...``); authority transfer is
+    gated on the operator's authority.transfer capability, and the acting
+    operator is derived from the session the key resolves to.
+
     Field -> cloud, then cloud -> field, each an epoch-incrementing transfer.
     Returns a pass/fail transcript suitable for printing as rehearsal evidence.
     """
@@ -65,8 +69,6 @@ def run_authority_drill(
                 "toHolder": to_holder,
                 "toSourceId": to_source,
                 "reason": reason,
-                "operatorId": operator_id,
-                "syncToken": token,
                 "targetWatermarks": watermarks,
             },
         )
@@ -131,14 +133,22 @@ def main() -> int:
         description="Drive an OMNIDAT authority failover drill in both directions."
     )
     parser.add_argument("--target", default=os.environ.get("OMNIDAT_SYNC_TARGET"))
-    parser.add_argument("--token", default=os.environ.get("OMNIDAT_SYNC_TOKEN"))
+    parser.add_argument(
+        "--token",
+        default=os.environ.get("OMNIDAT_OPERATOR_TOKEN"),
+        help="NOC operator API key (gmk_...) with the authority.transfer capability",
+    )
     parser.add_argument("--event-id", required=True)
     parser.add_argument("--field-source-id", default="field-kit-01")
-    parser.add_argument("--operator-id", required=True)
+    parser.add_argument(
+        "--operator-id",
+        default="noc-operator",
+        help="label for the transcript; the acting operator is the API key's user",
+    )
     args = parser.parse_args()
 
     if not args.target or not args.token:
-        parser.error("set --target/--token or OMNIDAT_SYNC_TARGET/OMNIDAT_SYNC_TOKEN")
+        parser.error("set --target/--token or OMNIDAT_SYNC_TARGET/OMNIDAT_OPERATOR_TOKEN")
 
     result = run_authority_drill(
         base_url=args.target,

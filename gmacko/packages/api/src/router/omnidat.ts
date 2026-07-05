@@ -761,21 +761,25 @@ export const omnidatRouter = {
       };
     }),
 
-  transferAuthority: publicProcedure
+  // Authority failover is a NOC operator action, gated on the
+  // authority.transfer capability and attributed to the acting operator. NOC
+  // operators authenticate with an operator session (an API key works via
+  // `Bearer gmk_...`), not a field-kit sync token.
+  transferAuthority: omnidatOperatorProcedure("authority.transfer")
     .input(
       z.object({
         eventId: z.string().min(1),
         toHolder: z.enum(["field", "cloud"]),
         toSourceId: z.string().min(1),
         reason: z.string().min(1),
-        operatorId: z.string().min(1),
-        syncToken: z.string().min(1),
         targetWatermarks: z.record(z.string(), z.number()).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const db = syncDb(ctx);
-      await verifySyncToken(db, input.syncToken);
-      return transferEventAuthority(db, input);
+      const actor = auditActor(ctx);
+      return transferEventAuthority(syncDb(ctx), {
+        ...input,
+        operatorId: actor?.userId ?? "unknown-operator",
+      });
     }),
 } satisfies TRPCRouterRecord;

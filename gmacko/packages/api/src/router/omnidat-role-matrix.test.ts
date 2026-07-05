@@ -9,7 +9,7 @@ const originalPersistence = process.env.OMNIDAT_PERSISTENCE;
 
 // Token-authenticated procedures (Split Authority Sync) are not operator
 // mutations; they are covered by the sync token tests.
-const SYNC_TOKEN_EXCEPTIONS = ["syncPush", "syncPull", "transferAuthority"];
+const SYNC_TOKEN_EXCEPTIONS = ["syncPush", "syncPull"];
 
 function roleCaller(role: OmnidatRole) {
   const userId = `user-${role}`;

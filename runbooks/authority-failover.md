@@ -28,10 +28,11 @@ Use when the field kit is unreachable and cannot drain its journal first.
 2. Announce the failover to the NOC and any operators writing to the kit.
 3. Transfer authority to the cloud:
    ```sh
-   OMNIDAT_SYNC_TARGET=<gmacko-url> OMNIDAT_SYNC_TOKEN=<noc-token> \
+   OMNIDAT_SYNC_TARGET=<gmacko-url> OMNIDAT_OPERATOR_TOKEN=<noc-api-key> \
      ./scripts/authority-drill --event-id <event> --operator-id <you>
    ```
-   or call `omnidat.transferAuthority` with `toHolder: cloud` directly.
+   or call `omnidat.transferAuthority` with `toHolder: cloud` directly as a
+   NOC operator (the mutation is gated on the authority.transfer capability).
 4. The cloud epoch increments; the fence is recorded at the last sequence the
    cloud received from the kit.
 5. The NOC dashboard flips to "CLOUD PRIMARY (EPOCH n)".
@@ -95,7 +96,8 @@ Run this before relying on the kit at an event.
    - field-office flows (orders, stamps, ledger) completed during the window.
 3. Run the bidirectional drill and keep the printed transcript as evidence:
    ```sh
-   ./scripts/authority-drill --event-id <event> --operator-id <you>
+   OMNIDAT_SYNC_TARGET=<gmacko-url> OMNIDAT_OPERATOR_TOKEN=<noc-api-key> \
+     ./scripts/authority-drill --event-id <event> --operator-id <you>
    ```
    Confirm `RESULT: PASS` with both `FIELD-TO-CLOUD` and `CLOUD-TO-FIELD` steps.
 
