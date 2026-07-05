@@ -33,12 +33,21 @@ import {
 import { OMNIDAT_ROLES } from "./omnidat-roles";
 import { recordOperationalMetric } from "./omnidat-kpi";
 import {
+  loadAllocations,
+  loadCampsites,
+  loadEvents,
   loadEvidenceArtifacts,
   loadPacketSessions,
   loadPersistentOperationalState,
   type OmnidatAuditActor,
   type OmnidatPersistenceDb,
+  persistAllocationAssign,
+  persistAllocationStatus,
   persistAtmResult,
+  persistCampsiteCreate,
+  persistCampsiteStatus,
+  persistEventCreate,
+  persistEventStatus,
   persistEvidenceArtifact,
   persistFoodOrderResult,
   persistPacketSessionClear,
@@ -80,6 +89,10 @@ function syncViewNow(input: { now?: string } | null | undefined) {
 
 function syncDb(ctx: unknown) {
   return (ctx as { db?: OmnidatSyncDb }).db;
+}
+
+function dbOf(ctx: unknown) {
+  return (ctx as { db?: OmnidatPersistenceDb }).db;
 }
 
 function auditActor(ctx: unknown): OmnidatAuditActor | undefined {
@@ -707,6 +720,113 @@ export const omnidatRouter = {
       });
       return { ...input, active: false };
     }),
+
+  // --- H1b operator CRUD ---------------------------------------------------
+
+  createEvent: omnidatOperatorProcedure("event.write")
+    .input(
+      z.object({
+        eventCode: z.string().min(1),
+        displayName: z.string().min(1),
+        eventKind: z.string().min(1).optional(),
+        startsAt: z.string().min(1).nullish(),
+        endsAt: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistEventCreate(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  updateEventStatus: omnidatOperatorProcedure("event.write")
+    .input(
+      z.object({
+        eventId: z.string().min(1),
+        status: z.enum(["planning", "active", "closed", "archived"]),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistEventStatus(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  listEvents: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
+    events: await loadEvents(dbOf(ctx)),
+  })),
+
+  createCampsite: omnidatOperatorProcedure("campsite.write")
+    .input(
+      z.object({
+        namespace: z.string().min(1).optional(),
+        slug: z.string().min(1),
+        displayName: z.string().min(1),
+        contactHandle: z.string().min(1),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistCampsiteCreate(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  updateCampsiteStatus: omnidatOperatorProcedure("campsite.write")
+    .input(
+      z.object({
+        campsiteId: z.string().min(1),
+        status: z.enum(["pending", "active", "suspended"]),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistCampsiteStatus(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  listCampsites: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
+    campsites: await loadCampsites(dbOf(ctx)),
+  })),
+
+  allocateAddress: omnidatOperatorProcedure("allocation.write")
+    .input(
+      z.object({
+        networkId: z.string().min(1).nullish(),
+        x121: z.string().min(1),
+        assignedToKind: z.string().min(1),
+        assignedToId: z.string().min(1).nullish(),
+        namespace: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const allocation = await persistAllocationAssign(
+        dbOf(ctx),
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(dbOf(ctx), {
+        metricName: "x121.allocation.assigned",
+        value: 1,
+        unit: "allocation",
+      });
+      return allocation;
+    }),
+
+  updateAllocationStatus: omnidatOperatorProcedure("allocation.write")
+    .input(
+      z.object({
+        allocationId: z.string().min(1),
+        x121: z.string().min(1),
+        status: z.enum([
+          "reserved",
+          "assigned",
+          "verified",
+          "suspended",
+          "revoked",
+        ]),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistAllocationStatus(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  listAllocations: omnidatOperatorReadProcedure
+    .input(z.object({ status: z.string().min(1).optional() }).optional())
+    .query(async ({ ctx, input }) => ({
+      allocations: await loadAllocations(dbOf(ctx), input?.status),
+    })),
 
   // Sync procedures authenticate with a per-source sync token instead of a
   // capability from the H1a matrix; the H1a router-walk test annotates them

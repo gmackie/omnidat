@@ -12,6 +12,8 @@ export type OmnidatRole = (typeof OMNIDAT_ROLES)[number];
 
 export const OMNIDAT_CAPABILITIES = {
   "operator.read": [...OMNIDAT_ROLES],
+  "event.write": [],
+  "campsite.write": ["packet-operator"],
   "service.request": [
     "campsite-owner",
     "vendor-operator",

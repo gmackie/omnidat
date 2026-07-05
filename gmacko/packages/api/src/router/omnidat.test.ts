@@ -5,6 +5,7 @@ import {
   omnidatEventAuthority,
   omnidatEvidenceArtifact,
   omnidatJournalEntry,
+  omnidatNetworkMetric,
   omnidatOperatorRole,
   omnidatPacketSession,
   omnidatPadConfig,
@@ -1297,6 +1298,136 @@ describe("omnidat evidence and service verbs", () => {
         artifactKind: "x",
         label: "y",
         url: "z",
+      }),
+    ).rejects.toThrow(/operator role required/i);
+  });
+});
+
+describe("omnidat H1b operator CRUD", () => {
+  function crudDb(userId: string, roles: string[]) {
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    const byTable = new Map<unknown, Record<string, unknown>[]>();
+    let id = 0;
+    const rowsFor = (t: unknown) => {
+      const r = byTable.get(t) ?? [];
+      byTable.set(t, r);
+      return r;
+    };
+    return {
+      writes,
+      rowsFor,
+      db: {
+        select: () => ({
+          from: async (t: unknown) =>
+            t === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : rowsFor(t),
+        }),
+        insert: (t: unknown) => ({
+          values: (v: Record<string, unknown>) => {
+            const withId = { id: `h1b-${++id}`, ...v };
+            writes.push({ table: t, value: withId });
+            rowsFor(t).push(withId);
+            return {
+              onConflictDoUpdate: () => ({ returning: async () => [withId] }),
+              returning: async () => [withId],
+            };
+          },
+        }),
+        update: (t: unknown) => ({
+          set: (v: Record<string, unknown>) => ({
+            where: () => {
+              for (const row of rowsFor(t)) Object.assign(row, v);
+              return Promise.resolve();
+            },
+          }),
+        }),
+      },
+    };
+  }
+  const call = (fake: ReturnType<typeof crudDb>, userId: string) =>
+    appRouter.createCaller({ db: fake.db, session: { user: { id: userId } } } as never);
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("creates, lists, and re-statuses an event (admin only)", async () => {
+    const fake = crudDb("user-admin", ["admin"]);
+    const event = await call(fake, "user-admin").omnidat.createEvent({
+      eventCode: "TOORCAMP-2028",
+      displayName: "ToorCamp 2028",
+    });
+    expect(
+      fake.writes.some((w) => w.value.eventType === "event.created"),
+    ).toBe(true);
+    await call(fake, "user-admin").omnidat.updateEventStatus({
+      eventId: event.id,
+      status: "active",
+    });
+    const listed = await call(fake, "user-admin").omnidat.listEvents();
+    expect(listed.events[0]?.status).toBe("active");
+  });
+
+  it("forbids event.write for a packet-operator", async () => {
+    const fake = crudDb("user-packet", ["packet-operator"]);
+    await expect(
+      call(fake, "user-packet").omnidat.createEvent({
+        eventCode: "X",
+        displayName: "Y",
+      }),
+    ).rejects.toThrow(/operator role required/i);
+  });
+
+  it("creates and suspends a campsite (campsite.write)", async () => {
+    const fake = crudDb("user-packet", ["packet-operator"]);
+    const camp = await call(fake, "user-packet").omnidat.createCampsite({
+      slug: "camp-oscillator",
+      displayName: "Camp Oscillator",
+      contactHandle: "osc@example.test",
+    });
+    await call(fake, "user-packet").omnidat.updateCampsiteStatus({
+      campsiteId: camp.id,
+      status: "suspended",
+    });
+    const listed = await call(fake, "user-packet").omnidat.listCampsites();
+    expect(listed.campsites[0]?.status).toBe("suspended");
+  });
+
+  it("allocates, verifies, suspends, and revokes an X.121 address", async () => {
+    const fake = crudDb("user-packet", ["packet-operator"]);
+    const alloc = await call(fake, "user-packet").omnidat.allocateAddress({
+      x121: "311088020777",
+      assignedToKind: "service",
+    });
+    expect(alloc.status).toBe("reserved");
+    expect(
+      fake.writes.some((w) => w.value.eventType === "allocation.assigned"),
+    ).toBe(true);
+    expect(
+      fake.writes.some((w) => w.table === omnidatNetworkMetric),
+    ).toBe(true);
+
+    for (const status of ["verified", "suspended", "revoked"] as const) {
+      await call(fake, "user-packet").omnidat.updateAllocationStatus({
+        allocationId: alloc.id,
+        x121: "311088020777",
+        status,
+      });
+    }
+    const listed = await call(fake, "user-packet").omnidat.listAllocations();
+    expect(listed.allocations[0]?.status).toBe("revoked");
+  });
+
+  it("forbids allocation writes for a bank-operator", async () => {
+    const fake = crudDb("user-bank", ["bank-operator"]);
+    await expect(
+      call(fake, "user-bank").omnidat.allocateAddress({
+        x121: "311088020778",
+        assignedToKind: "service",
       }),
     ).rejects.toThrow(/operator role required/i);
   });

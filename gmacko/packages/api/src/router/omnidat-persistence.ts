@@ -5,6 +5,7 @@ import {
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
   omnidatCampsite,
+  omnidatEvent,
   omnidatEvidenceArtifact,
   omnidatFoodOrder,
   omnidatInfraEndpoint,
@@ -1278,5 +1279,232 @@ export async function loadPacketSessions(
       clearDiagnostic: row.clearDiagnostic ?? null,
       transcriptHash: row.transcriptHash ?? null,
       evidenceArtifactId: row.evidenceArtifactId ?? null,
+    }));
+}
+
+// --- H1b operator CRUD helpers ---------------------------------------------
+
+async function auditedInsert(
+  db: OmnidatSessionDb | undefined,
+  table: unknown,
+  idColumn: unknown,
+  values: Record<string, unknown>,
+  audit: { eventType: string; subjectKind: string; details?: Record<string, unknown> },
+  actor?: OmnidatAuditActor,
+  fallbackId = "row",
+): Promise<string> {
+  let id = fallbackId;
+  if (db && databasePersistenceEnabled()) {
+    const insert = db.insert(table).values(values) as ReturningInsert;
+    id = (await returningId(insert, { id: idColumn })) ?? id;
+    await persistAuditEvent(
+      db,
+      {
+        eventType: audit.eventType,
+        subjectKind: audit.subjectKind,
+        subjectId: id,
+        details: audit.details ?? {},
+      },
+      actor,
+    );
+  }
+  return id;
+}
+
+async function auditedUpdate(
+  db: OmnidatSessionDb | undefined,
+  table: unknown,
+  idColumn: unknown,
+  id: string,
+  values: Record<string, unknown>,
+  audit: { eventType: string; subjectKind: string; details?: Record<string, unknown> },
+  actor?: OmnidatAuditActor,
+) {
+  if (db && databasePersistenceEnabled() && db.update) {
+    await db.update(table).set(values).where(eq(idColumn as never, id));
+    await persistAuditEvent(
+      db,
+      {
+        eventType: audit.eventType,
+        subjectKind: audit.subjectKind,
+        subjectId: id,
+        details: audit.details ?? {},
+      },
+      actor,
+    );
+  }
+  return { id, ...values };
+}
+
+export async function persistEventCreate(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    eventCode: string;
+    displayName: string;
+    eventKind?: string;
+    startsAt?: string | null;
+    endsAt?: string | null;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatEvent,
+    omnidatEvent.id,
+    {
+      eventCode: input.eventCode,
+      displayName: input.displayName,
+      eventKind: input.eventKind ?? "hackercamp",
+      startsAt: input.startsAt ? new Date(input.startsAt) : null,
+      endsAt: input.endsAt ? new Date(input.endsAt) : null,
+    },
+    { eventType: "event.created", subjectKind: "event", details: { eventCode: input.eventCode } },
+    actor,
+    `event-${input.eventCode}`,
+  );
+  return { id, eventCode: input.eventCode, displayName: input.displayName, status: "planning" };
+}
+
+export async function persistEventStatus(
+  db: OmnidatSessionDb | undefined,
+  input: { eventId: string; status: string },
+  actor?: OmnidatAuditActor,
+) {
+  return auditedUpdate(
+    db,
+    omnidatEvent,
+    omnidatEvent.id,
+    input.eventId,
+    { status: input.status },
+    { eventType: "event.status.changed", subjectKind: "event", details: { status: input.status } },
+    actor,
+  );
+}
+
+export async function persistCampsiteCreate(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    namespace?: string;
+    slug: string;
+    displayName: string;
+    contactHandle: string;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatCampsite,
+    omnidatCampsite.id,
+    {
+      namespace: input.namespace ?? "camp",
+      slug: input.slug,
+      displayName: input.displayName,
+      contactHandle: input.contactHandle,
+    },
+    { eventType: "campsite.created", subjectKind: "campsite", details: { slug: input.slug } },
+    actor,
+    `campsite-${input.slug}`,
+  );
+  return { id, slug: input.slug, displayName: input.displayName, status: "pending" };
+}
+
+export async function persistCampsiteStatus(
+  db: OmnidatSessionDb | undefined,
+  input: { campsiteId: string; status: string },
+  actor?: OmnidatAuditActor,
+) {
+  return auditedUpdate(
+    db,
+    omnidatCampsite,
+    omnidatCampsite.id,
+    input.campsiteId,
+    { status: input.status },
+    { eventType: "campsite.status.changed", subjectKind: "campsite", details: { status: input.status } },
+    actor,
+  );
+}
+
+export async function persistAllocationAssign(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    networkId?: string | null;
+    x121: string;
+    assignedToKind: string;
+    assignedToId?: string | null;
+    namespace?: string;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatAddressAllocation,
+    omnidatAddressAllocation.id,
+    {
+      networkId: input.networkId ?? null,
+      x121: input.x121,
+      assignedToKind: input.assignedToKind,
+      assignedToId: input.assignedToId ?? null,
+      namespace: input.namespace ?? "camp",
+      status: "reserved",
+    },
+    { eventType: "allocation.assigned", subjectKind: "x121", details: { x121: input.x121 } },
+    actor,
+    `allocation-${input.x121}`,
+  );
+  return { id, x121: input.x121, status: "reserved" };
+}
+
+export async function persistAllocationStatus(
+  db: OmnidatSessionDb | undefined,
+  input: { allocationId: string; x121: string; status: string },
+  actor?: OmnidatAuditActor,
+) {
+  return auditedUpdate(
+    db,
+    omnidatAddressAllocation,
+    omnidatAddressAllocation.id,
+    input.allocationId,
+    { status: input.status },
+    { eventType: "allocation.status.changed", subjectKind: "x121", details: { x121: input.x121, status: input.status } },
+    actor,
+  );
+}
+
+async function loadRows(db: OmnidatSessionDb | undefined, table: unknown) {
+  if (!db || !databasePersistenceEnabled()) return [];
+  return selectRows<Record<string, unknown>>(db, table);
+}
+
+export async function loadEvents(db: OmnidatSessionDb | undefined) {
+  return (await loadRows(db, omnidatEvent)).map((row) => ({
+    id: row.id ?? `event-${row.eventCode}`,
+    eventCode: row.eventCode ?? "",
+    displayName: row.displayName ?? "",
+    status: row.status ?? "planning",
+  }));
+}
+
+export async function loadCampsites(db: OmnidatSessionDb | undefined) {
+  return (await loadRows(db, omnidatCampsite)).map((row) => ({
+    id: row.id ?? `campsite-${row.slug}`,
+    namespace: row.namespace ?? "camp",
+    slug: row.slug ?? "",
+    displayName: row.displayName ?? "",
+    status: row.status ?? "pending",
+  }));
+}
+
+export async function loadAllocations(
+  db: OmnidatSessionDb | undefined,
+  status?: string,
+) {
+  return (await loadRows(db, omnidatAddressAllocation))
+    .filter((row) => row.x121 && (!status || row.status === status))
+    .map((row) => ({
+      id: row.id ?? `allocation-${row.x121}`,
+      x121: row.x121 ?? "",
+      assignedToKind: row.assignedToKind ?? "",
+      namespace: row.namespace ?? "camp",
+      status: row.status ?? "reserved",
     }));
 }
