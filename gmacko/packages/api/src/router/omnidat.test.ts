@@ -3,6 +3,7 @@ import {
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
   omnidatEventAuthority,
+  omnidatEvidenceArtifact,
   omnidatJournalEntry,
   omnidatOperatorRole,
   omnidatPacketSession,
@@ -1176,6 +1177,108 @@ describe("omnidat packet sessions", () => {
           sourceTransport: "xot",
           destinationX121: "311088020184",
         }),
+    ).rejects.toThrow(/operator role required/i);
+  });
+});
+
+describe("omnidat evidence and service verbs", () => {
+  function captureDb(userId: string, roles: string[]) {
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    const rows: Record<string, unknown>[] = [];
+    let id = 0;
+    return {
+      writes,
+      rows,
+      db: {
+        select: () => ({
+          from: async (table: unknown) =>
+            table === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : table === omnidatEvidenceArtifact
+                ? rows
+                : [],
+        }),
+        insert: (table: unknown) => ({
+          values: (value: Record<string, unknown>) => {
+            const withId = { id: `row-${++id}`, ...value };
+            writes.push({ table, value: withId });
+            if (table === omnidatEvidenceArtifact) rows.push(withId);
+            return {
+              onConflictDoUpdate: () => ({ returning: async () => [withId] }),
+              returning: async () => [withId],
+            };
+          },
+        }),
+        update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+      },
+    };
+  }
+  function opCaller(fake: ReturnType<typeof captureDb>, userId: string) {
+    return appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: userId } },
+    } as never);
+  }
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("creates and lists evidence artifacts (evidence.write / operator.read)", async () => {
+    const fake = captureDb("user-packet", ["packet-operator"]);
+    const created = await opCaller(fake, "user-packet").omnidat.createEvidenceArtifact({
+      artifactKind: "session-transcript",
+      label: "Camp A terminal transcript",
+      url: "/evidence/camp-a.txt",
+      recordCount: 1,
+    });
+    expect(created.artifactKind).toBe("session-transcript");
+    expect(
+      fake.writes.some(
+        (w) => w.table === omnidatAuditEvent && w.value.eventType === "evidence.created",
+      ),
+    ).toBe(true);
+
+    const listed = await opCaller(fake, "user-packet").omnidat.listEvidenceArtifacts();
+    expect(listed.artifacts[0]?.label).toBe("Camp A terminal transcript");
+  });
+
+  it("upserts and disables service verbs (verb.write)", async () => {
+    const fake = captureDb("user-packet", ["packet-operator"]);
+    await opCaller(fake, "user-packet").omnidat.upsertServiceVerb({
+      serviceId: "service-1",
+      verb: "POST",
+      inputs: ["body"],
+      outputs: ["messageId"],
+    });
+    expect(
+      fake.writes.some(
+        (w) => w.table === omnidatAuditEvent && w.value.eventType === "verb.upserted",
+      ),
+    ).toBe(true);
+
+    await opCaller(fake, "user-packet").omnidat.disableServiceVerb({
+      serviceId: "service-1",
+      verb: "POST",
+    });
+    expect(
+      fake.writes.some(
+        (w) => w.table === omnidatAuditEvent && w.value.eventType === "verb.disabled",
+      ),
+    ).toBe(true);
+  });
+
+  it("forbids evidence and verb writes for auditor", async () => {
+    const fake = captureDb("user-auditor", ["auditor"]);
+    await expect(
+      opCaller(fake, "user-auditor").omnidat.createEvidenceArtifact({
+        artifactKind: "x",
+        label: "y",
+        url: "z",
+      }),
     ).rejects.toThrow(/operator role required/i);
   });
 });

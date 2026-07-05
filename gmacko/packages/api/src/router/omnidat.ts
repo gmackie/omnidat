@@ -33,17 +33,21 @@ import {
 import { OMNIDAT_ROLES } from "./omnidat-roles";
 import { recordOperationalMetric } from "./omnidat-kpi";
 import {
+  loadEvidenceArtifacts,
   loadPacketSessions,
   loadPersistentOperationalState,
   type OmnidatAuditActor,
   type OmnidatPersistenceDb,
   persistAtmResult,
+  persistEvidenceArtifact,
   persistFoodOrderResult,
   persistPacketSessionClear,
   persistPacketSessionOpen,
   persistPadResult,
   persistPassportStampResult,
   persistProvisioningResult,
+  persistServiceVerbDisable,
+  persistServiceVerbUpsert,
   persistXotCommandResult,
 } from "./omnidat-persistence";
 import {
@@ -562,6 +566,77 @@ export const omnidatRouter = {
   listPacketSessions: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
     sessions: await loadPacketSessions((ctx as { db?: OmnidatPersistenceDb }).db),
   })),
+
+  createEvidenceArtifact: omnidatOperatorProcedure("evidence.write")
+    .input(
+      z.object({
+        eventId: z.string().min(1).nullish(),
+        artifactKind: z.string().min(1),
+        label: z.string().min(1),
+        url: z.string().min(1),
+        recordCount: z.number().int().nonnegative().nullish(),
+        contentType: z.string().min(1).optional(),
+        checksum: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const artifact = await persistEvidenceArtifact(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: "evidence.artifact.created",
+        value: 1,
+        unit: "artifact",
+      });
+      return artifact;
+    }),
+
+  listEvidenceArtifacts: omnidatOperatorReadProcedure
+    .input(z.object({ artifactKind: z.string().min(1).optional() }).optional())
+    .query(async ({ ctx, input }) => ({
+      artifacts: await loadEvidenceArtifacts(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input?.artifactKind,
+      ),
+    })),
+
+  upsertServiceVerb: omnidatOperatorProcedure("verb.write")
+    .input(
+      z.object({
+        serviceId: z.string().min(1),
+        verb: z.string().min(1),
+        description: z.string().min(1).nullish(),
+        inputs: z.array(z.string().min(1)).optional(),
+        outputs: z.array(z.string().min(1)).optional(),
+        securityPolicy: z.record(z.string(), z.unknown()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const verb = await persistServiceVerbUpsert(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      );
+      await recordOperationalMetric((ctx as { db?: OmnidatPersistenceDb }).db, {
+        metricName: "service.verb.called",
+        value: 1,
+        unit: "verb",
+        serviceId: input.serviceId,
+      });
+      return verb;
+    }),
+
+  disableServiceVerb: omnidatOperatorProcedure("verb.write")
+    .input(z.object({ serviceId: z.string().min(1), verb: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) =>
+      persistServiceVerbDisable(
+        (ctx as { db?: OmnidatPersistenceDb }).db,
+        input,
+        auditActor(ctx),
+      ),
+    ),
 
   grantOperatorRole: omnidatOperatorProcedure("role.write")
     .input(

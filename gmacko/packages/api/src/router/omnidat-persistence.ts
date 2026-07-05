@@ -1100,6 +1100,149 @@ export async function persistPacketSessionClear(
   };
 }
 
+export async function persistEvidenceArtifact(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    eventId?: string | null;
+    artifactKind: string;
+    label: string;
+    url: string;
+    recordCount?: number | null;
+    contentType?: string;
+    checksum?: string | null;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  let id = `artifact-${input.label}`;
+  if (db && databasePersistenceEnabled()) {
+    const insert = db
+      .insert(omnidatEvidenceArtifact)
+      .values({
+        eventId: input.eventId ?? null,
+        artifactKind: input.artifactKind,
+        label: input.label,
+        url: input.url,
+        recordCount: input.recordCount ?? null,
+        contentType: input.contentType ?? "application/json",
+        checksum: input.checksum ?? null,
+      }) as ReturningInsert;
+    id = (await returningId(insert, { id: omnidatEvidenceArtifact.id })) ?? id;
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "evidence.created",
+        subjectKind: "evidence-artifact",
+        subjectId: id,
+        details: { artifactKind: input.artifactKind, url: input.url },
+      },
+      actor,
+    );
+  }
+  return { id, artifactKind: input.artifactKind, label: input.label, url: input.url };
+}
+
+type EvidenceArtifactRowFull = {
+  id?: string;
+  eventId?: string | null;
+  artifactKind?: string | null;
+  label?: string | null;
+  url?: string | null;
+  recordCount?: number | null;
+  contentType?: string | null;
+};
+
+export async function loadEvidenceArtifacts(
+  db: OmnidatSessionDb | undefined,
+  artifactKind?: string,
+) {
+  if (!db || !databasePersistenceEnabled()) return [];
+  const rows = await selectRows<EvidenceArtifactRowFull>(
+    db,
+    omnidatEvidenceArtifact,
+  );
+  return rows
+    .filter((row) => row.url && (!artifactKind || row.artifactKind === artifactKind))
+    .map((row) => ({
+      id: row.id ?? `artifact-${row.label}`,
+      eventId: row.eventId ?? null,
+      artifactKind: row.artifactKind ?? "artifact",
+      label: row.label ?? row.url ?? "",
+      url: row.url ?? "",
+      recordCount: row.recordCount ?? null,
+      contentType: row.contentType ?? "application/json",
+    }));
+}
+
+export async function persistServiceVerbUpsert(
+  db: OmnidatSessionDb | undefined,
+  input: {
+    serviceId: string;
+    verb: string;
+    description?: string | null;
+    inputs?: string[];
+    outputs?: string[];
+    securityPolicy?: Record<string, unknown>;
+  },
+  actor?: OmnidatAuditActor,
+) {
+  if (db && databasePersistenceEnabled()) {
+    const insert = db.insert(omnidatServiceVerb).values({
+      serviceId: input.serviceId,
+      verb: input.verb,
+      description: input.description ?? null,
+      inputs: input.inputs ?? [],
+      outputs: input.outputs ?? [],
+      securityPolicy: input.securityPolicy ?? {},
+      active: true,
+    }) as ReturningInsert;
+    await insert.onConflictDoUpdate?.({
+      target: [omnidatServiceVerb.serviceId, omnidatServiceVerb.verb],
+      set: {
+        description: input.description ?? null,
+        inputs: input.inputs ?? [],
+        outputs: input.outputs ?? [],
+        securityPolicy: input.securityPolicy ?? {},
+        active: true,
+      },
+    });
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "verb.upserted",
+        subjectKind: "service-verb",
+        subjectId: `${input.serviceId}:${input.verb}`,
+        details: { verb: input.verb },
+      },
+      actor,
+    );
+  }
+  return { serviceId: input.serviceId, verb: input.verb, active: true };
+}
+
+export async function persistServiceVerbDisable(
+  db: OmnidatSessionDb | undefined,
+  input: { serviceId: string; verb: string },
+  actor?: OmnidatAuditActor,
+) {
+  if (db && databasePersistenceEnabled() && db.update) {
+    await db
+      .update(omnidatServiceVerb)
+      .set({ active: false })
+      .where(eq(omnidatServiceVerb.verb, input.verb));
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "verb.disabled",
+        subjectKind: "service-verb",
+        subjectId: `${input.serviceId}:${input.verb}`,
+        details: { verb: input.verb },
+      },
+      actor,
+    );
+  }
+  return { serviceId: input.serviceId, verb: input.verb, active: false };
+}
+
 type PacketSessionRow = {
   id?: string;
   eventId?: string | null;
