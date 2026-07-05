@@ -1476,22 +1476,26 @@ async function loadRows(db: OmnidatSessionDb | undefined, table: unknown) {
   return selectRows<Record<string, unknown>>(db, table);
 }
 
+function str(value: unknown, fallback = ""): string {
+  return value === undefined || value === null ? fallback : String(value);
+}
+
 export async function loadEvents(db: OmnidatSessionDb | undefined) {
   return (await loadRows(db, omnidatEvent)).map((row) => ({
-    id: row.id ?? `event-${row.eventCode}`,
-    eventCode: row.eventCode ?? "",
-    displayName: row.displayName ?? "",
-    status: row.status ?? "planning",
+    id: str(row.id, `event-${str(row.eventCode)}`),
+    eventCode: str(row.eventCode),
+    displayName: str(row.displayName),
+    status: str(row.status, "planning"),
   }));
 }
 
 export async function loadCampsites(db: OmnidatSessionDb | undefined) {
   return (await loadRows(db, omnidatCampsite)).map((row) => ({
-    id: row.id ?? `campsite-${row.slug}`,
-    namespace: row.namespace ?? "camp",
-    slug: row.slug ?? "",
-    displayName: row.displayName ?? "",
-    status: row.status ?? "pending",
+    id: str(row.id, `campsite-${str(row.slug)}`),
+    namespace: str(row.namespace, "camp"),
+    slug: str(row.slug),
+    displayName: str(row.displayName),
+    status: str(row.status, "pending"),
   }));
 }
 
@@ -1502,11 +1506,11 @@ export async function loadAllocations(
   return (await loadRows(db, omnidatAddressAllocation))
     .filter((row) => row.x121 && (!status || row.status === status))
     .map((row) => ({
-      id: row.id ?? `allocation-${row.x121}`,
-      x121: row.x121 ?? "",
-      assignedToKind: row.assignedToKind ?? "",
-      namespace: row.namespace ?? "camp",
-      status: row.status ?? "reserved",
+      id: str(row.id, `allocation-${str(row.x121)}`),
+      x121: str(row.x121),
+      assignedToKind: str(row.assignedToKind),
+      namespace: str(row.namespace, "camp"),
+      status: str(row.status, "reserved"),
     }));
 }
 

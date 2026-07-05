@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
+import { OmnidatOperatorCrud } from "./omnidat-operator-crud";
 
 export function OmnidatOperatorConsole() {
   const trpc = useTRPC();
@@ -154,6 +155,9 @@ export function OmnidatOperatorConsole() {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+      <div className="xl:col-span-2">
+        <OmnidatOperatorCrud />
+      </div>
       <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
         <p className="text-sm font-semibold uppercase text-[#c0a36e]">
           Campsite Packet Setup
