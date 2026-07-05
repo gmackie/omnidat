@@ -1577,3 +1577,65 @@ describe("omnidat H1b lifecycle, incidents, billing, roles, export", () => {
     ).rejects.toThrow(/operator role required/i);
   });
 });
+
+describe("omnidat packetCall browser XOT bridge", () => {
+  const sessionCaller = (roles: string[], userId = "user-packet") =>
+    appRouter.createCaller({
+      db: {
+        select: () => ({
+          from: async (t: unknown) =>
+            t === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : [],
+        }),
+        insert: () => ({
+          values: () => ({
+            onConflictDoUpdate: () => ({ returning: async () => [{ id: "sess-1" }] }),
+            returning: async () => [{ id: "sess-1" }],
+          }),
+        }),
+        update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+      },
+      session: { user: { id: userId } },
+    } as never);
+
+  beforeEach(() => {
+    resetOmnidatOperationalState();
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("calls a provisioned service and clears with cause 0 plus a receipt", async () => {
+    const result = await sessionCaller(["packet-operator"]).omnidat.packetCall({
+      sourceIdentity: "camp-oscillator-terminal",
+      destinationX121: "311088020501",
+      verb: "CALL",
+    });
+    expect(result.clearCode.cause).toBe(0);
+    expect(result.clearCode.rendered).toBe("CLR DTE C:0 D:0");
+    expect(result.transcript).toContain("PAD> CALL 311088020501");
+    expect(result.transcript).toContain("CLR DTE C:0 D:0");
+    expect(result.receipt.title).toContain("TRANSCRIPT");
+  });
+
+  it("clears an unknown address with cause 13, never a silent error", async () => {
+    const result = await sessionCaller(["packet-operator"]).omnidat.packetCall({
+      sourceIdentity: "camp-a",
+      destinationX121: "311088099999",
+    });
+    expect(result.clearCode.cause).toBe(13);
+    expect(result.clearCode.rendered).toBe("CLR NP C:13 D:67");
+    expect(result.transcript).toContain("NO SUCH ADDRESS 311088099999");
+  });
+
+  it("forbids packetCall for an auditor", async () => {
+    await expect(
+      sessionCaller(["auditor"], "user-auditor").omnidat.packetCall({
+        sourceIdentity: "camp-a",
+        destinationX121: "311088020501",
+      }),
+    ).rejects.toThrow(/operator role required/i);
+  });
+});

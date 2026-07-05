@@ -32,6 +32,10 @@ import {
   omnidatOperatorReadProcedure,
 } from "./omnidat-operator-procedure";
 import { OMNIDAT_ROLES } from "./omnidat-roles";
+import {
+  clearCodeForService,
+  renderClearCode,
+} from "./omnidat-clear-codes";
 import { buildOmnidatDocument } from "./omnidat-documents";
 import { recordOperationalMetric } from "./omnidat-kpi";
 import {
@@ -536,6 +540,95 @@ export const omnidatRouter = {
         payload: { ...input, result } as unknown as Record<string, unknown>,
       });
       return result;
+    }),
+
+  // The browser XOT packet bridge: look up the destination in the directory,
+  // open a session, run the verb, clear with an honest X.25 cause, and leave
+  // a receipt. No failure path is silent — every clear carries a cause code
+  // (docs/protocol-fidelity.md).
+  packetCall: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        sourceIdentity: z.string().min(1),
+        sourceTransport: z.string().min(1).default("xot"),
+        destinationX121: z.string().min(1),
+        sourceX121: z.string().min(1).nullish(),
+        verb: z.string().min(1).default("CALL"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = dbOf(ctx);
+      const state =
+        (await loadPersistentOperationalState(db, getOperationalState())) ??
+        getOperationalState();
+      const service = state.services.find(
+        (entry) => entry.x121 === input.destinationX121,
+      );
+      const clearCode = clearCodeForService(service);
+
+      const session = await persistPacketSessionOpen(
+        db,
+        {
+          serviceId: null,
+          sourceIdentity: input.sourceIdentity,
+          sourceTransport: input.sourceTransport,
+          sourceX121: input.sourceX121 ?? null,
+          destinationX121: input.destinationX121,
+        },
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(db, {
+        metricName: "packet.session.opened",
+        value: 1,
+        unit: "session",
+      });
+
+      const transcriptLines = [`PAD> ${input.verb} ${input.destinationX121}`];
+      if (clearCode.cause === 0 && service) {
+        const result = executeXotCommand({
+          sourceX121: input.sourceX121 ?? input.destinationX121,
+          command: `${input.verb} ${input.destinationX121}`,
+        });
+        transcriptLines.push(result.transcript);
+      } else {
+        transcriptLines.push(
+          service
+            ? `SERVICE ${service.name.toUpperCase()} ${(service.status ?? "").toUpperCase()}`
+            : `NO SUCH ADDRESS ${input.destinationX121}`,
+        );
+      }
+      const rendered = renderClearCode(clearCode);
+      transcriptLines.push(rendered);
+      const transcript = transcriptLines.join("\n");
+
+      const cleared = await persistPacketSessionClear(
+        db,
+        {
+          sessionId: session.id,
+          clearCause: clearCode.cause,
+          clearDiagnostic: clearCode.diagnostic,
+          transcript,
+        },
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(db, {
+        metricName: `packet.session.cleared.cause.${clearCode.cause}`,
+        value: 1,
+        unit: "session",
+      });
+
+      const receipt = buildOmnidatDocument("provisioning-transcript", {
+        x121: input.destinationX121,
+        status: clearCode.cause === 0 ? "connected" : clearCode.outcome,
+        transcript,
+      });
+
+      return {
+        session: { ...session, status: cleared.status },
+        clearCode: { ...clearCode, rendered },
+        transcript,
+        receipt,
+      };
     }),
 
   openPacketSession: omnidatOperatorProcedure("session.write")
