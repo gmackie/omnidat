@@ -8,6 +8,18 @@ export function OmnidatNocDashboard() {
   const trpc = useTRPC();
   const noc = useQuery(trpc.omnidat.noc.queryOptions());
   const operations = useQuery(trpc.omnidat.operations.queryOptions());
+  // Operator-gated views: the public status board renders without them, an
+  // authenticated operator additionally sees live sessions and evidence.
+  const packetSessions = useQuery({
+    ...trpc.omnidat.listPacketSessions.queryOptions(),
+    retry: false,
+  });
+  const evidence = useQuery({
+    ...trpc.omnidat.listEvidenceArtifacts.queryOptions(),
+    retry: false,
+  });
+  const sessions = packetSessions.data?.sessions ?? [];
+  const artifacts = evidence.data?.artifacts ?? [];
 
   return (
     <div className="grid gap-5">
@@ -121,6 +133,70 @@ export function OmnidatNocDashboard() {
           </table>
         </div>
       </section>
+
+      {sessions.length > 0 ? (
+        <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
+          <h2 className="text-2xl font-bold">Packet Sessions</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-sm">
+              <thead className="text-left text-[#c0a36e]">
+                <tr>
+                  <th className="border-b border-[#5c4a32] py-2">Destination X.121</th>
+                  <th className="border-b border-[#5c4a32] py-2">Source</th>
+                  <th className="border-b border-[#5c4a32] py-2">Transport</th>
+                  <th className="border-b border-[#5c4a32] py-2">Status</th>
+                  <th className="border-b border-[#5c4a32] py-2">Clear</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((session) => (
+                  <tr key={session.id}>
+                    <td className="border-b border-[#33291d] py-3 font-mono">
+                      {session.destinationX121}
+                    </td>
+                    <td className="border-b border-[#33291d] py-3">
+                      {session.sourceIdentity}
+                    </td>
+                    <td className="border-b border-[#33291d] py-3">
+                      {session.sourceTransport}
+                    </td>
+                    <td className="border-b border-[#33291d] py-3 uppercase">
+                      {session.status}
+                    </td>
+                    <td className="border-b border-[#33291d] py-3 font-mono">
+                      {session.clearCause === null
+                        ? "-"
+                        : `C:${session.clearCause} D:${session.clearDiagnostic ?? 0}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {artifacts.length > 0 ? (
+        <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
+          <h2 className="text-2xl font-bold">Evidence Artifacts</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {artifacts.map((artifact) => (
+              <article
+                className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
+                key={artifact.id}
+              >
+                <p className="text-sm uppercase text-[#c0a36e]">
+                  {artifact.artifactKind}
+                </p>
+                <h3 className="mt-1 font-semibold">{artifact.label}</h3>
+                <p className="mt-2 break-all font-mono text-sm text-[#9ed783]">
+                  {artifact.url}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
