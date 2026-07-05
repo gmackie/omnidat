@@ -10,6 +10,7 @@ import {
   omnidatFoodOrder,
   omnidatInfraEndpoint,
   omnidatNocIncident,
+  omnidatOperatorRole,
   omnidatPacketSession,
   omnidatPadConfig,
   omnidatPassportStamp,
@@ -1507,4 +1508,230 @@ export async function loadAllocations(
       namespace: row.namespace ?? "camp",
       status: row.status ?? "reserved",
     }));
+}
+
+// --- H1b provisioning lifecycle, incidents, billing, roles, export ---------
+
+export const PROVISIONING_STATES = [
+  "requested",
+  "reviewed",
+  "approved",
+  "assigned",
+  "installed",
+  "verified",
+  "active",
+] as const;
+
+const TERMINAL_STATES = ["suspended", "revoked"] as const;
+
+export function isLegalProvisioningTransition(from: string, to: string) {
+  if (TERMINAL_STATES.includes(to as (typeof TERMINAL_STATES)[number])) {
+    // Suspend/revoke is legal from any non-terminal state.
+    return !TERMINAL_STATES.includes(from as (typeof TERMINAL_STATES)[number]);
+  }
+  const fromIndex = PROVISIONING_STATES.indexOf(from as (typeof PROVISIONING_STATES)[number]);
+  const toIndex = PROVISIONING_STATES.indexOf(to as (typeof PROVISIONING_STATES)[number]);
+  return fromIndex >= 0 && toIndex === fromIndex + 1;
+}
+
+export async function persistProvisioningRequest(
+  db: OmnidatSessionDb | undefined,
+  input: { campsiteId?: string | null; serviceId?: string | null; transport: string; requestedX121?: string | null },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatProvisioningRequest,
+    omnidatProvisioningRequest.id,
+    {
+      campsiteId: input.campsiteId ?? null,
+      serviceId: input.serviceId ?? null,
+      transport: input.transport,
+      requestedX121: input.requestedX121 ?? null,
+      status: "requested",
+    },
+    { eventType: "provisioning.requested", subjectKind: "provisioning", details: { transport: input.transport } },
+    actor,
+    "provisioning-request",
+  );
+  return { id, status: "requested" as const };
+}
+
+export async function loadProvisioningRow(
+  db: OmnidatSessionDb | undefined,
+  requestId: string,
+) {
+  const rows = await loadRows(db, omnidatProvisioningRequest);
+  return rows.find((row) => (row.id ?? "") === requestId);
+}
+
+export class IllegalProvisioningTransition extends Error {}
+
+export async function persistProvisioningAdvance(
+  db: OmnidatSessionDb | undefined,
+  input: { requestId: string; toStatus: string; verificationTranscript?: string | null },
+  actor?: OmnidatAuditActor,
+) {
+  const row = await loadProvisioningRow(db, input.requestId);
+  const from = (row?.status as string | undefined) ?? "requested";
+  if (!isLegalProvisioningTransition(from, input.toStatus)) {
+    throw new IllegalProvisioningTransition(
+      `illegal provisioning transition ${from} -> ${input.toStatus}`,
+    );
+  }
+  const values: Record<string, unknown> = { status: input.toStatus };
+  if (input.toStatus === "verified") {
+    values.verificationTranscript = input.verificationTranscript ?? null;
+    values.verifiedAt = new Date();
+  }
+  await auditedUpdate(
+    db,
+    omnidatProvisioningRequest,
+    omnidatProvisioningRequest.id,
+    input.requestId,
+    values,
+    { eventType: `provisioning.${input.toStatus}`, subjectKind: "provisioning", details: { from, to: input.toStatus } },
+    actor,
+  );
+  return { id: input.requestId, status: input.toStatus, from };
+}
+
+export async function loadProvisioning(db: OmnidatSessionDb | undefined) {
+  return (await loadRows(db, omnidatProvisioningRequest)).map((row) => ({
+    id: row.id ?? "provisioning",
+    transport: row.transport ?? "",
+    status: row.status ?? "requested",
+    assignedX121: row.assignedX121 ?? null,
+  }));
+}
+
+export async function persistIncidentOpen(
+  db: OmnidatSessionDb | undefined,
+  input: { networkId?: string | null; serviceId?: string | null; title: string; severity?: string },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatNocIncident,
+    omnidatNocIncident.id,
+    {
+      networkId: input.networkId ?? null,
+      serviceId: input.serviceId ?? null,
+      title: input.title,
+      severity: input.severity ?? "minor",
+      status: "open",
+    },
+    { eventType: "incident.opened", subjectKind: "incident", details: { title: input.title } },
+    actor,
+    "incident",
+  );
+  return { id, title: input.title, status: "open" as const };
+}
+
+export async function persistIncidentUpdate(
+  db: OmnidatSessionDb | undefined,
+  input: { incidentId: string; status: string },
+  actor?: OmnidatAuditActor,
+) {
+  const values: Record<string, unknown> = { status: input.status };
+  if (input.status === "resolved") values.resolvedAt = new Date();
+  return auditedUpdate(
+    db,
+    omnidatNocIncident,
+    omnidatNocIncident.id,
+    input.incidentId,
+    values,
+    { eventType: `incident.${input.status}`, subjectKind: "incident", details: { status: input.status } },
+    actor,
+  );
+}
+
+export async function persistBillingAccountCreate(
+  db: OmnidatSessionDb | undefined,
+  input: { externalAccountId: string; accountType: string; displayName: string; provider?: string },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatBillingAccount,
+    omnidatBillingAccount.id,
+    {
+      provider: input.provider ?? "ShadyBucks",
+      externalAccountId: input.externalAccountId,
+      accountType: input.accountType,
+      displayName: input.displayName,
+      status: "pending",
+    },
+    { eventType: "billing.account.created", subjectKind: "billing-account", details: { externalAccountId: input.externalAccountId } },
+    actor,
+    "billing-account",
+  );
+  return { id, externalAccountId: input.externalAccountId };
+}
+
+export async function persistFeePolicy(
+  db: OmnidatSessionDb | undefined,
+  input: { accountId: string; policyKind: string; amount?: number; memo?: string },
+  actor?: OmnidatAuditActor,
+) {
+  if (db && databasePersistenceEnabled()) {
+    await db.insert(omnidatBillingLedgerEntry).values({
+      accountId: input.accountId,
+      entryKind: "fee-policy",
+      amount: input.amount ?? 0,
+      currency: "SHDY",
+      memo: input.memo ?? `fee policy: ${input.policyKind}`,
+    });
+    await persistAuditEvent(
+      db,
+      {
+        eventType: "fee.policy.set",
+        subjectKind: "billing-account",
+        subjectId: input.accountId,
+        details: { policyKind: input.policyKind, amount: input.amount ?? 0 },
+      },
+      actor,
+    );
+  }
+  return { accountId: input.accountId, policyKind: input.policyKind };
+}
+
+export async function loadOperatorRoleGrants(db: OmnidatSessionDb | undefined) {
+  return (await loadRows(db, omnidatOperatorRole))
+    .filter((row) => row.active !== false)
+    .map((row) => ({
+      userId: row.userId ?? "",
+      role: row.role ?? "",
+      eventId: row.eventId ?? null,
+    }));
+}
+
+export async function persistEventEvidenceExport(
+  db: OmnidatSessionDb | undefined,
+  input: { eventId?: string | null; label: string; url: string; recordCount?: number },
+  actor?: OmnidatAuditActor,
+) {
+  const artifact = await persistEvidenceArtifact(
+    db,
+    {
+      eventId: input.eventId ?? null,
+      artifactKind: "event-export",
+      label: input.label,
+      url: input.url,
+      recordCount: input.recordCount ?? null,
+      contentType: "application/json",
+    },
+    actor,
+  );
+  await persistAuditEvent(
+    db,
+    {
+      eventType: "evidence.exported",
+      subjectKind: "event",
+      subjectId: input.eventId ?? artifact.id,
+      details: { label: input.label },
+    },
+    actor,
+  );
+  return artifact;
 }

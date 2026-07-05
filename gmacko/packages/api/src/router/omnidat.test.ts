@@ -1432,3 +1432,148 @@ describe("omnidat H1b operator CRUD", () => {
     ).rejects.toThrow(/operator role required/i);
   });
 });
+
+describe("omnidat H1b lifecycle, incidents, billing, roles, export", () => {
+  function lcDb(userId: string, roles: string[]) {
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    const byTable = new Map<unknown, Record<string, unknown>[]>();
+    let id = 0;
+    const rowsFor = (t: unknown) => {
+      const r = byTable.get(t) ?? [];
+      byTable.set(t, r);
+      return r;
+    };
+    return {
+      writes,
+      rowsFor,
+      db: {
+        select: () => ({
+          from: async (t: unknown) =>
+            t === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : rowsFor(t),
+        }),
+        insert: (t: unknown) => ({
+          values: (v: Record<string, unknown>) => {
+            const withId = { id: `lc-${++id}`, ...v };
+            writes.push({ table: t, value: withId });
+            rowsFor(t).push(withId);
+            return {
+              onConflictDoUpdate: () => ({ returning: async () => [withId] }),
+              returning: async () => [withId],
+            };
+          },
+        }),
+        update: (t: unknown) => ({
+          set: (v: Record<string, unknown>) => ({
+            where: () => {
+              for (const row of rowsFor(t)) Object.assign(row, v);
+              return Promise.resolve();
+            },
+          }),
+        }),
+      },
+    };
+  }
+  const call = (fake: ReturnType<typeof lcDb>, userId: string) =>
+    appRouter.createCaller({ db: fake.db, session: { user: { id: userId } } } as never);
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("runs the provisioning lifecycle and rejects illegal jumps", async () => {
+    const fake = lcDb("user-packet", ["packet-operator"]);
+    const req = await call(fake, "user-packet").omnidat.requestProvisioning({
+      transport: "xot",
+    });
+    expect(req.status).toBe("requested");
+
+    // legal path requested -> reviewed -> approved
+    await call(fake, "user-packet").omnidat.advanceProvisioning({
+      requestId: req.id,
+      toStatus: "reviewed",
+    });
+    await call(fake, "user-packet").omnidat.advanceProvisioning({
+      requestId: req.id,
+      toStatus: "approved",
+    });
+
+    // illegal jump approved -> active (skips assigned/installed/verified)
+    await expect(
+      call(fake, "user-packet").omnidat.advanceProvisioning({
+        requestId: req.id,
+        toStatus: "active",
+      }),
+    ).rejects.toThrow(/illegal provisioning transition/i);
+
+    // suspend is legal from any non-terminal state
+    const suspended = await call(fake, "user-packet").omnidat.advanceProvisioning({
+      requestId: req.id,
+      toStatus: "suspended",
+    });
+    expect(suspended.status).toBe("suspended");
+  });
+
+  it("opens and resolves an incident with a time-to-clear metric", async () => {
+    const fake = lcDb("user-noc", ["noc-operator"]);
+    const incident = await call(fake, "user-noc").omnidat.openIncident({
+      title: "MeshCore gateway degraded",
+      severity: "major",
+    });
+    expect(
+      fake.writes.some((w) => w.value.eventType === "incident.opened"),
+    ).toBe(true);
+    await call(fake, "user-noc").omnidat.updateIncident({
+      incidentId: incident.id,
+      status: "resolved",
+      timeToClearMinutes: 12,
+    });
+    const resolvedMetric = fake.writes.find(
+      (w) => w.table === omnidatNetworkMetric && w.value.metricName === "incident.resolved",
+    );
+    expect(resolvedMetric?.value.value).toBe(12);
+  });
+
+  it("creates a billing account and sets a fee policy (bank.write)", async () => {
+    const fake = lcDb("user-bank", ["bank-operator"]);
+    const account = await call(fake, "user-bank").omnidat.createBillingAccount({
+      externalAccountId: "SB-CAMP-001",
+      accountType: "camp-operating",
+      displayName: "Camp Oscillator",
+    });
+    await call(fake, "user-bank").omnidat.setFeePolicy({
+      accountId: account.id,
+      policyKind: "percentage",
+      amount: 3,
+    });
+    expect(
+      fake.writes.some((w) => w.value.eventType === "fee.policy.set"),
+    ).toBe(true);
+  });
+
+  it("lists operator role grants for admin only, and exports evidence", async () => {
+    const fake = lcDb("user-admin", ["admin"]);
+    const roles = await call(fake, "user-admin").omnidat.listOperatorRoles();
+    expect(roles.roles[0]?.role).toBe("admin");
+
+    await call(fake, "user-admin").omnidat.exportEventEvidence({
+      label: "ToorCamp 2028 export",
+      url: "/evidence/toorcamp-2028.json",
+      recordCount: 42,
+    });
+    expect(
+      fake.writes.some((w) => w.value.eventType === "evidence.exported"),
+    ).toBe(true);
+  });
+
+  it("forbids listOperatorRoles for non-admins", async () => {
+    const fake = lcDb("user-noc", ["noc-operator"]);
+    await expect(
+      call(fake, "user-noc").omnidat.listOperatorRoles(),
+    ).rejects.toThrow(/operator role required/i);
+  });
+});

@@ -22,6 +22,7 @@ import {
   simulateIso8583Transaction,
   stampActivityPassport,
 } from "@omnidat/operator-core/omnidat";
+import { TRPCError } from "@trpc/server";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
@@ -33,22 +34,32 @@ import {
 import { OMNIDAT_ROLES } from "./omnidat-roles";
 import { recordOperationalMetric } from "./omnidat-kpi";
 import {
+  IllegalProvisioningTransition,
   loadAllocations,
   loadCampsites,
   loadEvents,
   loadEvidenceArtifacts,
+  loadOperatorRoleGrants,
   loadPacketSessions,
   loadPersistentOperationalState,
+  loadProvisioning,
   type OmnidatAuditActor,
   type OmnidatPersistenceDb,
   persistAllocationAssign,
   persistAllocationStatus,
   persistAtmResult,
+  persistBillingAccountCreate,
   persistCampsiteCreate,
   persistCampsiteStatus,
   persistEventCreate,
+  persistEventEvidenceExport,
   persistEventStatus,
   persistEvidenceArtifact,
+  persistFeePolicy,
+  persistIncidentOpen,
+  persistIncidentUpdate,
+  persistProvisioningAdvance,
+  persistProvisioningRequest,
   persistFoodOrderResult,
   persistPacketSessionClear,
   persistPacketSessionOpen,
@@ -827,6 +838,143 @@ export const omnidatRouter = {
     .query(async ({ ctx, input }) => ({
       allocations: await loadAllocations(dbOf(ctx), input?.status),
     })),
+
+  requestProvisioning: omnidatOperatorProcedure("service.request")
+    .input(
+      z.object({
+        campsiteId: z.string().min(1).nullish(),
+        serviceId: z.string().min(1).nullish(),
+        transport: z.string().min(1),
+        requestedX121: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistProvisioningRequest(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  advanceProvisioning: omnidatOperatorProcedure("provisioning.write")
+    .input(
+      z.object({
+        requestId: z.string().min(1),
+        toStatus: z.enum([
+          "reviewed",
+          "approved",
+          "assigned",
+          "installed",
+          "verified",
+          "active",
+          "suspended",
+          "revoked",
+        ]),
+        verificationTranscript: z.string().min(1).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await persistProvisioningAdvance(dbOf(ctx), input, auditActor(ctx));
+      } catch (error) {
+        if (error instanceof IllegalProvisioningTransition) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+        }
+        throw error;
+      }
+    }),
+
+  listProvisioning: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
+    provisioning: await loadProvisioning(dbOf(ctx)),
+  })),
+
+  openIncident: omnidatOperatorProcedure("incident.write")
+    .input(
+      z.object({
+        networkId: z.string().min(1).nullish(),
+        serviceId: z.string().min(1).nullish(),
+        title: z.string().min(1),
+        severity: z.enum(["minor", "major", "critical"]).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const incident = await persistIncidentOpen(dbOf(ctx), input, auditActor(ctx));
+      await recordOperationalMetric(dbOf(ctx), {
+        metricName: "incident.opened",
+        value: 1,
+        unit: "incident",
+      });
+      return incident;
+    }),
+
+  updateIncident: omnidatOperatorProcedure("incident.write")
+    .input(
+      z.object({
+        incidentId: z.string().min(1),
+        status: z.enum(["open", "mitigating", "resolved"]),
+        timeToClearMinutes: z.number().int().nonnegative().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await persistIncidentUpdate(dbOf(ctx), input, auditActor(ctx));
+      if (input.status === "resolved") {
+        await recordOperationalMetric(dbOf(ctx), {
+          metricName: "incident.resolved",
+          value: input.timeToClearMinutes ?? 0,
+          unit: "minutes",
+        });
+      }
+      return updated;
+    }),
+
+  createBillingAccount: omnidatOperatorProcedure("bank.write")
+    .input(
+      z.object({
+        externalAccountId: z.string().min(1),
+        accountType: z.string().min(1),
+        displayName: z.string().min(1),
+        provider: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistBillingAccountCreate(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  setFeePolicy: omnidatOperatorProcedure("bank.write")
+    .input(
+      z.object({
+        accountId: z.string().min(1),
+        policyKind: z.enum([
+          "flat",
+          "percentage",
+          "per-message",
+          "waived",
+          "sponsored",
+          "merchant-pays",
+          "operator-pays",
+        ]),
+        amount: z.number().int().optional(),
+        memo: z.string().min(1).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistFeePolicy(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  listOperatorRoles: omnidatOperatorProcedure("role.write").query(
+    async ({ ctx }) => ({
+      roles: await loadOperatorRoleGrants(dbOf(ctx)),
+    }),
+  ),
+
+  exportEventEvidence: omnidatOperatorProcedure("evidence.write")
+    .input(
+      z.object({
+        eventId: z.string().min(1).nullish(),
+        label: z.string().min(1),
+        url: z.string().min(1),
+        recordCount: z.number().int().nonnegative().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistEventEvidenceExport(dbOf(ctx), input, auditActor(ctx)),
+    ),
 
   // Sync procedures authenticate with a per-source sync token instead of a
   // capability from the H1a matrix; the H1a router-walk test annotates them
