@@ -103,7 +103,7 @@ describe("omnidat tRPC router", () => {
   });
 
   it("returns dashboard metrics and network status", async () => {
-    const dashboard = await caller.omnidat.dashboard();
+    const dashboard = await adminCaller.omnidat.dashboard();
 
     expect(dashboard.network.protocol).toBe("X.25");
     expect(dashboard.metrics.totalServices).toBeGreaterThanOrEqual(5);
@@ -113,7 +113,7 @@ describe("omnidat tRPC router", () => {
 
   it("returns service verbs and NOC circuit state", async () => {
     const services = await caller.omnidat.services();
-    const noc = await caller.omnidat.noc();
+    const noc = await adminCaller.omnidat.noc();
 
     expect(
       services.services
@@ -131,7 +131,7 @@ describe("omnidat tRPC router", () => {
   });
 
   it("returns ShadyBucks, food protocol, ATM protocol, and provisioning verification", async () => {
-    const billing = await caller.omnidat.billing();
+    const billing = await adminCaller.omnidat.billing();
     const food = await caller.omnidat.foodProtocol();
     const atm = await caller.omnidat.atmProtocol();
     const verification = await adminCaller.omnidat.verifyProvisioning({
@@ -168,9 +168,9 @@ describe("omnidat tRPC router", () => {
       sourceX121: x121,
       command: `CALL ${x121}`,
     });
-    const operations = await caller.omnidat.operations();
-    const dashboard = await caller.omnidat.dashboard();
-    const noc = await caller.omnidat.noc();
+    const operations = await adminCaller.omnidat.operations();
+    const dashboard = await adminCaller.omnidat.dashboard();
+    const noc = await adminCaller.omnidat.noc();
 
     expect(provisioned.status).toBe("verified");
     expect(pad.profile).toContain("XOT HOST omnidat.gmac.io");
@@ -187,7 +187,7 @@ describe("omnidat tRPC router", () => {
       settlementAccountId: "SB-ATM-EX88-100",
       locationLabel: "Camp Oscillator cashier window",
     });
-    const operations = await caller.omnidat.operations();
+    const operations = await adminCaller.omnidat.operations();
     const bill = await adminCaller.omnidat.xotCommand({
       sourceX121: atm.terminalX121,
       command: "BILL SB-ATM-EX88-100",
@@ -346,7 +346,7 @@ describe("omnidat tRPC router", () => {
       noteSerial: "SBMO-2028-000123-7",
       retrievalReference: "000000000313",
     });
-    const operations = await caller.omnidat.operations();
+    const operations = await adminCaller.omnidat.operations();
 
     expect(sale.status).toBe("approved");
     expect(sale.hostX121).toBe("311088002010");
@@ -462,7 +462,7 @@ describe("omnidat tRPC router", () => {
       pickupName: "Packet Window 3",
       shadybucksAccountId: "SB-CAMP-LAMINAR-001",
     });
-    const operations = await caller.omnidat.operations();
+    const operations = await adminCaller.omnidat.operations();
 
     expect(order.lineTicket).toMatch(/^MW-/);
     expect(order.receiptId).toMatch(/^RCPT-FOOD-/);
@@ -540,7 +540,7 @@ describe("omnidat tRPC router", () => {
       operatorId: "OP-EX88",
       evidence: "Delivered a packet form across camp.",
     });
-    const operations = await caller.omnidat.operations();
+    const operations = await adminCaller.omnidat.operations();
     const passportStamps = (
       operations as unknown as {
         passportStamps: Array<{ stampId: string; badgeId: string }>;
@@ -715,12 +715,18 @@ describe("omnidat tRPC router", () => {
         ],
       ],
     ]);
+    rowsByTable.set(omnidatOperatorRole, [
+      { userId: "user-admin", role: "admin", active: true },
+    ]);
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(async (table: unknown) => rowsByTable.get(table) ?? []),
       })),
     };
-    const persistentCaller = appRouter.createCaller({ db } as never);
+    const persistentCaller = appRouter.createCaller({
+      db,
+      session: { user: { id: "user-admin" } },
+    } as never);
 
     const dashboard = await persistentCaller.omnidat.dashboard();
     const billing = await persistentCaller.omnidat.billing();
@@ -762,6 +768,13 @@ describe("omnidat sync and authority procedures", () => {
       tables.set(table, created);
       return created;
     };
+    // Seed an operator role so gated read queries (dashboard/noc) pass when
+    // this fake db backs an operator-session caller.
+    rowsFor(omnidatOperatorRole).push({
+      userId: "user-admin",
+      role: "admin",
+      active: true,
+    });
     const returning = async () => [{ id: `row-${++id}` }];
     const db = {
       insert: (table: unknown) => ({
@@ -967,7 +980,10 @@ describe("omnidat sync and authority procedures", () => {
       syncSourceRow.lastSyncAt = new Date("2026-07-04T14:00:00Z");
       syncSourceRow.lastPushedSeq = 7;
     }
-    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+    const syncCaller = appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: "user-admin" } },
+    } as never);
 
     const dashboard = await syncCaller.omnidat.dashboard({
       eventId: EVENT_ID,
@@ -992,7 +1008,10 @@ describe("omnidat sync and authority procedures", () => {
     const fake = createSyncFakeDb();
     fake.rowsFor(omnidatSyncSource).length = 0;
     fake.rowsFor(omnidatEventAuthority).length = 0;
-    const syncCaller = appRouter.createCaller({ db: fake.db } as never);
+    const syncCaller = appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: "user-admin" } },
+    } as never);
 
     const dashboard = await syncCaller.omnidat.dashboard({ eventId: EVENT_ID });
 

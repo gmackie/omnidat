@@ -143,7 +143,7 @@ function settleIsoResponseWithShadyBankAuth(
 }
 
 export const omnidatRouter = {
-  dashboard: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
+  dashboard: omnidatOperatorReadProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const operationalState =
       (await loadPersistentOperationalState(
         (ctx as { db?: OmnidatPersistenceDb }).db,
@@ -193,7 +193,7 @@ export const omnidatRouter = {
     ).services,
   })),
 
-  noc: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
+  noc: omnidatOperatorReadProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const snapshot = buildNetworkSnapshot();
     const operationalState =
       (await loadPersistentOperationalState(
@@ -217,7 +217,7 @@ export const omnidatRouter = {
     };
   }),
 
-  billing: publicProcedure.query(async ({ ctx }) => ({
+  billing: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
     provider: "ShadyBucks",
     accounts: (
       (await loadPersistentOperationalState(
@@ -227,7 +227,7 @@ export const omnidatRouter = {
     ).billingAccounts,
   })),
 
-  operations: publicProcedure.query(
+  operations: omnidatOperatorReadProcedure.query(
     async ({ ctx }) =>
       (await loadPersistentOperationalState(
         (ctx as { db?: OmnidatPersistenceDb }).db,
