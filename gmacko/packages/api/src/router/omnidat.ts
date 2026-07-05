@@ -40,8 +40,10 @@ import { buildOmnidatDocument } from "./omnidat-documents";
 import { recordOperationalMetric } from "./omnidat-kpi";
 import { checkTransport } from "./omnidat-transports";
 import {
+  CAMP_APP_KINDS,
   IllegalProvisioningTransition,
   loadAllocations,
+  loadCampsiteApps,
   loadCampsites,
   loadEvents,
   loadEvidenceArtifacts,
@@ -55,6 +57,8 @@ import {
   persistAllocationStatus,
   persistAtmResult,
   persistBillingAccountCreate,
+  persistCampsiteAppCreate,
+  persistCampsiteAppStatus,
   persistCampsiteCreate,
   persistCampsiteStatus,
   persistEventCreate,
@@ -944,6 +948,37 @@ export const omnidatRouter = {
     .input(z.object({ status: z.string().min(1).optional() }).optional())
     .query(async ({ ctx, input }) => ({
       allocations: await loadAllocations(dbOf(ctx), input?.status),
+    })),
+
+  createCampsiteApp: omnidatOperatorProcedure("campsite.write")
+    .input(
+      z.object({
+        campsiteId: z.string().min(1),
+        address: z.string().min(1),
+        name: z.string().min(1),
+        appKind: z.enum(CAMP_APP_KINDS),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistCampsiteAppCreate(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  updateCampsiteAppStatus: omnidatOperatorProcedure("campsite.write")
+    .input(
+      z.object({
+        appId: z.string().min(1),
+        status: z.enum(["active", "delisted"]),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      persistCampsiteAppStatus(dbOf(ctx), input, auditActor(ctx)),
+    ),
+
+  listCampsiteApps: omnidatOperatorReadProcedure
+    .input(z.object({ campsiteId: z.string().min(1).optional() }).optional())
+    .query(async ({ ctx, input }) => ({
+      apps: await loadCampsiteApps(dbOf(ctx), input?.campsiteId),
+      kinds: CAMP_APP_KINDS,
     })),
 
   requestProvisioning: omnidatOperatorProcedure("service.request")

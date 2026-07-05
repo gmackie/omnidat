@@ -1651,3 +1651,107 @@ describe("omnidat packetCall browser XOT bridge", () => {
     ).rejects.toThrow(/operator role required/i);
   });
 });
+
+describe("omnidat H3 camp utility apps", () => {
+  function appDb(userId: string, roles: string[]) {
+    const writes: Array<{ table: unknown; value: Record<string, unknown> }> = [];
+    const byTable = new Map<unknown, Record<string, unknown>[]>();
+    let id = 0;
+    const rowsFor = (t: unknown) => {
+      const r = byTable.get(t) ?? [];
+      byTable.set(t, r);
+      return r;
+    };
+    return {
+      writes,
+      db: {
+        select: () => ({
+          from: async (t: unknown) =>
+            t === omnidatOperatorRole
+              ? roles.map((role) => ({ userId, role, active: true }))
+              : rowsFor(t),
+        }),
+        insert: (t: unknown) => ({
+          values: (v: Record<string, unknown>) => {
+            const withId = { id: `app-${++id}`, ...v };
+            writes.push({ table: t, value: withId });
+            rowsFor(t).push(withId);
+            return {
+              onConflictDoUpdate: () => ({ returning: async () => [withId] }),
+              returning: async () => [withId],
+            };
+          },
+        }),
+        update: (t: unknown) => ({
+          set: (v: Record<string, unknown>) => ({
+            where: () => {
+              for (const row of rowsFor(t)) Object.assign(row, v);
+              return Promise.resolve();
+            },
+          }),
+        }),
+      },
+    };
+  }
+  const call = (fake: ReturnType<typeof appDb>, userId: string) =>
+    appRouter.createCaller({ db: fake.db, session: { user: { id: userId } } } as never);
+
+  beforeEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = "database";
+  });
+  afterEach(() => {
+    process.env.OMNIDAT_PERSISTENCE = originalPersistence;
+  });
+
+  it("configures several campsite app kinds without code changes and delists one", async () => {
+    const fake = appDb("user-packet", ["packet-operator"]);
+    const kinds = ["bulletin", "message-desk", "lost-property", "classifieds", "form-intake"] as const;
+    const created = [];
+    for (const [index, appKind] of kinds.entries()) {
+      created.push(
+        await call(fake, "user-packet").omnidat.createCampsiteApp({
+          campsiteId: "camp-1",
+          address: `31108802${1000 + index}`,
+          name: `${appKind} desk`,
+          appKind,
+        }),
+      );
+    }
+    const listed = await call(fake, "user-packet").omnidat.listCampsiteApps();
+    expect(listed.apps.length).toBe(5);
+    expect(listed.kinds.length).toBeGreaterThanOrEqual(5);
+
+    await call(fake, "user-packet").omnidat.updateCampsiteAppStatus({
+      appId: created[0]!.id,
+      status: "delisted",
+    });
+    expect(
+      fake.writes.some((w) => w.value.eventType === "campsite.app.status.changed"),
+    ).toBe(true);
+  });
+
+  it("rejects an unknown app kind", async () => {
+    const fake = appDb("user-packet", ["packet-operator"]);
+    await expect(
+      // @ts-expect-error deliberately invalid kind
+      call(fake, "user-packet").omnidat.createCampsiteApp({
+        campsiteId: "camp-1",
+        address: "311088021999",
+        name: "bad app",
+        appKind: "not-a-real-kind",
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("forbids campsite app writes for an auditor", async () => {
+    const fake = appDb("user-auditor", ["auditor"]);
+    await expect(
+      call(fake, "user-auditor").omnidat.createCampsiteApp({
+        campsiteId: "camp-1",
+        address: "311088021000",
+        name: "bulletin",
+        appKind: "bulletin",
+      }),
+    ).rejects.toThrow(/operator role required/i);
+  });
+});

@@ -5,6 +5,7 @@ import {
   omnidatBillingAccount,
   omnidatBillingLedgerEntry,
   omnidatCampsite,
+  omnidatCampsiteApp,
   omnidatEvent,
   omnidatEvidenceArtifact,
   omnidatFoodOrder,
@@ -1738,4 +1739,78 @@ export async function persistEventEvidenceExport(
     actor,
   );
   return artifact;
+}
+
+// --- H3 camp utility apps --------------------------------------------------
+
+export const CAMP_APP_KINDS = [
+  "bulletin",
+  "message-desk",
+  "lost-property",
+  "classifieds",
+  "queue",
+  "form-intake",
+  "puzzle-node",
+  "remote-print",
+] as const;
+
+export type CampAppKind = (typeof CAMP_APP_KINDS)[number];
+
+export function isCampAppKind(value: string): value is CampAppKind {
+  return (CAMP_APP_KINDS as readonly string[]).includes(value);
+}
+
+export async function persistCampsiteAppCreate(
+  db: OmnidatSessionDb | undefined,
+  input: { campsiteId: string; address: string; name: string; appKind: string },
+  actor?: OmnidatAuditActor,
+) {
+  const id = await auditedInsert(
+    db,
+    omnidatCampsiteApp,
+    omnidatCampsiteApp.id,
+    {
+      campsiteId: input.campsiteId,
+      address: input.address,
+      name: input.name,
+      appKind: input.appKind,
+      status: "active",
+    },
+    { eventType: "campsite.app.created", subjectKind: "campsite-app", details: { appKind: input.appKind, address: input.address } },
+    actor,
+    `campsite-app-${input.address}`,
+  );
+  return { id, address: input.address, appKind: input.appKind, status: "active" };
+}
+
+export async function persistCampsiteAppStatus(
+  db: OmnidatSessionDb | undefined,
+  input: { appId: string; status: string },
+  actor?: OmnidatAuditActor,
+) {
+  return auditedUpdate(
+    db,
+    omnidatCampsiteApp,
+    omnidatCampsiteApp.id,
+    input.appId,
+    { status: input.status },
+    { eventType: "campsite.app.status.changed", subjectKind: "campsite-app", details: { status: input.status } },
+    actor,
+  );
+}
+
+export async function loadCampsiteApps(
+  db: OmnidatSessionDb | undefined,
+  campsiteId?: string,
+) {
+  return (await loadRows(db, omnidatCampsiteApp))
+    .filter((row) => row.address && (!campsiteId || row.campsiteId === campsiteId))
+    .map((row) => ({
+      id: str(row.id, `campsite-app-${str(row.address)}`),
+      campsiteId: str(row.campsiteId),
+      address: str(row.address),
+      name: str(row.name),
+      appKind: str(row.appKind),
+      status: str(row.status, "active"),
+    }));
 }
