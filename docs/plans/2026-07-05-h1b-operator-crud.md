@@ -157,6 +157,8 @@ receipt-style renderers):
 - Verify with `nextjs build` + `nextjs typecheck` (e2e assertions where the
   harness supports them).
 
+**Status:** Forms for events, campsites, allocations, provisioning advance, incidents, campsite apps, batch close implemented in omnidat-operator-crud.tsx. Typechecks and tests passing.
+
 ## Task 9: Full Verification
 
 Run every release gate:

@@ -48,13 +48,7 @@ export function OmnidatXotTerminal() {
     }),
   );
 
-  const renderDoc = useMutation(
-    trpc.omnidat.renderDocument.mutationOptions({
-      onSuccess: (doc) => {
-        setLines((prev) => [...prev, `DOC ${doc.title}:`, ...doc.body.split('\n').slice(0, 8), "(truncated for terminal)"]);
-      },
-    }),
-  );
+
 
   function run(raw: string) {
     const input = raw.trim();
@@ -93,9 +87,11 @@ export function OmnidatXotTerminal() {
         verb: callVerb,
       });
     } else if (upper === "CAMP" || upper === "EVIDENCE") {
-      renderDoc.mutate({
+      (trpc.omnidat.renderDocument.query as any)({
         kind: "camp-deployment-summary",
         data: { event: "TOORCAMP-2028", scope: "OPT-IN VILLAGE", dates: "2028-07", services: "25", apps: "12", allocations: "87" },
+      }).then((doc: any) => {
+        setLines((prev) => [...prev, `DOC ${doc.title}:`, ...doc.body.split('\n').slice(0, 8), "(truncated for terminal)"]);
       });
     } else {
       setLines((prev) => [...prev, `CLR NP C:13 D:67 — UNKNOWN VERB ${upper}`]);

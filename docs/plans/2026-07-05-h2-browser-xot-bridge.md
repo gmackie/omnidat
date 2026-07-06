@@ -92,6 +92,8 @@ this plan ships only the browser XOT path plus a fallback simulator mode.
   never dead-ends.
 - Verify with `nextjs build` + `nextjs typecheck`.
 
+**Status:** Terminal supports CAMP/EVIDENCE to render camp-deployment-summary for ToorCamp/CC Camp demos. Receipt display enhanced. Typecheck clean.
+
 ## Task 4: Full Verification
 
 Run every release gate; commit the plan doc.

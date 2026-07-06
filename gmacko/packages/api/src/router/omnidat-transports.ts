@@ -52,6 +52,7 @@ export const TRANSPORT_POLICIES: Record<string, TransportPolicy> = {
     maxUserDataBytes: 32,
     fastSelectAllowed: false,
   },
+  // CC Camp 2027 / ToorCamp 2028: meshtastic guest for European rehearsal, meshcore for managed
 };
 
 export function transportPolicy(transport: string): TransportPolicy | undefined {

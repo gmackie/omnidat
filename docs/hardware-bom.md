@@ -48,6 +48,8 @@ See README.md "Planned Camp Deployments" for ToorCamp 2028 flagship and CC Camp 
 - Out-of-band management network.
 - Battery runtime display visible to operators.
 
+**CC Camp 2027 Lighter Kit (H5-H8):** 1 mini PC, 2 MeshCore + 2 Meshtastic, 1 receipt printer, 1 serial terminal, WiFi AP, laminated cards. No full PRI/PBX needed for rehearsal.
+
 ## 2. ShadyTel PRI Handoff
 
 ### Minimum

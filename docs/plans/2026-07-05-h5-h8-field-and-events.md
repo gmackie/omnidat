@@ -59,6 +59,7 @@ Goal: prove the system with humans before a major camp depends on it.
 - [ ] **Rehearsal 3 (human evening, 10-20 people):** one public terminal, one
   campsite app, one food/queue flow, one passport/badge flow, one POS or bank
   sim; produce a post-event evidence report.
+- [ ] **CC Camp 2027 rehearsal target:** lighter portable kit (meshtastic focus), no PRI, validate H6/H8 multi-event for European camp.
 - [ ] **Pilot event:** opt-in, published hours, clear signage, no emergency
   dependency, no redeemable money unless separately approved; daily summary to
   the event liaison.

@@ -20,6 +20,14 @@ export function OmnidatOperatorCrud() {
   });
   const campsites = useQuery({ ...trpc.omnidat.listCampsites.queryOptions(), retry: false });
   const provisioning = useQuery({ ...trpc.omnidat.listProvisioning.queryOptions(), retry: false });
+  const apps = useQuery({ ...trpc.omnidat.listCampsiteApps.queryOptions({}), retry: false });
+
+  const onError = (error: { message?: string }) =>
+    setNotice(
+      /role required/i.test(error.message ?? "")
+        ? "Operator role required for this action."
+        : (error.message ?? "Action failed."),
+    );
 
   const [eventCode, setEventCode] = useState("TOORCAMP-2028");
   const [eventName, setEventName] = useState("ToorCamp 2028");
@@ -39,21 +47,22 @@ export function OmnidatOperatorCrud() {
     trpc.omnidat.createCampsiteApp.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
   );
   const batchClose = useMutation(
-    trpc.omnidat.posBatchClose.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
+    trpc.omnidat.posBatchClose.mutationOptions({ 
+      onSuccess: (report) => { 
+        void queryClient.invalidateQueries(); 
+        setBatchReport(JSON.stringify(report, null, 2)); 
+      }, 
+      onError 
+    }),
   );
+  const [batchReport, setBatchReport] = useState<string | null>(null);
 
   // H1b incident
   const [incidentTitle, setIncidentTitle] = useState("Network issue at PAD-01");
+
   const openIncident = useMutation(
     trpc.omnidat.openIncident.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
   );
-
-  const onError = (error: { message?: string }) =>
-    setNotice(
-      /role required/i.test(error.message ?? "")
-        ? "Operator role required for this action."
-        : (error.message ?? "Action failed."),
-    );
 
   const createEvent = useMutation(
     trpc.omnidat.createEvent.mutationOptions({
@@ -240,8 +249,10 @@ export function OmnidatOperatorCrud() {
           </div>
           <ul className="mt-2 space-y-1 text-sm">
             {(provisioning.data?.provisioning ?? []).slice(0, 5).map((item: any) => (
-              <li key={item.id} className="font-mono">
+              <li key={item.id} className="font-mono flex items-center gap-2">
                 {item.assignedX121 || item.id} — {item.status} {item.transport ? `(${item.transport})` : ""}
+                <button className="text-[10px] border px-1" onClick={() => advanceProvisioning.mutate({requestId: item.id, toStatus: "approved"})}>Approve</button>
+                <button className="text-[10px] border px-1" onClick={() => advanceProvisioning.mutate({requestId: item.id, toStatus: "active"})}>Activate</button>
               </li>
             ))}
           </ul>
@@ -270,11 +281,15 @@ export function OmnidatOperatorCrud() {
             <input className="w-20 border border-[#5c4a32] bg-[#17130d] px-1" placeholder="kind" value={appKind} onChange={e=>setAppKind(e.target.value)} />
             <button className="bg-[#c0a36e] px-2 text-black" onClick={() => createApp.mutate({campsiteId: appCampsiteId, address: appAddress, name: appName, appKind: appKind as any})}>Create App</button>
           </div>
+          <ul className="mt-1 text-[10px]">
+            {(apps.data?.apps ?? []).slice(0,3).map((a: any) => <li key={a.id}>{a.name} @ {a.address} [{a.status}]</li>)}
+          </ul>
         </div>
 
         <div>
           <h3 className="font-semibold text-sm">Merchant (H4 demo)</h3>
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
+          {batchReport && <pre className="text-[8px] mt-1 overflow-auto max-h-20">{batchReport}</pre>}
         </div>
       </div>
     </section>
