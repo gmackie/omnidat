@@ -1,0 +1,36 @@
+{
+  "name": "@omnidat/pad-telnet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "omnidat-pad": "./dist/index.js"
+  },
+  "exports": {
+    ".": "./src/server.ts"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm",
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "format": "biome check .",
+    "lint": "oxlint .",
+    "test": "vitest run src/__tests__/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@omnidat/operator-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@omnidat/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "catalog:",
+    "vitest": "^4.1.0"
+  }
+}
