@@ -75,5 +75,16 @@
     "status": "active",
     "transports": ["hosted-node", "meshcore-radio-pad", "wifi-tcp"],
     "description": "Activity passport and merit-badge transaction logging"
+  },
+  {
+    "address": "020999",
+    "owner_name": "CC Camp 2027 Village",
+    "app_name": "CC Camp 2027 Village Hub",
+    "template": "MESSAGE_DESK",
+    "access_class": "PUBLIC",
+    "directory_status": "provisional",
+    "status": "active",
+    "transports": ["hosted-node", "meshtastic-radio-pad", "wifi-tcp"],
+    "description": "European rehearsal village hub for CC Camp 2027 (H5-H8)"
   }
 ]

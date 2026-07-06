@@ -51,7 +51,7 @@ export function OmnidatXotTerminal() {
   const renderDoc = useMutation(
     trpc.omnidat.renderDocument.mutationOptions({
       onSuccess: (doc) => {
-        setLines((prev) => [...prev, `DOC ${doc.title}:`, doc.body.slice(0, 300) + (doc.body.length > 300 ? "..." : "")]);
+        setLines((prev) => [...prev, `DOC ${doc.title}:`, ...doc.body.split('\n').slice(0, 8), "(truncated for terminal)"]);
       },
     }),
   );

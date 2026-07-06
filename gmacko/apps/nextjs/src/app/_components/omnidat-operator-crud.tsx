@@ -42,6 +42,12 @@ export function OmnidatOperatorCrud() {
     trpc.omnidat.posBatchClose.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
   );
 
+  // H1b incident
+  const [incidentTitle, setIncidentTitle] = useState("Network issue at PAD-01");
+  const openIncident = useMutation(
+    trpc.omnidat.openIncident.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
+  );
+
   const onError = (error: { message?: string }) =>
     setNotice(
       /role required/i.test(error.message ?? "")
@@ -245,6 +251,14 @@ export function OmnidatOperatorCrud() {
         <div>
           <h3 className="font-semibold text-sm">Evidence (camp-deployment-summary)</h3>
           <div className="text-[10px] text-[#9a8a6e]">New kind wired in renderDocument + test. Use for ToorCamp 2028 / CC Camp 2027 artifacts.</div>
+        </div>
+
+        <div>
+          <h3 className="font-semibold">Incidents (H1b)</h3>
+          <div className="mt-1 flex gap-1 text-xs">
+            <input className="flex-1 border border-[#5c4a32] bg-[#17130d] px-1" value={incidentTitle} onChange={e=>setIncidentTitle(e.target.value)} />
+            <button className="bg-[#c0a36e] px-2 text-black" onClick={() => openIncident.mutate({title: incidentTitle, severity: "minor"})}>Open Incident</button>
+          </div>
         </div>
 
         <div>
