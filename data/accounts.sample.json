@@ -3,35 +3,76 @@
     "account_id": "ACCT-GUEST",
     "display_name": "PUBLIC GUEST",
     "access_class": "PUBLIC",
-    "packet_permissions": ["DIRECTORY", "MEDIA_CATALOG", "DOCUMENT_SERVICES"],
+    "packet_permissions": [
+      "DIRECTORY",
+      "MEDIA_CATALOG",
+      "DOCUMENT_SERVICES"
+    ],
     "status": "active"
   },
   {
     "account_id": "ACCT-000001",
     "display_name": "REGISTERED USER",
     "access_class": "REGISTERED",
-    "packet_permissions": ["DIRECTORY", "MEDIA_CATALOG", "DOCUMENT_SERVICES", "ACCOUNT_INQUIRY"],
-    "status": "active"
+    "packet_permissions": [
+      "DIRECTORY",
+      "MEDIA_CATALOG",
+      "DOCUMENT_SERVICES",
+      "ACCOUNT_INQUIRY"
+    ],
+    "status": "active",
+    "subscriber_address": "041027"
   },
   {
     "account_id": "ACCT-OPERATOR",
     "display_name": "OMNIDAT OPERATOR",
     "access_class": "OPERATOR",
-    "packet_permissions": ["DIRECTORY", "MEDIA_CATALOG", "DOCUMENT_SERVICES", "ACCOUNT_INQUIRY", "SETTLEMENT_QUEUE", "OPERATOR_MESSAGES"],
+    "packet_permissions": [
+      "DIRECTORY",
+      "MEDIA_CATALOG",
+      "DOCUMENT_SERVICES",
+      "ACCOUNT_INQUIRY",
+      "SETTLEMENT_QUEUE",
+      "OPERATOR_MESSAGES"
+    ],
     "status": "active"
   },
   {
     "account_id": "ACCT-NITEMARKT-BOH",
     "display_name": "NITEMARKT BOH TERMINAL",
     "access_class": "REGISTERED",
-    "packet_permissions": ["DIRECTORY", "NITEMARKT_WMS", "NITEMARKT_RECEIVING", "NITEMARKT_STOCK_COUNT", "SETTLEMENT_QUEUE"],
+    "packet_permissions": [
+      "DIRECTORY",
+      "NITEMARKT_WMS",
+      "NITEMARKT_RECEIVING",
+      "NITEMARKT_STOCK_COUNT",
+      "SETTLEMENT_QUEUE"
+    ],
     "status": "active"
   },
   {
     "account_id": "ACCT-VENDOR-DEMO",
     "display_name": "DEMO VENDOR POS",
     "access_class": "REGISTERED",
-    "packet_permissions": ["DIRECTORY", "POS_AUTHORIZATION", "SETTLEMENT_QUEUE", "VENDOR_DIRECTORY"],
+    "packet_permissions": [
+      "DIRECTORY",
+      "POS_AUTHORIZATION",
+      "SETTLEMENT_QUEUE",
+      "VENDOR_DIRECTORY"
+    ],
     "status": "active"
+  },
+  {
+    "account_id": "ACCT-000002",
+    "display_name": "REGISTERED USER TWO",
+    "access_class": "REGISTERED",
+    "packet_permissions": [
+      "DIRECTORY",
+      "MEDIA_CATALOG",
+      "DOCUMENT_SERVICES",
+      "ACCOUNT_INQUIRY"
+    ],
+    "status": "active",
+    "subscriber_address": "042713"
   }
 ]

@@ -118,5 +118,22 @@
     "name": "TEST LOOP",
     "access_class": "PUBLIC",
     "description": "Echo and diagnostics"
+  },
+  {
+    "address": "000007",
+    "name": "SUBSCRIBER MAIL",
+    "access_class": "REGISTERED",
+    "description": "Store-and-forward subscriber messaging (MSG / MAIL)"
+  },
+  {
+    "address": "000401",
+    "name": "OMNIDAT PUBLIC BOARD /GEN/",
+    "access_class": "PUBLIC",
+    "description": "General pseudo-anonymous message board (tripcodes)",
+    "board": {
+      "board_id": "GEN",
+      "read_class": "PUBLIC",
+      "post_class": "PUBLIC"
+    }
   }
 ]

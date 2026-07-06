@@ -68,5 +68,25 @@
     "provisioning": "manual",
     "directory_status": "technical",
     "description": "Echo, loopback, PAD training, line tests, and service diagnostics"
+  },
+  {
+    "namespace_id": "subscriber-messaging",
+    "range_start": "040000",
+    "range_end": "049999",
+    "label": "Subscriber messaging addresses",
+    "service_class": "SUBSCRIBER",
+    "provisioning": "passport-minted",
+    "directory_status": "unlisted",
+    "description": "Per-passport store-and-forward mail addresses, minted on subscription, unlisted in the public directory"
+  },
+  {
+    "namespace_id": "public-boards",
+    "range_start": "000400",
+    "range_end": "000499",
+    "label": "OMNIDAT public boards",
+    "service_class": "CORE",
+    "provisioning": "operator",
+    "directory_status": "official",
+    "description": "Pseudo-anonymous tripcode message boards, Matrix-backed via the OMNIDAT bridge"
   }
 ]
