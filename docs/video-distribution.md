@@ -80,3 +80,19 @@ TIME: <local time>
 For ATV/DATV, add callsign and mode/frequency fields as required by the station
 operator.
 
+## Teletext
+
+OMNIDAT can publish a Teletext-style data service alongside the amateur TV
+station feed. The V1 software surface is intentionally conservative:
+
+- station metadata and page content live in `data/atv-stations.sample.json`
+- Packet Clearing advertises the service at X.25 `000040`
+- Exchange 88 advertises dial service `8824`
+- `python3 -m tools.omnidat_atv export OMNI-TV-1` writes fixed-width page
+  files under `build/atv-teletext/`
+
+This is an overlay/inserter input, not the transmitter. The licensed ATV/DATV
+control operator owns RF enablement, callsign, mode, frequency, ID cadence,
+and shutdown authority. The Teletext service should carry station identity,
+network status, Media Vault status, bulletins, and safety pages that are safe
+to display publicly.

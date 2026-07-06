@@ -262,5 +262,16 @@
     "endpoints": ["PAD-02"],
     "channel_limit": 1,
     "maintenance_mode": false
+  },
+  {
+    "service_id": "atv-teletext",
+    "number": "8824",
+    "name": "ATV Teletext",
+    "route_class": "service",
+    "owner": "MediaDesk/ATV",
+    "description": "Amateur TV station Teletext index and status export",
+    "endpoints": ["ATV-TELETEXT-01"],
+    "channel_limit": 1,
+    "maintenance_mode": false
   }
 ]

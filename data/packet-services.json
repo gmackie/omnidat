@@ -96,6 +96,12 @@
     "description": "Provisioning desk for miscellaneous vendor POS terminals"
   },
   {
+    "address": "000040",
+    "name": "ATV TELETEXT SERVICE",
+    "access_class": "PUBLIC",
+    "description": "Amateur TV station Teletext index, status pages, and station metadata"
+  },
+  {
     "address": "020501",
     "name": "MILIWAYS FOOD ORDERS",
     "access_class": "PUBLIC",

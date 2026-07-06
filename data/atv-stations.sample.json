@@ -1,0 +1,67 @@
+[
+  {
+    "station_id": "OMNI-TV-1",
+    "name": "OMNIDAT Amateur Television Service",
+    "kind": "atv",
+    "control_operator_role": "MediaDesk ATV Control Operator",
+    "packet_address": "000040",
+    "dial_service": "8824",
+    "callsign": "TBD",
+    "rf_mode": "ATV/DATV",
+    "frequency": "TBD by licensed control operator",
+    "video_chain": [
+      "media-vault",
+      "station-id-overlay",
+      "teletext-inserter",
+      "atv-transmitter"
+    ],
+    "teletext": {
+      "service_name": "OMNITEXT",
+      "system": "World System Teletext style, ETSI EN 300 706 page model",
+      "encoding": "display-ascii-v1",
+      "pages": {
+        "100": {
+          "title": "OMNIDAT TV INDEX",
+          "lines": [
+            "OMNIDAT TV FIELD OFFICE",
+            "X.25 000040  DIAL 8824",
+            "101 NETWORK STATUS",
+            "102 MEDIA VAULT NOW PLAYING",
+            "110 NITEMARKT BULLETINS",
+            "120 MISSING PERSON / SAFETY",
+            "199 STATION ID AND CONTROL OP"
+          ]
+        },
+        "101": {
+          "title": "NETWORK STATUS",
+          "lines": [
+            "PACKET CLEARING: PRIMARY",
+            "FIELD KIT: AUTHORITY WHEN ACTIVE",
+            "MESHCORE PAD: AVAILABLE",
+            "POTS MODEM PAD: AVAILABLE",
+            "SEE X.25 000001 FOR DIRECTORY"
+          ]
+        },
+        "102": {
+          "title": "NOW PLAYING",
+          "lines": [
+            "MEDIA VAULT CHANNEL A",
+            "REQUEST MEDIA: X.25 000004",
+            "VIDEO FEED MAY CUT TO ATV ID",
+            "NO EMERGENCY TRAFFIC ON THIS PAGE"
+          ]
+        },
+        "199": {
+          "title": "STATION ID",
+          "lines": [
+            "OMNI-TV-1 CONTROL POINT",
+            "CALLSIGN: TBD",
+            "CONTROL OPERATOR REQUIRED",
+            "RF ENABLE REQUIRES MANUAL SWITCH",
+            "SHUTDOWN: MEDIA DESK OR NOC"
+          ]
+        }
+      }
+    }
+  }
+]

@@ -30,6 +30,8 @@ Files:
 - `terminals.sample.json`: seed ATM/POS/proxy/BOH/vendor terminal inventory.
 - `carrier-circuits.sample.json`: seed private carrier access circuits.
 - `media-catalog.sample.json`: seed VHS inventory.
+- `atv-stations.sample.json`: amateur TV station metadata and Teletext page
+  seed content.
 - `print-queues.json`: Document Services queue names.
 
 Validation:
@@ -55,6 +57,8 @@ Rendered outputs:
 - `service-directory.txt`: printable Exchange 88 directory.
 - `packet-directory.txt`: printable PAD/Packet Clearing directory.
 - `asterisk-routes.conf`: generated route map for PBX review.
+- `build/atv-teletext/*.txt`: fixed-width Teletext-style page exports for the
+  ATV station overlay/inserter path.
 
 The SQLite database defaults to `build/omnidat.db` and is intended for lab
 inspection, local status tools, and early operator-console work.
@@ -74,3 +78,17 @@ Current sample mappings target the FryOS demo seed ids:
 
 Keep these ids aligned with FryOS `packages/db/src/demo-scenario.ts` or the
 live menu records for the target event runtime.
+
+## ATV Teletext
+
+ATV station records live in `atv-stations.sample.json`. The sample station
+publishes X.25 `000040` and dial service `8824`; those are directory/control
+surfaces, not an RF authorization. The licensed control operator still owns
+callsign, mode, frequency, station ID discipline, and transmitter shutdown.
+
+Render pages locally:
+
+```sh
+python3 -m tools.omnidat_atv render OMNI-TV-1 100
+python3 -m tools.omnidat_atv export OMNI-TV-1
+```

@@ -29,5 +29,6 @@
   {"endpoint_id": "PAD-PASSPORT-02", "kind": "pad", "status": "planned", "hunt_groups": ["8814"]},
   {"endpoint_id": "FAX-01", "kind": "fax", "number": "8818", "status": "planned", "notes": "Physical fax machine"},
   {"endpoint_id": "APP-SHADYROULETTE", "kind": "shadyroulette", "status": "planned"},
-  {"endpoint_id": "APP-SHADYROULETTE-TEST", "kind": "shadyroulette", "status": "planned"}
+  {"endpoint_id": "APP-SHADYROULETTE-TEST", "kind": "shadyroulette", "status": "planned"},
+  {"endpoint_id": "ATV-TELETEXT-01", "kind": "atv-teletext", "status": "planned", "notes": "Teletext page export for the licensed ATV/DATV station chain"}
 ]

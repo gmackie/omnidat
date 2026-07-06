@@ -12,10 +12,10 @@ from pathlib import Path
 
 services = json.loads(Path("data/services.json").read_text())
 numbers = [service["number"] for service in services]
-expected = [str(number) for number in range(8800, 8824)]
+expected = [str(number) for number in range(8800, 8825)]
 
 if numbers != expected:
-    raise SystemExit(f"service numbers do not match 8800-8823: {numbers}")
+    raise SystemExit(f"service numbers do not match 8800-8824: {numbers}")
 
 service_ids = [service["service_id"] for service in services]
 if len(service_ids) != len(set(service_ids)):
@@ -32,6 +32,25 @@ missing = sorted({
 if missing:
     raise SystemExit(f"service references missing endpoints: {', '.join(missing)}")
 
-print("service map covers 8800-8823")
+atv_stations = json.loads(Path("data/atv-stations.sample.json").read_text())
+packet_services = json.loads(Path("data/packet-services.json").read_text())
+packet_addresses = {service["address"] for service in packet_services}
+for station in atv_stations:
+    packet_address = station["packet_address"]
+    if packet_address not in packet_addresses:
+        raise SystemExit(
+            f"ATV station {station['station_id']} references missing packet address {packet_address}"
+        )
+    pages = station.get("teletext", {}).get("pages", {})
+    if "100" not in pages:
+        raise SystemExit(f"ATV station {station['station_id']} missing teletext page 100")
+    for page_number in pages:
+        if not (page_number.isdigit() and len(page_number) == 3):
+            raise SystemExit(
+                f"ATV station {station['station_id']} has invalid teletext page {page_number}"
+            )
+
+print("service map covers 8800-8824")
 print("service endpoint references resolve")
+print("ATV teletext station packet references resolve")
 PY
