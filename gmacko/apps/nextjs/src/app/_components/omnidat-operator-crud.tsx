@@ -228,6 +228,11 @@ export function OmnidatOperatorCrud() {
           </ul>
           <div className="mt-1 text-[10px] text-[#9a8a6e]">Use tRPC ops or console for advanceProvisioning (H1b)</div>
         </div>
+
+        <div>
+          <h3 className="font-semibold text-sm">Evidence (camp-deployment-summary)</h3>
+          <div className="text-[10px] text-[#9a8a6e]">New kind wired in renderDocument + test. Use for ToorCamp 2028 / CC Camp 2027 artifacts.</div>
+        </div>
       </div>
     </section>
   );
