@@ -18,10 +18,15 @@ export function OmnidatOperatorCrud() {
     ...trpc.omnidat.listAllocations.queryOptions(undefined),
     retry: false,
   });
+  const campsites = useQuery({ ...trpc.omnidat.listCampsites.queryOptions(), retry: false });
+  const provisioning = useQuery({ ...trpc.omnidat.listProvisioning.queryOptions(), retry: false });
 
   const [eventCode, setEventCode] = useState("TOORCAMP-2028");
   const [eventName, setEventName] = useState("ToorCamp 2028");
   const [x121, setX121] = useState("311088020777");
+  const [campsiteSlug, setCampsiteSlug] = useState("camp-laminar");
+  const [campsiteName, setCampsiteName] = useState("Camp Laminar");
+  const [contactHandle, setContactHandle] = useState("operator@camp.example");
   const [notice, setNotice] = useState<string | null>(null);
 
   const onError = (error: { message?: string }) =>
@@ -40,6 +45,15 @@ export function OmnidatOperatorCrud() {
       onError,
     }),
   );
+  const createCampsite = useMutation(
+    trpc.omnidat.createCampsite.mutationOptions({
+      onSuccess: () => {
+        setNotice(null);
+        void queryClient.invalidateQueries();
+      },
+      onError,
+    }),
+  );
   const allocateAddress = useMutation(
     trpc.omnidat.allocateAddress.mutationOptions({
       onSuccess: () => {
@@ -51,6 +65,12 @@ export function OmnidatOperatorCrud() {
   );
   const advanceAllocation = useMutation(
     trpc.omnidat.updateAllocationStatus.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries(),
+      onError,
+    }),
+  );
+  const advanceProvisioning = useMutation(
+    trpc.omnidat.advanceProvisioning.mutationOptions({
       onSuccess: () => void queryClient.invalidateQueries(),
       onError,
     }),
@@ -97,6 +117,45 @@ export function OmnidatOperatorCrud() {
             {(events.data?.events ?? []).map((item) => (
               <li key={item.id} className="font-mono">
                 {item.eventCode} — {item.status}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="font-semibold">Campsites (H3 apps too)</h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input
+              aria-label="campsite slug"
+              className="rounded border border-[#5c4a32] bg-[#17130d] px-2 py-1 text-sm"
+              value={campsiteSlug}
+              onChange={(event) => setCampsiteSlug(event.target.value)}
+            />
+            <input
+              aria-label="campsite name"
+              className="rounded border border-[#5c4a32] bg-[#17130d] px-2 py-1 text-sm"
+              value={campsiteName}
+              onChange={(event) => setCampsiteName(event.target.value)}
+            />
+            <input
+              aria-label="contact handle"
+              className="rounded border border-[#5c4a32] bg-[#17130d] px-2 py-1 text-sm"
+              value={contactHandle}
+              onChange={(event) => setContactHandle(event.target.value)}
+            />
+            <button
+              className="rounded bg-[#c0a36e] px-3 py-1 text-sm font-semibold text-black"
+              onClick={() =>
+                createCampsite.mutate({ slug: campsiteSlug, displayName: campsiteName, contactHandle })
+              }
+            >
+              Create campsite
+            </button>
+          </div>
+          <ul className="mt-3 space-y-1 text-sm">
+            {(campsites.data?.campsites ?? []).map((item: any) => (
+              <li key={item.id} className="font-mono">
+                {item.slug} — {item.status}
               </li>
             ))}
           </ul>
@@ -150,6 +209,20 @@ export function OmnidatOperatorCrud() {
                 >
                   Suspend
                 </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="font-semibold">Provisioning Lifecycle (H1b)</h3>
+          <div className="mt-2 text-sm text-[#9a8a6e]">
+            (Use operator console or tRPC ops for advance; list below)
+          </div>
+          <ul className="mt-2 space-y-1 text-sm">
+            {(provisioning.data?.provisioning ?? []).slice(0, 5).map((item: any) => (
+              <li key={item.id} className="font-mono">
+                {item.assignedX121 || item.id} — {item.status}
               </li>
             ))}
           </ul>

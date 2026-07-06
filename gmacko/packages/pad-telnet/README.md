@@ -11,9 +11,10 @@ and in the browser. The command surface (`PadSession`) is pure and unit-tested;
 the server layer (`createPadServer`) owns sockets, telnet negotiation, and
 pacing the screensaver.
 
-The telnet path is **read-only**: it uses the in-memory command engine and the
-pure service renderers — no database, no operator role, no persistence. That is
-what makes it safe to expose publicly as a demo PAD.
+The telnet path is **read-only** (demo safety): it uses the in-memory command engine and the
+pure service renderers from @omnidat/operator-core — no database, no operator role, no persistence in this bridge. 
+
+This is one of the H2b transport adapters (telnet/TCP) behind the unified packetCall interface. See H2b plan and omnidat-transports.ts for policy (budget, access class). Real authenticated sessions use the gmacko packetCall tRPC surface.
 
 ## Run
 

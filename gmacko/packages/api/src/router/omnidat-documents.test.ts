@@ -50,6 +50,21 @@ describe("OMNIDAT printable documents", () => {
     expect(card.body).toContain("CAPABILITIES: SERVICES, ALLOCATIONS");
   });
 
+  it("renders camp deployment summary for ToorCamp 2028 / CC Camp 2027", () => {
+    const camp = buildOmnidatDocument("camp-deployment-summary", {
+      event: "TOORCAMP-2028",
+      scope: "OPT-IN VILLAGE",
+      dates: "2028-07",
+      shadytel: "PRI REQUESTED",
+      services: "25",
+      apps: "12",
+      allocations: "87",
+    });
+    expect(camp.title).toBe("CAMP DEPLOYMENT SUMMARY");
+    expect(camp.body).toContain("TOORCAMP-2028");
+    expect(camp.body).toContain("See README");
+  });
+
   it("falls back gracefully for missing fields", () => {
     const document = buildOmnidatDocument("address-assignment", {});
     expect(document.body).toContain("X.121: -");

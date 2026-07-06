@@ -1,6 +1,9 @@
 // Deterministic printable document builders. PDF rendering is a later concern;
 // these produce the printable source (title + monospace body) in the same
 // terse, uppercase station style as the field-office receipt renderers.
+//
+// Covers evidence needs for all horizons including H5-H8 field events,
+// ToorCamp 2028 flagship, and potential CC Camp 2027 deployments.
 
 export type OmnidatDocumentKind =
   | "address-assignment"
@@ -8,7 +11,8 @@ export type OmnidatDocumentKind =
   | "service-certificate"
   | "provisioning-transcript"
   | "daily-noc-summary"
-  | "operator-license";
+  | "operator-license"
+  | "camp-deployment-summary";
 
 export type OmnidatDocument = { kind: OmnidatDocumentKind; title: string; body: string };
 
@@ -78,6 +82,18 @@ export function buildOmnidatDocument(
         `CAPABILITIES: ${field("capabilities", "").toUpperCase()}`,
         "",
         "PRESENT AT THE NOC DESK FOR OPERATOR ACCESS",
+      ]);
+    case "camp-deployment-summary":
+      return doc("camp-deployment-summary", "CAMP DEPLOYMENT SUMMARY", [
+        `EVENT: ${field("event", "TOORCAMP-2028")}`,
+        `SCOPE: ${field("scope", "VILLAGE / FIELD OFFICE")}`,
+        `DATES: ${field("dates")}`,
+        `SHADYTEL: ${field("shadytel", "PENDING")}`,
+        `SERVICES: ${field("services", "0")}`,
+        `APPS: ${field("apps", "0")}`,
+        `ALLOCATIONS: ${field("allocations", "0")}`,
+        "",
+        "See README Planned Camp Deployments for ToorCamp 2028 / CC Camp 2027 details.",
       ]);
   }
 }

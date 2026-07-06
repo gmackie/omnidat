@@ -11,9 +11,11 @@ The first practical target is one ShadyTel PRI, one OMNIDAT PBX, 4-8 dial-up
 data ports, 2-4 PAD/terminal ports, fax, dot matrix print, a visible Media Vault
 prototype, analog OMNIDAT TV, and a local IP stream.
 
-For earlier camps and portable demos, the Field Office kit can run a smaller
+For earlier camps and portable demos (including potential CC Camp 2027 rehearsals), the Field Office kit can run a smaller
 Packet Clearing service with hosted campsite apps, Radio PAD access, passport
 logging, and printed receipts before the full Exchange 88 buildout exists.
+
+See README.md "Planned Camp Deployments" for ToorCamp 2028 flagship and CC Camp 2027 potential usage. H5-H8 plan details the rehearsal-to-buildout checklist.
 
 ## 1. Rack, Power, and Physical Plant
 
