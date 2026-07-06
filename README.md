@@ -126,7 +126,7 @@ The goal is a credible, self-operable packet-era financial data service that fee
 
 Chaos Communication Camp (also known as CCCamp or CC Camp) 2027 is a strong candidate for a major deployment or large-scale rehearsal.
 
-- The Chaos Communication Camp is the international, five-day open-air hacker event organized by the Chaos Computer Club, typically held every four years in summer (previous: 2023; next expected ~late July or August 2027, location TBD in Europe).
+- The Chaos Communication Camp (CCCamp) is the international, five-day open-air hacker event organized by the Chaos Computer Club, typically held every four years in summer (previous: 2023; next expected ~late July or August 2027, location TBD in Europe). See [events.ccc.de](https://events.ccc.de/en/camp/) and the [Wikipedia page](https://en.wikipedia.org/wiki/Chaos_Communication_Camp).
 - A 2027 deployment would serve as a high-visibility European proving ground and major rehearsal ahead of ToorCamp 2028.
 - It exercises the multi-event network vision (H8 roadmap), historical record keeping, recurring deployments, and partner nodes.
 - Validates the system under different scale, logistics, power, interconnect (local telco or camp-provided), and participant demographics assumptions.
