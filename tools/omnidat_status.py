@@ -53,6 +53,7 @@ def render_status(status: dict[str, Any]) -> str:
         f"MEDIA REQUESTS: {status.get('media_requests', 0)}",
         f"INCIDENTS: {status.get('incidents', 0)}",
         "",
+        "# H5-H8 / camp prep: ToorCamp 2028 flagship + CC Camp 2027 potential (see README)",
     ]
     return "\n".join(lines)
 
