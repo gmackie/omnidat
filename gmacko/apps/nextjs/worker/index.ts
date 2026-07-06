@@ -36,6 +36,7 @@ interface Env {
   AUTH_GITHUB_SECRET?: string;
   AUTH_GOOGLE_ID?: string;
   AUTH_GOOGLE_SECRET?: string;
+  OMNIDAT_BOOTSTRAP_ADMINS?: string;
 }
 
 interface ExecutionContext {
@@ -70,6 +71,7 @@ export default {
       "AUTH_GITHUB_SECRET",
       "AUTH_GOOGLE_ID",
       "AUTH_GOOGLE_SECRET",
+      "OMNIDAT_BOOTSTRAP_ADMINS",
     ] as const) {
       const value = env[key];
       if (value) process.env[key] = value;

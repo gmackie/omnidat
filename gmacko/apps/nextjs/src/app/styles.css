@@ -27,3 +27,115 @@
     letter-spacing: var(--tracking-normal);
   }
 }
+
+/* ---- OMNIDAT VT100 CRT terminal ------------------------------------- */
+/* Authentic P1-phosphor green terminal: glowing monospace glyphs, scanline
+   overlay, corner vignette, and a blinking block cursor. All self-contained so
+   it renders identically on the Cloudflare Worker deploy (no external assets). */
+.omnidat-crt-frame {
+  --crt-fg: #33ff66;
+  --crt-glow: rgba(51, 255, 102, 0.55);
+  --crt-bg: #050b06;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 72ch;
+  margin-inline: auto;
+}
+.omnidat-crt {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+  background:
+    radial-gradient(120% 120% at 50% 0%, #0b1a0f 0%, var(--crt-bg) 70%);
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.9),
+    inset 0 0 18px rgba(51, 255, 102, 0.08),
+    0 0 0 10px #17140d,
+    0 0 0 12px #0a0906,
+    0 22px 60px rgba(0, 0, 0, 0.65);
+  cursor: text;
+}
+.omnidat-crt-screen {
+  position: relative;
+  z-index: 2;
+  font-family: "DejaVu Sans Mono", "Menlo", "Consolas", ui-monospace, monospace;
+  font-size: 15px;
+  line-height: 1.15;
+  color: var(--crt-fg);
+  text-shadow: 0 0 6px var(--crt-glow);
+  white-space: pre;
+}
+.omnidat-crt-row {
+  min-height: 1.15em;
+  display: block;
+}
+.omnidat-crt .v-bold { font-weight: 700; text-shadow: 0 0 9px var(--crt-glow); }
+.omnidat-crt .v-dim { opacity: 0.55; }
+.omnidat-crt .v-underline { text-decoration: underline; }
+.omnidat-crt .v-blink { animation: omnidat-crt-textblink 1s steps(2, start) infinite; }
+.omnidat-crt .v-reverse {
+  background: var(--crt-fg);
+  color: var(--crt-bg);
+  text-shadow: none;
+}
+.omnidat-crt-input { color: var(--crt-fg); }
+.omnidat-crt-cursor {
+  display: inline-block;
+  width: 0.62ch;
+  background: var(--crt-fg);
+  box-shadow: 0 0 8px var(--crt-glow);
+  animation: omnidat-crt-blink 1.05s steps(2, start) infinite;
+}
+@keyframes omnidat-crt-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+@keyframes omnidat-crt-textblink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0.25; } }
+.omnidat-crt-scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.22) 3px,
+    rgba(0, 0, 0, 0.22) 4px
+  );
+  mix-blend-mode: multiply;
+}
+.omnidat-crt-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+.omnidat-crt-capture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0;
+  border: 0;
+  background: transparent;
+  caret-color: transparent;
+  color: transparent;
+  cursor: text;
+}
+.omnidat-crt-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ed783;
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .omnidat-crt-cursor,
+  .omnidat-crt .v-blink { animation: none; }
+}

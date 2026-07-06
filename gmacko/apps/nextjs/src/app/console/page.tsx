@@ -18,6 +18,9 @@ export default async function ConsolePage() {
               OMNIDAT Exchange 88
             </Link>
             <div className="flex flex-wrap gap-2">
+              <Link className="rounded border border-[#9ed783] px-3 py-2 text-[#9ed783]" href="/console/terminal">
+                VT100 Terminal
+              </Link>
               <Link className="rounded border border-[#7a694f] px-3 py-2" href="/noc">
                 NOC
               </Link>

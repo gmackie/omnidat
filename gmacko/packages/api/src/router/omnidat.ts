@@ -22,6 +22,10 @@ import {
   simulateIso8583Transaction,
   stampActivityPassport,
 } from "@omnidat/operator-core/omnidat";
+import {
+  buildOmnidatLoginBanner,
+  omnidatPrompt,
+} from "@omnidat/operator-core/vt100";
 import { TRPCError } from "@trpc/server";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
@@ -550,6 +554,25 @@ export const omnidatRouter = {
         payload: { ...input, result } as unknown as Record<string, unknown>,
       });
       return result;
+    }),
+
+  // Connect-time state for the VT100 operator terminal: the DTE address the
+  // session is bound to, the login banner (VT100 escapes intact), and the
+  // interactive prompt. The client renders these through the shared emulator so
+  // the CRT the operator sees is byte-identical to what the server authored.
+  terminalBanner: omnidatOperatorReadProcedure
+    .input(z.object({ x121: z.string().min(6).optional() }).optional())
+    .query(({ ctx, input }) => {
+      const actor = auditActor(ctx);
+      const x121 = input?.x121 ?? "311088000001";
+      const operator = actor?.roles?.[0]
+        ? `OMNIDAT-${actor.roles[0].toUpperCase()}`
+        : undefined;
+      return {
+        x121,
+        banner: buildOmnidatLoginBanner({ x121, operator }),
+        prompt: omnidatPrompt(x121),
+      };
     }),
 
   // The browser XOT packet bridge: look up the destination in the directory,
