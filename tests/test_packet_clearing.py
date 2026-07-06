@@ -6,8 +6,11 @@ from pathlib import Path
 from tools.omnidat_bridge import ClearedError
 from tools.omnidat_events import read_events
 from tools.omnidat_packet import (
+    board_post,
+    board_read,
     call_service,
     clear_session,
+    find_board_service,
     list_directory,
     load_accounts,
     load_packet_namespaces,
@@ -227,6 +230,64 @@ class SubscriberMessagingTests(unittest.TestCase):
             self.assertIn("NO MAIL", output)
             self.assertEqual(bridge.read, [])
 
+    def test_public_board_read_by_guest_renders_page(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = write_packet_data(Path(temp_dir))
+            service = find_board_service(load_packet_services(data_dir), "GEN")
+            session = start_session(endpoint_id="PAD-01", account_id="ACCT-GUEST")
+
+            _, output = board_read(
+                session, load_accounts(data_dir)["ACCT-GUEST"], service, FakeBridge()
+            )
+
+            self.assertIn("OMNIDAT PUBLIC BOARD /GEN/", output)
+            self.assertIn("ANYONE SELLING A 9V?", output)
+
+    def test_public_board_post_omits_passport_and_session(self):
+        # The anonymity guarantee: a PUBLIC-post board must never receive
+        # passport-linkable context from the edge.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = write_packet_data(Path(temp_dir))
+            service = find_board_service(load_packet_services(data_dir), "GEN")
+            bridge = FakeBridge()
+            session = start_session(endpoint_id="PAD-01", account_id="ACCT-000001")
+
+            board_post(
+                session, load_accounts(data_dir)["ACCT-000001"], service, "HELLO", bridge
+            )
+
+            ctx = bridge.posts[0]["ctx"]
+            self.assertNotIn("passport", ctx)
+            self.assertNotIn("session_id", ctx)
+
+    def test_gated_board_post_includes_passport(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = write_packet_data(Path(temp_dir))
+            service = find_board_service(load_packet_services(data_dir), "OPS")
+            bridge = FakeBridge()
+            session = start_session(endpoint_id="PAD-01", account_id="ACCT-000001")
+
+            board_post(
+                session, load_accounts(data_dir)["ACCT-000001"], service, "OPS NOTE", bridge
+            )
+
+            ctx = bridge.posts[0]["ctx"]
+            self.assertEqual(ctx["passport"], "041027")
+            self.assertIn("session_id", ctx)
+
+    def test_guest_cannot_post_to_gated_board(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = write_packet_data(Path(temp_dir))
+            service = find_board_service(load_packet_services(data_dir), "OPS")
+            session = start_session(endpoint_id="PAD-01", account_id="ACCT-GUEST")
+
+            with self.assertRaises(ClearedError) as caught:
+                board_post(
+                    session, load_accounts(data_dir)["ACCT-GUEST"], service, "SNEAK", FakeBridge()
+                )
+
+            self.assertEqual(caught.exception.clr_line, "CLR NA C:11 D:70")
+
     def test_bridge_outage_clears_out_of_order(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             data_dir = write_packet_data(Path(temp_dir))
@@ -249,6 +310,7 @@ class FakeBridge:
     def __init__(self, mailbox_items=None):
         self.sent = []
         self.read = []
+        self.posts = []
         self.mailbox_items = mailbox_items or []
 
     def send_dm(self, from_addr, to_addr, body):
@@ -261,6 +323,15 @@ class FakeBridge:
     def mark_read(self, addr):
         self.read.append(addr)
         return {"ok": True}
+
+    def board_page(self, board_id, after=None):
+        return [
+            {"no": 1, "poster": "Anonymous", "ts": "18:42", "body": "ANYONE SELLING A 9V?", "eventId": "$b1"},
+        ]
+
+    def board_post(self, board_id, body, name=None, thread=None, ctx=None):
+        self.posts.append({"board_id": board_id, "body": body, "name": name, "thread": thread, "ctx": ctx})
+        return {"no": 42}
 
 
 class DownBridge:
@@ -291,6 +362,20 @@ def write_packet_data(root: Path) -> Path:
                     "name": "OMNIDAT DIRECTORY",
                     "access_class": "PUBLIC",
                     "description": "Packet service directory",
+                },
+                {
+                    "address": "000401",
+                    "name": "OMNIDAT PUBLIC BOARD /GEN/",
+                    "access_class": "PUBLIC",
+                    "description": "General board",
+                    "board": {"board_id": "GEN", "read_class": "PUBLIC", "post_class": "PUBLIC"},
+                },
+                {
+                    "address": "000402",
+                    "name": "OMNIDAT OPS BOARD /OPS/",
+                    "access_class": "REGISTERED",
+                    "description": "Passport-gated ops board",
+                    "board": {"board_id": "OPS", "read_class": "PUBLIC", "post_class": "REGISTERED"},
                 },
             ]
         )

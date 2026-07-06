@@ -151,8 +151,12 @@ def format_board_page(board_id: str, items: list[dict[str, Any]], read_class: st
         lines.append("NO POSTS")
     else:
         for item in items:
+            # Pad the poster column so timestamps align; long tripcode posters
+            # fall back to a single separating space rather than colliding.
+            poster = item["poster"]
+            poster_col = f"{poster:<20}" if len(poster) <= 20 else f"{poster} "
             lines.append(
-                f"No.{item['no']:05d} {item['poster']:<14}{terse_time(item['ts'])}  {item['body']}"
+                f"No.{item['no']:05d} {poster_col} {terse_time(item['ts'])}  {item['body']}"
             )
     lines.append("CLR 00")
     return "\n".join(lines)

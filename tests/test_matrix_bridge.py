@@ -136,8 +136,8 @@ class FormattingTests(unittest.TestCase):
             rendered.splitlines(),
             [
                 "OMNIDAT PUBLIC BOARD /GEN/",
-                "No.00482 Anonymous     18:42  ANYONE SELLING A 9V?",
-                "No.00483 FROOD!x8sK2   18:44  NITEMARKT STALL 4",
+                "No.00482 Anonymous            18:42  ANYONE SELLING A 9V?",
+                "No.00483 FROOD!x8sK2          18:44  NITEMARKT STALL 4",
                 "CLR 00",
             ],
         )

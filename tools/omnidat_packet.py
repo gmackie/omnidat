@@ -10,7 +10,9 @@ from typing import Any
 from tools.omnidat_bridge import (
     ClearedError,
     MatrixBridge,
+    format_board_page,
     format_mailbox,
+    format_post_receipt,
     format_send_receipt,
 )
 from tools.omnidat_events import append_event
@@ -218,6 +220,115 @@ def message_mail(
     return connected, format_mailbox(addr, items)
 
 
+def find_board_service(
+    packet_services: dict[str, dict[str, Any]],
+    ref: str,
+) -> dict[str, Any] | None:
+    """Resolve a board by packet address or by board id (e.g. GEN)."""
+    service = packet_services.get(ref)
+    if service is not None and "board" in service:
+        return service
+    for candidate in packet_services.values():
+        board = candidate.get("board")
+        if board is not None and board.get("board_id") == ref.upper():
+            return candidate
+    return None
+
+
+def require_board_gate(account: dict[str, Any], required: str) -> None:
+    """Two-gate boards: the edge enforces read/post gates before the Bridge
+    is ever called. A violation clears access barred (NA C:11 D:70)."""
+    if account.get("status") != "active":
+        raise ClearedError("NA", 11, 70, "account not active")
+    if ACCESS_RANK.get(account["access_class"], 0) < ACCESS_RANK[required]:
+        raise ClearedError("NA", 11, 70, f"{required} access required")
+
+
+def connect_board(
+    session: dict[str, Any],
+    service: dict[str, Any],
+    log_path: Path | None = None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    connected = dict(session)
+    connected["remote_service"] = service["address"]
+    connected["status"] = "connected"
+    connected["connected_at"] = created_at or now()
+    connected["service_name"] = service["name"]
+    emit(log_path, "session.started", connected, created_at=created_at)
+    return connected
+
+
+def board_read(
+    session: dict[str, Any],
+    account: dict[str, Any],
+    service: dict[str, Any],
+    bridge: MatrixBridge,
+    after: int | None = None,
+    log_path: Path | None = None,
+    created_at: str | None = None,
+) -> tuple[dict[str, Any], str]:
+    board = service["board"]
+    read_class = board.get("read_class", service.get("access_class", "PUBLIC"))
+    require_board_gate(account, read_class)
+    connected = connect_board(session, service, log_path=log_path, created_at=created_at)
+    items = bridge.board_page(board["board_id"], after=after)
+    return connected, format_board_page(board["board_id"], items, read_class=read_class)
+
+
+def board_post(
+    session: dict[str, Any],
+    account: dict[str, Any],
+    service: dict[str, Any],
+    body: str,
+    bridge: MatrixBridge,
+    name: str | None = None,
+    reply_to: int | None = None,
+    log_path: Path | None = None,
+    created_at: str | None = None,
+) -> tuple[dict[str, Any], str]:
+    board = service["board"]
+    post_class = board.get("post_class", "PUBLIC")
+    require_board_gate(account, post_class)
+    connected = connect_board(session, service, log_path=log_path, created_at=created_at)
+
+    thread = None
+    if reply_to is not None:
+        for item in bridge.board_page(board["board_id"]):
+            if item["no"] == reply_to:
+                thread = item["eventId"]
+                break
+        if thread is None:
+            raise ClearedError("NP", 13, 0, f"no such post {reply_to}")
+
+    if post_class == "PUBLIC":
+        # De-anonymization guard (design doc, Phase 5 note): a PUBLIC-post
+        # board must never receive passport-linkable context. No passport,
+        # no session_id -- only the transport kind.
+        ctx: dict[str, Any] = {"transport": "pad"}
+    else:
+        passport = require_subscriber(account)
+        ctx = {
+            "passport": passport,
+            "session_id": session["session_id"],
+            "transport": "pad",
+        }
+
+    receipt = bridge.board_post(board["board_id"], body, name=name, thread=thread, ctx=ctx)
+
+    audit: dict[str, Any] = {
+        "board_id": board["board_id"],
+        "session_id": session["session_id"],
+    }
+    if post_class != "PUBLIC":
+        # Post-number linkage is only recorded where the post gate saw a
+        # passport; PUBLIC boards keep the session record and the post
+        # unjoinable on this side too.
+        audit["no"] = receipt["no"]
+    emit(log_path, "board.posted", audit, created_at=created_at)
+    return connected, format_post_receipt(receipt)
+
+
 def session_id(created_at: str | None = None) -> str:
     stamp = (created_at or now())[:19].replace("-", "").replace(":", "").replace("T", "-")
     return f"SESS-{stamp}"
@@ -252,12 +363,22 @@ def main() -> int:
     call_parser = subparsers.add_parser("call")
     call_parser.add_argument("address")
     call_parser.add_argument("--clear-reason", default="user-cleared")
+    call_parser.add_argument("--after", type=int, default=None,
+                             help="board paging: only show posts after this number")
 
     msg_parser = subparsers.add_parser("msg")
     msg_parser.add_argument("address")
     msg_parser.add_argument("text", nargs="+")
 
     subparsers.add_parser("mail")
+
+    post_parser = subparsers.add_parser("post")
+    post_parser.add_argument("board", help="board address or id (e.g. 000401 or GEN)")
+    post_parser.add_argument("text", nargs="+")
+    post_parser.add_argument("--name", default=None,
+                             help="tripcode name, e.g. 'Froody#secret'")
+    post_parser.add_argument("--reply-to", type=int, default=None,
+                             help="reply to an existing post number")
 
     args = parser.parse_args()
     packet_services = load_packet_services(args.data_dir)
@@ -292,6 +413,47 @@ def main() -> int:
             return 1
         print(output)
         clear_session(connected, "service-invited-clear", log_path=args.log)
+        return 0
+
+    if args.command == "post":
+        bridge = MatrixBridge(base_url=args.bridge_url, secret=args.bridge_secret)
+        session = start_session(args.endpoint, args.account)
+        account = accounts[args.account]
+        service = find_board_service(packet_services, args.board)
+        if service is None:
+            print(ClearedError("NP", 13, 0, "no such board").clr_line)
+            clear_session(session, "cleared-c13", log_path=args.log)
+            return 1
+        try:
+            connected, output = board_post(
+                session, account, service, " ".join(args.text), bridge,
+                name=args.name, reply_to=args.reply_to, log_path=args.log,
+            )
+        except ClearedError as cleared:
+            print(cleared.clr_line)
+            clear_session(session, f"cleared-c{cleared.cause}", log_path=args.log)
+            return 1
+        print(output)
+        clear_session(connected, "service-invited-clear", log_path=args.log)
+        return 0
+
+    # A CALL to a board address opens the board page rather than a raw session.
+    board_service = find_board_service(packet_services, args.address)
+    if board_service is not None:
+        bridge = MatrixBridge(base_url=args.bridge_url, secret=args.bridge_secret)
+        session = start_session(args.endpoint, args.account)
+        account = accounts[args.account]
+        try:
+            connected, output = board_read(
+                session, account, board_service, bridge,
+                after=args.after, log_path=args.log,
+            )
+        except ClearedError as cleared:
+            print(cleared.clr_line)
+            clear_session(session, f"cleared-c{cleared.cause}", log_path=args.log)
+            return 1
+        print(output)
+        clear_session(connected, args.clear_reason, log_path=args.log)
         return 0
 
     session = start_session(args.endpoint, args.account)
