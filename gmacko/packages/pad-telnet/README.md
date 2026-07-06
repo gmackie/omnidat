@@ -43,18 +43,28 @@ Miliways: `MENU`, `QUOTE <ITEM…>`, `ORDER.CREATE <ITEM…>`, `ORDER.STATUS <ID
 ## Deploy (hetzner node)
 
 Raw telnet is TCP, so it can't ride the HTTP edge (Caddy/Cloudflare) — expose a
-node's port directly.
+node's port directly. The bundled `dist/index.js` is self-contained, so the
+node needs no workspace checkout: copy the one file and run it under `node`
+inside a stock `node:22-alpine` container.
 
 ```sh
-# On a build host (context = monorepo root):
-docker build -f packages/pad-telnet/Dockerfile -t omnidat-pad .
+# Build the standalone bundle:
+pnpm --filter @omnidat/pad-telnet build
+scp packages/pad-telnet/dist/index.js root@<node>:/opt/omnidat-pad/index.js
 
-# On the node (podman + systemd — labnuc/hetzner convention):
+# On the node (podman + systemd):
 cp packages/pad-telnet/deploy/omnidat-pad.service /etc/systemd/system/
 systemctl enable --now omnidat-pad
-# open the port:
 ufw allow 2525/tcp        # or: firewall-cmd --add-port=2525/tcp --permanent
-# DNS: pad.omnidat.cc  A  <node public IP>
+# DNS: pad.omnidat.cc  A  <node public IP>   (grey-cloud / unproxied)
 ```
 
+**On a k3s node**, use `--network=host` (the unit already does) — podman's `-p`
+port publishing goes through DNAT/FORWARD, which kube-proxy and ufw's
+default-DROP FORWARD policy swallow, so the port answers locally but not from the
+internet. Host networking sidesteps that. There must also be **no restrictive
+Hetzner Cloud firewall** on the server (or add a 2525/tcp allow rule to it).
+
 Test: `telnet pad.omnidat.cc 2525`.
+
+Live: `pad.omnidat.cc:2525` (hetzner-worker / `k3s-worker-1`, `5.78.125.172`).

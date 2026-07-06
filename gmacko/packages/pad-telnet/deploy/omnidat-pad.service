@@ -4,14 +4,21 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-# Podman-managed container (labnuc / hetzner node convention). Swap the image
-# ref for your registry. Runs unprivileged; the PAD path is read-only (no DB,
-# no operator role), so exposing the port is safe.
+# Podman-managed container (labnuc / hetzner node convention). Runs unprivileged;
+# the PAD path is read-only (no DB, no operator role), so exposing the port is
+# safe.
+#
+# --network=host (not -p 2525:2525) is deliberate: on a k3s node, podman's port
+# publishing uses DNAT→FORWARD, which kube-proxy and ufw's default-DROP FORWARD
+# policy silently swallow — the port is reachable locally (hairpin) but not from
+# the internet. Host networking binds the listener straight onto the host INPUT
+# path, which `ufw allow 2525/tcp` covers cleanly.
 ExecStartPre=-/usr/bin/podman rm -f omnidat-pad
 ExecStart=/usr/bin/podman run --rm --name omnidat-pad \
-  -p 2525:2525 \
+  --network=host \
   -e PORT=2525 -e HOST=0.0.0.0 -e PAD_IDLE=45 \
-  docker.io/library/omnidat-pad:latest
+  -v /opt/omnidat-pad/index.js:/app/index.js:ro \
+  docker.io/library/node:22-alpine node /app/index.js
 ExecStop=/usr/bin/podman stop omnidat-pad
 Restart=always
 RestartSec=3
