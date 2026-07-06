@@ -222,10 +222,11 @@ export function OmnidatOperatorCrud() {
           <ul className="mt-2 space-y-1 text-sm">
             {(provisioning.data?.provisioning ?? []).slice(0, 5).map((item: any) => (
               <li key={item.id} className="font-mono">
-                {item.assignedX121 || item.id} — {item.status}
+                {item.assignedX121 || item.id} — {item.status} {item.transport ? `(${item.transport})` : ""}
               </li>
             ))}
           </ul>
+          <div className="mt-1 text-[10px] text-[#9a8a6e]">Use tRPC ops or console for advanceProvisioning (H1b)</div>
         </div>
       </div>
     </section>

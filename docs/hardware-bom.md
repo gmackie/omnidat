@@ -215,6 +215,7 @@ Tier 1 is enough to run the event experience. Tier 2/3 are authenticity upgrades
 - 1 Wi-Fi AP/router.
 - 1 USB receipt printer or shared dot matrix printer path.
 - 1 USB serial adapter and terminal, optional.
+- Telnet PAD bridge (gmacko/packages/pad-telnet) for real terminals or demo.
 - 2-4 MeshCore loaner radios.
 - 1 Meshtastic gateway radio, optional.
 - Paper passport cards, service-order forms, and address assignment sheets.
