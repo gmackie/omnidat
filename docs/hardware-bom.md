@@ -49,6 +49,7 @@ See README.md "Planned Camp Deployments" for ToorCamp 2028 flagship and CC Camp 
 - Battery runtime display visible to operators.
 
 **CC Camp 2027 Lighter Kit (H5-H8):** 1 mini PC, 2 MeshCore + 2 Meshtastic, 1 receipt printer, 1 serial terminal, WiFi AP, laminated cards. No full PRI/PBX needed for rehearsal.
+Add 1 pad-telnet host for real terminals, 1 field laptop for operator console.
 
 ## 2. ShadyTel PRI Handoff
 

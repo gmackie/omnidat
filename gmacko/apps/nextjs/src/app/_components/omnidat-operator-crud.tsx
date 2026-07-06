@@ -46,6 +46,9 @@ export function OmnidatOperatorCrud() {
   const createApp = useMutation(
     trpc.omnidat.createCampsiteApp.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
   );
+  const updateAppStatus = useMutation(
+    trpc.omnidat.updateCampsiteAppStatus.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
+  );
   const batchClose = useMutation(
     trpc.omnidat.posBatchClose.mutationOptions({ 
       onSuccess: (report) => { 
@@ -59,9 +62,13 @@ export function OmnidatOperatorCrud() {
 
   // H1b incident
   const [incidentTitle, setIncidentTitle] = useState("Network issue at PAD-01");
+  const [incidentId, setIncidentId] = useState("INC-001");
 
   const openIncident = useMutation(
     trpc.omnidat.openIncident.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
+  );
+  const updateIncident = useMutation(
+    trpc.omnidat.updateIncident.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
   );
 
   const createEvent = useMutation(
@@ -270,6 +277,11 @@ export function OmnidatOperatorCrud() {
             <input className="flex-1 border border-[#5c4a32] bg-[#17130d] px-1" value={incidentTitle} onChange={e=>setIncidentTitle(e.target.value)} />
             <button className="bg-[#c0a36e] px-2 text-black" onClick={() => openIncident.mutate({title: incidentTitle, severity: "minor"})}>Open Incident</button>
           </div>
+          <div className="mt-1 flex gap-1 text-xs">
+            <input className="w-16 border border-[#5c4a32] bg-[#17130d] px-1" value={incidentId} onChange={e=>setIncidentId(e.target.value)} />
+            <button className="bg-[#c0a36e] px-2 text-black" onClick={() => updateIncident.mutate({incidentId, status: "resolved"})}>Resolve</button>
+            <span className="text-[10px] text-[#9a8a6e]"> (demo list via NOC/ops)</span>
+          </div>
         </div>
 
         <div>
@@ -282,13 +294,20 @@ export function OmnidatOperatorCrud() {
             <button className="bg-[#c0a36e] px-2 text-black" onClick={() => createApp.mutate({campsiteId: appCampsiteId, address: appAddress, name: appName, appKind: appKind as any})}>Create App</button>
           </div>
           <ul className="mt-1 text-[10px]">
-            {(apps.data?.apps ?? []).slice(0,3).map((a: any) => <li key={a.id}>{a.name} @ {a.address} [{a.status}]</li>)}
+            {(apps.data?.apps ?? []).slice(0,3).map((a: any) => (
+              <li key={a.id} className="flex gap-1">
+                {a.name} @ {a.address} [{a.status}]
+                <button className="text-[8px] border px-0.5" onClick={() => updateAppStatus.mutate({appId: a.id, status: "active"})}>Promote</button>
+                <button className="text-[8px] border px-0.5" onClick={() => updateAppStatus.mutate({appId: a.id, status: "delisted"})}>Delist</button>
+              </li>
+            ))}
           </ul>
         </div>
 
         <div>
           <h3 className="font-semibold text-sm">Merchant (H4 demo)</h3>
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
+          <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "CC-CAMP-27", batchId: "CC-001", transactions: [{kind:"sale", amount: 19, reference: "EU-1"}]})}>CC Camp Demo</button>
           {batchReport && <pre className="text-[8px] mt-1 overflow-auto max-h-20">{batchReport}</pre>}
         </div>
       </div>

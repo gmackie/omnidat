@@ -94,6 +94,7 @@ export function buildOmnidatDocument(
         `ALLOCATIONS: ${field("allocations", "0")}`,
         "",
         "CC CAMP 2027: European rehearsal target (H6/H8)",
+        `REHEARSAL: ${field("rehearsal", "YES")}`,
         "See README Planned Camp Deployments for ToorCamp 2028 / CC Camp 2027 details.",
       ]);
   }
