@@ -24,6 +24,54 @@ export interface AttractFrame {
 
 const SPINNER = ["|", "/", "-", "\\"];
 
+// Deterministic per-character typing rhythm (no clock, no RNG): a base delay
+// plus a small per-glyph jitter derived from the character code, with a longer
+// beat after spaces. Reads like someone typing on a slow async line.
+function typeMs(ch: string): number {
+  const base = 78 + (ch.charCodeAt(0) % 6) * 18;
+  return ch === " " ? base + 55 : base;
+}
+
+// Emit a line typed one glyph at a time starting at 1-based (row,col). The first
+// frame positions the cursor; each later frame appends a single character, so
+// the cursor carries forward and the text arrives keystroke by keystroke.
+function typeInto(
+  frames: AttractFrame[],
+  row: number,
+  col: number,
+  text: string,
+): void {
+  [...text].forEach((ch, i) => {
+    frames.push({
+      ms: typeMs(ch),
+      bytes: (i === 0 ? VT.to(row, col) : "") + ch,
+    });
+  });
+}
+
+// A simulated X.25 network-latency pause: an animated ellipsis holds for a few
+// beats (the circuit establishing / the far end thinking), then is erased.
+function netWait(
+  frames: AttractFrame[],
+  row: number,
+  col: number,
+  label: string,
+  cycles = 5,
+  holdMs = 340,
+): void {
+  for (let i = 0; i < cycles; i += 1) {
+    const dots = ".".repeat((i % 3) + 1).padEnd(3, " ");
+    frames.push({
+      ms: holdMs,
+      bytes: new Vt100Page().at(row, col, `${label}${dots}`, 2).toString(),
+    });
+  }
+  frames.push({
+    ms: 90,
+    bytes: new Vt100Page().at(row, col, " ".repeat(label.length + 3)).toString(),
+  });
+}
+
 function titleChrome(): Vt100Page {
   return new Vt100Page()
     .clear()
@@ -137,28 +185,43 @@ function directoryScene(frames: AttractFrame[]): void {
 }
 
 function callScene(frames: AttractFrame[]): void {
-  const chrome = new Vt100Page()
-    .clear()
-    .hideCursor()
-    .bar(1, "OMNIDAT · PAD SESSION", "X.28")
-    .at(3, 3, "311088000001 PAD>", 1);
-  frames.push({ ms: 400, bytes: chrome.toString() });
-  const script: string[] = [
-    "CALL 311088020501",
-    "CONNECT MILIWAYS ORDER ENTRY",
-    "OWNER  DEPARTMENT OF RECREATIONAL COMMERCE",
-    "STATUS UP",
-    "> ORDER.CREATE NOODLE-CUP",
-    "ORDER MW-4F2A9C CONFIRMED  7 SB",
-    "CLR DTE C:0 D:0",
+  // The PAD prompt, then a call typed out on the wire — deliberately unhurried,
+  // with real X.25 circuit-setup and processing pauses between send and reply.
+  frames.push({
+    ms: 600,
+    bytes: new Vt100Page()
+      .clear()
+      .hideCursor()
+      .bar(1, "OMNIDAT · PAD SESSION", "X.28")
+      .at(3, 3, "311088000001 PAD> ", 1)
+      .toString(),
+  });
+  // Operator types the CALL (prompt is 18 cols wide from col 3 → text at col 21).
+  typeInto(frames, 3, 21, "CALL 311088020501");
+  // Enter → the virtual circuit takes a beat to come up.
+  netWait(frames, 5, 3, "CALLING 311088020501 ", 5, 360);
+  // The far end answers, one packet (line) at a time.
+  const response: [string, boolean][] = [
+    ["CONNECT MILIWAYS ORDER ENTRY", true],
+    ["OWNER  DEPARTMENT OF RECREATIONAL COMMERCE", false],
+    ["STATUS UP", false],
   ];
-  script.forEach((line, i) => {
+  response.forEach(([line, bold], i) => {
     frames.push({
-      ms: i === script.length - 1 ? 900 : 420,
-      bytes: new Vt100Page()
-        .at(5 + i, 3, line, i === 0 || /CONFIRMED|CONNECT/.test(line) ? 1 : 0)
-        .toString(),
+      ms: 320,
+      bytes: new Vt100Page().at(5 + i, 3, line, bold ? 1 : 0).toString(),
     });
+  });
+  // A verb typed inside the session, then order-entry processing latency.
+  typeInto(frames, 9, 3, "> ORDER.CREATE NOODLE-CUP");
+  netWait(frames, 11, 3, "PROCESSING ", 4, 320);
+  frames.push({
+    ms: 620,
+    bytes: new Vt100Page().at(11, 3, "ORDER MW-4F2A9C CONFIRMED  7 SB", 1).toString(),
+  });
+  frames.push({
+    ms: 1000,
+    bytes: new Vt100Page().at(13, 3, "CLR DTE C:0 D:0").toString(),
   });
 }
 
