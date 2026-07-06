@@ -11,8 +11,14 @@ export async function AuthShowcase() {
   const session = await getSession();
 
   if (!session) {
+    const omniauthEnabled = Boolean(
+      process.env.OMNIAUTH_DISCOVERY_URL ?? env.OMNIAUTH_DISCOVERY_URL,
+    );
     return (
       <div className="flex flex-col items-center gap-4">
+        {omniauthEnabled ? (
+          <SocialSignInButton provider="omniauth" label="Sign in with OmniAuth" />
+        ) : null}
         <SocialSignInButton provider="github" label="Sign in with GitHub" />
         <SocialSignInButton provider="google" label="Sign in with Google" />
         <SocialSignInButton provider="apple" label="Sign in with Apple" />
@@ -56,7 +62,7 @@ function SocialSignInButton({
   provider,
   label,
 }: {
-  provider: "github" | "google" | "apple";
+  provider: "github" | "google" | "apple" | "omniauth";
   label: string;
 }) {
   return (

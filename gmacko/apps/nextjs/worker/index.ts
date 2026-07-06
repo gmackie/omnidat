@@ -26,6 +26,16 @@ interface Env {
   };
   SHADYBANK_API_URL?: string;
   SHADYBANK_MERCHANT_TOKEN?: string;
+  // Auth secrets bridged to process.env so better-auth (which reads
+  // process.env at init) can see them in the Worker runtime.
+  AUTH_SECRET?: string;
+  OMNIAUTH_DISCOVERY_URL?: string;
+  OMNIAUTH_CLIENT_ID?: string;
+  OMNIAUTH_CLIENT_SECRET?: string;
+  AUTH_GITHUB_ID?: string;
+  AUTH_GITHUB_SECRET?: string;
+  AUTH_GOOGLE_ID?: string;
+  AUTH_GOOGLE_SECRET?: string;
 }
 
 interface ExecutionContext {
@@ -49,6 +59,20 @@ export default {
     }
     if (env.SHADYBANK_MERCHANT_TOKEN) {
       process.env.SHADYBANK_MERCHANT_TOKEN = env.SHADYBANK_MERCHANT_TOKEN;
+    }
+    // Bridge auth secrets so better-auth sees them at init.
+    for (const key of [
+      "AUTH_SECRET",
+      "OMNIAUTH_DISCOVERY_URL",
+      "OMNIAUTH_CLIENT_ID",
+      "OMNIAUTH_CLIENT_SECRET",
+      "AUTH_GITHUB_ID",
+      "AUTH_GITHUB_SECRET",
+      "AUTH_GOOGLE_ID",
+      "AUTH_GOOGLE_SECRET",
+    ] as const) {
+      const value = env[key];
+      if (value) process.env[key] = value;
     }
 
     const url = new URL(request.url);

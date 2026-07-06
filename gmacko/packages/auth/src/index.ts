@@ -90,13 +90,31 @@ export function initAuth<
         ? [
             genericOAuth({
               config: [
-                {
-                  providerId: "omniauth",
-                  discoveryUrl: options.omniauthDiscoveryUrl,
-                  clientId: options.omniauthClientId,
-                  clientSecret: options.omniauthClientSecret,
-                  scopes: ["openid", "profile", "email"],
-                },
+                (() => {
+                  // Authentik's OIDC endpoints are shared across applications:
+                  // <origin>/application/o/{authorize,token,userinfo}/ and the
+                  // per-app jwks. Derive them from the discovery URL's origin so
+                  // sign-in does not depend on a runtime discovery fetch (which
+                  // is unreliable from a Cloudflare Worker to a same-account
+                  // proxied host). Discovery stays as a fallback.
+                  const origin = new URL(options.omniauthDiscoveryUrl!).origin;
+                  const jwks = options.omniauthDiscoveryUrl!.replace(
+                    /\.well-known\/openid-configuration\/?$/,
+                    "jwks/",
+                  );
+                  return {
+                    providerId: "omniauth",
+                    discoveryUrl: options.omniauthDiscoveryUrl!,
+                    authorizationUrl: `${origin}/application/o/authorize/`,
+                    tokenUrl: `${origin}/application/o/token/`,
+                    userInfoUrl: `${origin}/application/o/userinfo/`,
+                    jwksEndpoint: jwks,
+                    clientId: options.omniauthClientId!,
+                    clientSecret: options.omniauthClientSecret!,
+                    scopes: ["openid", "profile", "email"],
+                    pkce: true,
+                  };
+                })(),
               ],
             }),
           ]
