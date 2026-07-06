@@ -11,7 +11,7 @@ import { useTRPC } from "~/trpc/react";
 // unavailable (unauthenticated/offline), the terminal labels itself SIMULATOR
 // and uses the public services list so the demo path never dead-ends.
 const HELP =
-  "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121> [VERB], HELP, CLR";
+  "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121> [VERB], CAMP/EVIDENCE (camp doc), HELP, CLR";
 
 export function OmnidatXotTerminal() {
   const trpc = useTRPC();
@@ -44,6 +44,14 @@ export function OmnidatXotTerminal() {
             : `CLR DER C:9 D:0 — ${error.message ?? "SESSION FAILED"}`,
         ]);
         setStatus("cleared");
+      },
+    }),
+  );
+
+  const renderDoc = useMutation(
+    trpc.omnidat.renderDocument.mutationOptions({
+      onSuccess: (doc) => {
+        setLines((prev) => [...prev, `DOC ${doc.title}:`, doc.body.slice(0, 300) + (doc.body.length > 300 ? "..." : "")]);
       },
     }),
   );
@@ -83,6 +91,11 @@ export function OmnidatXotTerminal() {
         sourceTransport: "xot",
         destinationX121: x121,
         verb: callVerb,
+      });
+    } else if (upper === "CAMP" || upper === "EVIDENCE") {
+      renderDoc.mutate({
+        kind: "camp-deployment-summary",
+        data: { event: "TOORCAMP-2028", scope: "OPT-IN VILLAGE", dates: "2028-07", services: "25", apps: "12", allocations: "87" },
       });
     } else {
       setLines((prev) => [...prev, `CLR NP C:13 D:67 — UNKNOWN VERB ${upper}`]);

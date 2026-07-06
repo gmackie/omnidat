@@ -52,3 +52,5 @@ redeemable value is exposed — they are decisions, not code:
   simulation.
 - batch close is gated on `bank.write` and audited.
 - the settlement report is printable and reconciles gross − refunds = net.
+
+**Parallel progress:** Core + UI demo button added in operator CRUD. Full policy/reconciliation for camps tracked under H4 + ToorCamp/CC Camp prep.

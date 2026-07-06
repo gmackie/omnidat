@@ -115,7 +115,7 @@ Exit gate: a new event can be created from a template; historical records
 browsable without exposing private participant data; partner nodes provisioned
 with documented contracts; post-event reports repeatable.
 
-**Camp Deployments note (see root README):** ToorCamp 2028 is flagship (full ShadyTel interconnect preferred, physical robot, NOC desk). CC Camp 2027 is potential large rehearsal / European validation for H6/H8. Portable Field Office mode works for both without full PRI.
+**Camp Deployments note (see root README):** ToorCamp 2028 is flagship (full ShadyTel interconnect preferred, physical robot, NOC desk). CC Camp 2027 is potential large rehearsal / European validation for H6/H8. Portable Field Office mode works for both without full PRI. Hardware kit / telnet PAD / radio adapters in active BOM updates.
 
 ## Cross-Cutting Still Open (decisions, not code)
 

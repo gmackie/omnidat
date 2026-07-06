@@ -29,6 +29,19 @@ export function OmnidatOperatorCrud() {
   const [contactHandle, setContactHandle] = useState("operator@camp.example");
   const [notice, setNotice] = useState<string | null>(null);
 
+  // H3/H4 demo state
+  const [appCampsiteId, setAppCampsiteId] = useState("1");
+  const [appAddress, setAppAddress] = useState("020100");
+  const [appName, setAppName] = useState("Camp Bulletin");
+  const [appKind, setAppKind] = useState("bulletin");
+
+  const createApp = useMutation(
+    trpc.omnidat.createCampsiteApp.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
+  );
+  const batchClose = useMutation(
+    trpc.omnidat.posBatchClose.mutationOptions({ onSuccess: () => void queryClient.invalidateQueries(), onError }),
+  );
+
   const onError = (error: { message?: string }) =>
     setNotice(
       /role required/i.test(error.message ?? "")
@@ -232,6 +245,22 @@ export function OmnidatOperatorCrud() {
         <div>
           <h3 className="font-semibold text-sm">Evidence (camp-deployment-summary)</h3>
           <div className="text-[10px] text-[#9a8a6e]">New kind wired in renderDocument + test. Use for ToorCamp 2028 / CC Camp 2027 artifacts.</div>
+        </div>
+
+        <div>
+          <h3 className="font-semibold">Campsite Apps (H3)</h3>
+          <div className="mt-1 flex flex-wrap gap-1 text-xs">
+            <input className="w-20 border border-[#5c4a32] bg-[#17130d] px-1" placeholder="campsiteId" value={appCampsiteId} onChange={e=>setAppCampsiteId(e.target.value)} />
+            <input className="w-20 border border-[#5c4a32] bg-[#17130d] px-1" placeholder="x121" value={appAddress} onChange={e=>setAppAddress(e.target.value)} />
+            <input className="w-24 border border-[#5c4a32] bg-[#17130d] px-1" placeholder="name" value={appName} onChange={e=>setAppName(e.target.value)} />
+            <input className="w-20 border border-[#5c4a32] bg-[#17130d] px-1" placeholder="kind" value={appKind} onChange={e=>setAppKind(e.target.value)} />
+            <button className="bg-[#c0a36e] px-2 text-black" onClick={() => createApp.mutate({campsiteId: appCampsiteId, address: appAddress, name: appName, appKind: appKind as any})}>Create App</button>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="font-semibold text-sm">Merchant (H4 demo)</h3>
+          <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
         </div>
       </div>
     </section>

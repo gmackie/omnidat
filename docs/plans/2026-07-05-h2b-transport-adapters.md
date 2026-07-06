@@ -49,3 +49,5 @@ behavior are already enforced server-side.
   a silent truncation.
 - adding a transport is a policy entry plus a wire-terminating bridge, not a
   change to the packet-call flow.
+
+**Status (parallel work):** Policy + checkTransport + telnet PAD adapter implemented and documented. Hardware paths (POTS, radio) tracked in BOM and H5-H8 for ToorCamp 2028 / CC Camp 2027.

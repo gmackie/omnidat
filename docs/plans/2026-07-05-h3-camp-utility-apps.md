@@ -43,3 +43,5 @@ audited pattern.
 - five+ campsite-app kinds can be created without code changes.
 - an operator can promote or delist an app; every change is audited.
 - campsite-app writes are gated; auditors cannot mutate.
+
+**Parallel progress:** Kinds + createCampsiteApp + list exist. Simple create form added to operator CRUD for H3 camp apps (ToorCamp 2028 / CC Camp 2027).
