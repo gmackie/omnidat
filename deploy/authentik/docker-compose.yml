@@ -1,0 +1,84 @@
+# Authentik identity provider for OMNIDAT OmniAuth, served at auth.omnidat.cc.
+# Standard Authentik topology: server + worker + postgres + redis. Put
+# auth.omnidat.cc in front of the server (port 9000) via a Cloudflare Tunnel or
+# a reverse proxy. Secrets come from .env (see .env.example).
+#
+#   docker compose --env-file .env up -d
+#
+# Then follow docs/authentik-setup.md to create the OMNIDAT OIDC application.
+
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - authentik-database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASS:?set PG_PASS in .env}
+      POSTGRES_USER: ${PG_USER:-authentik}
+      POSTGRES_DB: ${PG_DB:-authentik}
+
+  redis:
+    image: docker.io/library/redis:alpine
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - authentik-redis:/data
+
+  server:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.2}
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?set AUTHENTIK_SECRET_KEY in .env}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      # auth.omnidat.cc terminates TLS at Cloudflare; the server trusts the
+      # forwarded proto so OIDC issuer URLs are https.
+      AUTHENTIK_COOKIE_DOMAIN: omnidat.cc
+    ports:
+      - "${AUTHENTIK_PORT:-9000}:9000"
+      - "${AUTHENTIK_PORT_TLS:-9443}:9443"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.2}
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    # The worker runs migrations and background tasks; it needs the Docker
+    # socket only if you use the outpost integration (omitted here).
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  authentik-database:
+    driver: local
+  authentik-redis:
+    driver: local

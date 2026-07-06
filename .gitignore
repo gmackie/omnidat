@@ -11,3 +11,6 @@ build/
 __pycache__/
 *.pyc
 .gstack/
+
+# Authentik deployment secrets
+deploy/authentik/.env
