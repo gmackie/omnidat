@@ -26,6 +26,10 @@ import {
   buildOmnidatLoginBanner,
   omnidatPrompt,
 } from "@omnidat/operator-core/vt100";
+import {
+  connectServiceScreen,
+  renderServiceVerb,
+} from "@omnidat/operator-core/terminal";
 import { TRPCError } from "@trpc/server";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
@@ -573,6 +577,71 @@ export const omnidatRouter = {
         banner: buildOmnidatLoginBanner({ x121, operator }),
         prompt: omnidatPrompt(x121),
       };
+    }),
+
+  // Interactive service session: CALL lands on a cursor-addressed VT100 screen
+  // (the service's verb menu) instead of a scrolling transcript. Journaled for
+  // audit. The returned `page` is a raw VT100 byte stream the client renders
+  // through the shared emulator.
+  serviceConnect: omnidatOperatorProcedure("session.write")
+    .input(z.object({ x121: z.string().min(6) }))
+    .mutation(async ({ ctx, input }) => {
+      const screen = connectServiceScreen(input.x121);
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "terminal.service.connect",
+        payload: { x121: input.x121, status: screen.status } as Record<string, unknown>,
+      });
+      return screen;
+    }),
+
+  // Run one verb inside an active service session (MENU/QUOTE/ORDER.CREATE/…).
+  // Deterministic render → byte-exact replay; journaled with the verb + args.
+  serviceVerb: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        x121: z.string().min(6),
+        verb: z.string().min(1),
+        args: z.array(z.string()).max(16).default([]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const screen = renderServiceVerb(input);
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "terminal.service.verb",
+        payload: {
+          x121: input.x121,
+          verb: input.verb,
+          args: input.args,
+          status: screen.status,
+        } as Record<string, unknown>,
+      });
+      return screen;
+    }),
+
+  // Persist a terminal session recording. Because every service screen is a
+  // deterministic function of its command, a recording is just the ordered
+  // command list — replay re-renders it byte-exact. Stored in the append-only
+  // journal as an evidence artifact of what an operator did.
+  recordTerminalSession: omnidatOperatorProcedure("session.write")
+    .input(
+      z.object({
+        x121: z.string().min(6),
+        label: z.string().max(120).optional(),
+        commands: z.array(z.string().min(1)).min(1).max(200),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const recordingId = `REC-${input.commands.join("|").length}-${input.x121.slice(-4)}`;
+      await journalCloudWrite(syncDb(ctx), {
+        opType: "terminal.recording",
+        payload: {
+          recordingId,
+          x121: input.x121,
+          label: input.label ?? "session",
+          commands: input.commands,
+        } as Record<string, unknown>,
+      });
+      return { recordingId, frames: input.commands.length };
     }),
 
   // The browser XOT packet bridge: look up the destination in the directory,

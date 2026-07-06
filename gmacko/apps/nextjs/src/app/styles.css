@@ -135,6 +135,19 @@
   color: #9ed783;
   opacity: 0.8;
 }
+.omnidat-crt-btn {
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0a0906;
+  background: #9ed783;
+  border: 0;
+  border-radius: 3px;
+  padding: 0.15rem 0.7rem;
+  cursor: pointer;
+}
+.omnidat-crt-btn:hover { background: #b6e6a0; }
 @media (prefers-reduced-motion: reduce) {
   .omnidat-crt-cursor,
   .omnidat-crt .v-blink { animation: none; }

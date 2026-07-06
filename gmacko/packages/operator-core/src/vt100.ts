@@ -442,9 +442,127 @@ export function renderVt100Screen(transcript: string, cols = VT100_COLS, rows = 
 // and client, so the CRT look is defined once, in code, not in CSS guesswork.
 
 const CSI = "\x1b[";
+const ESC = "\x1b";
 /** Wrap text in an SGR run, always resetting afterwards. */
 export function sgr(text: string, ...codes: number[]): string {
   return `${CSI}${codes.join(";")}m${text}${CSI}0m`;
+}
+
+// Raw control-string helpers — the building blocks of a composed screen. These
+// are literal VT100 escapes: they animate on real DEC hardware and any faithful
+// emulator, and our own Vt100Terminal parses them back into cell state.
+export const VT = {
+  clear: `${CSI}2J`,
+  home: `${CSI}H`,
+  reset: `${ESC}c`,
+  hideCursor: `${CSI}?25l`,
+  showCursor: `${CSI}?25h`,
+  /** Cursor to 1-based row/col (CUP). */
+  to: (row: number, col: number) => `${CSI}${row};${col}H`,
+  /** Enter/leave the DEC special graphics (line-drawing) set. */
+  graphicsOn: `${ESC}(0`,
+  graphicsOff: `${ESC}(B`,
+} as const;
+
+// DEC line-drawing code points (valid only between graphicsOn/graphicsOff).
+const LINE = {
+  h: "q", // horizontal
+  v: "x", // vertical
+  tl: "l", // top-left corner
+  tr: "k", // top-right
+  bl: "m", // bottom-left
+  br: "j", // bottom-right
+} as const;
+
+/**
+ * A fluent builder for a full VT100 screen. Accumulates raw escape sequences;
+ * `toString()` yields the byte stream. Coordinates are 1-based (VT100 CUP
+ * convention). The same page renders in the web CRT and streams to real
+ * terminals, so screens are authored once.
+ */
+export class Vt100Page {
+  private out: string[] = [];
+  constructor(readonly cols = VT100_COLS, readonly rows = VT100_ROWS) {}
+
+  /** Erase the screen and home the cursor. */
+  clear(): this {
+    this.out.push(VT.clear, VT.home);
+    return this;
+  }
+  home(): this {
+    this.out.push(VT.home);
+    return this;
+  }
+  hideCursor(): this {
+    this.out.push(VT.hideCursor);
+    return this;
+  }
+  showCursor(): this {
+    this.out.push(VT.showCursor);
+    return this;
+  }
+  /** Raw escape/text passthrough. */
+  raw(s: string): this {
+    this.out.push(s);
+    return this;
+  }
+  /** Write text at a 1-based position, optionally with SGR codes. */
+  at(row: number, col: number, text: string, ...codes: number[]): this {
+    this.out.push(VT.to(row, col));
+    this.out.push(codes.length ? sgr(text, ...codes) : text);
+    return this;
+  }
+  /** Center text on a row (optionally SGR-styled). */
+  center(row: number, text: string, ...codes: number[]): this {
+    const col = Math.max(1, Math.floor((this.cols - text.length) / 2) + 1);
+    return this.at(row, col, text, ...codes);
+  }
+  /** A full-width reverse-video bar with left/right captions. */
+  bar(row: number, left: string, right = ""): this {
+    const pad = Math.max(1, this.cols - left.length - right.length);
+    const line = ` ${left}${" ".repeat(Math.max(0, pad - 1))}${right} `.slice(0, this.cols);
+    return this.at(row, 1, sgr(line.padEnd(this.cols, " "), 7));
+  }
+  /**
+   * Draw a box with DEC line-drawing glyphs at 1-based (row,col) of width x
+   * height (inclusive of borders), with an optional title inset on the top edge.
+   */
+  box(row: number, col: number, width: number, height: number, title?: string): this {
+    const hEdge = LINE.h.repeat(Math.max(0, width - 2));
+    // top / bottom borders in the graphics set
+    this.out.push(
+      VT.to(row, col),
+      VT.graphicsOn,
+      `${LINE.tl}${hEdge}${LINE.tr}`,
+      VT.graphicsOff,
+    );
+    for (let r = 1; r < height - 1; r += 1) {
+      this.out.push(
+        VT.to(row + r, col),
+        VT.graphicsOn,
+        LINE.v,
+        VT.graphicsOff,
+        VT.to(row + r, col + width - 1),
+        VT.graphicsOn,
+        LINE.v,
+        VT.graphicsOff,
+      );
+    }
+    this.out.push(
+      VT.to(row + height - 1, col),
+      VT.graphicsOn,
+      `${LINE.bl}${hEdge}${LINE.br}`,
+      VT.graphicsOff,
+    );
+    if (title) {
+      this.at(row, col + 2, ` ${title} `, 1);
+    }
+    return this;
+  }
+
+  toString(): string {
+    return this.out.join("");
+  }
 }
 
 /**
