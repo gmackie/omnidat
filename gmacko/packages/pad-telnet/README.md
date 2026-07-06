@@ -14,7 +14,7 @@ pacing the screensaver.
 The telnet path is **read-only** (demo safety): it uses the in-memory command engine and the
 pure service renderers from @omnidat/operator-core — no database, no operator role, no persistence in this bridge. 
 
-This is one of the H2b transport adapters (telnet/TCP) behind the unified packetCall interface. See H2b plan and omnidat-transports.ts for policy (budget, access class). Real authenticated sessions use the gmacko packetCall tRPC surface.
+This is one of the H2b transport adapters (telnet/TCP) behind the unified packetCall interface. See H2b plan and omnidat-transports.ts for policy (budget, access class). Real authenticated sessions use the gmacko packetCall tRPC surface. Suitable for ToorCamp 2028 and CC Camp 2027 field terminals.
 
 ## Run
 
