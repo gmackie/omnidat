@@ -5,7 +5,7 @@ import { createLogger } from "@omnidat/logging";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink, oAuthProxy } from "better-auth/plugins";
+import { genericOAuth, magicLink, oAuthProxy } from "better-auth/plugins";
 
 const log = createLogger({ module: "auth" });
 
@@ -40,6 +40,12 @@ export function initAuth<
   googleUrl?: string;
   googleTokenUrl?: string;
   appleUrl?: string;
+  // OmniAuth is OMNIDAT's identity provider, backed by Authentik (OIDC).
+  // Supply the Authentik application's OIDC discovery URL, e.g.
+  // https://<authentik-host>/application/o/<app-slug>/.well-known/openid-configuration
+  omniauthDiscoveryUrl?: string;
+  omniauthClientId?: string;
+  omniauthClientSecret?: string;
   bypassMagicLink?: boolean;
   sendMagicLinkEmail?: (params: {
     email: string;
@@ -76,6 +82,25 @@ export function initAuth<
           }
         },
       }),
+      // OmniAuth (Authentik OIDC). Callback:
+      // <baseUrl>/api/auth/oauth2/callback/omniauth
+      ...(options.omniauthDiscoveryUrl &&
+      options.omniauthClientId &&
+      options.omniauthClientSecret
+        ? [
+            genericOAuth({
+              config: [
+                {
+                  providerId: "omniauth",
+                  discoveryUrl: options.omniauthDiscoveryUrl,
+                  clientId: options.omniauthClientId,
+                  clientSecret: options.omniauthClientSecret,
+                  scopes: ["openid", "profile", "email"],
+                },
+              ],
+            }),
+          ]
+        : []),
       ...(options.extraPlugins ?? []),
     ],
     socialProviders: {

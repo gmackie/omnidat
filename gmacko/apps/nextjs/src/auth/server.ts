@@ -35,6 +35,9 @@ export const auth = initAuth({
   googleUrl: env.AUTH_GOOGLE_URL,
   googleTokenUrl: env.AUTH_GOOGLE_TOKEN_URL,
   appleUrl: env.AUTH_APPLE_URL,
+  omniauthDiscoveryUrl: env.OMNIAUTH_DISCOVERY_URL,
+  omniauthClientId: env.OMNIAUTH_CLIENT_ID,
+  omniauthClientSecret: env.OMNIAUTH_CLIENT_SECRET,
   bypassMagicLink: env.BYPASS_MAGIC_LINK,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pkg.pr.new causes duplicate @better-auth/core type instances
   extraPlugins: [nextCookies() as any],

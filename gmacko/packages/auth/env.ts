@@ -16,6 +16,11 @@ export function authEnv() {
       AUTH_GOOGLE_URL: z.string().url().optional(),
       AUTH_GOOGLE_TOKEN_URL: z.string().url().optional(),
       AUTH_APPLE_URL: z.string().url().optional(),
+      // OmniAuth via Authentik (OIDC). Discovery URL is
+      // https://<authentik-host>/application/o/<app-slug>/.well-known/openid-configuration
+      OMNIAUTH_DISCOVERY_URL: z.string().url().optional(),
+      OMNIAUTH_CLIENT_ID: z.string().min(1).optional(),
+      OMNIAUTH_CLIENT_SECRET: z.string().min(1).optional(),
       AUTH_SECRET: z.string().min(1).optional(),
       BYPASS_MAGIC_LINK: z.coerce.boolean().default(false),
       NODE_ENV: z.enum(["development", "production"]).optional(),
