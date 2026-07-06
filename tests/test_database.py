@@ -29,10 +29,12 @@ class DatabaseBuilderTests(unittest.TestCase):
                 circuit_count = connection.execute("select count(*) from carrier_circuits").fetchone()[0]
                 media_count = connection.execute("select count(*) from media_tapes").fetchone()[0]
                 print_queue_count = connection.execute("select count(*) from print_queues").fetchone()[0]
+                atv_station_count = connection.execute("select count(*) from atv_stations").fetchone()[0]
+                teletext_page_count = connection.execute("select count(*) from atv_teletext_pages").fetchone()[0]
 
-            self.assertEqual(service_count, 2)
-            self.assertEqual(endpoint_count, 2)
-            self.assertEqual(packet_count, 3)
+            self.assertEqual(service_count, 3)
+            self.assertEqual(endpoint_count, 3)
+            self.assertEqual(packet_count, 4)
             self.assertEqual(namespace_count, 2)
             self.assertEqual(transport_count, 2)
             self.assertEqual(campsite_app_count, 2)
@@ -41,6 +43,8 @@ class DatabaseBuilderTests(unittest.TestCase):
             self.assertEqual(circuit_count, 2)
             self.assertEqual(media_count, 1)
             self.assertEqual(print_queue_count, 1)
+            self.assertEqual(atv_station_count, 1)
+            self.assertEqual(teletext_page_count, 2)
 
     def test_build_database_loads_packet_namespaces_and_transport_profiles(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -168,6 +172,41 @@ class DatabaseBuilderTests(unittest.TestCase):
                 ],
             )
 
+    def test_build_database_loads_atv_station_teletext_pages(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "data"
+            db_path = Path(temp_dir) / "omnidat.db"
+            write_seed_data(data_dir)
+
+            build_database(data_dir, db_path)
+
+            with closing(sqlite3.connect(db_path)) as connection:
+                station = connection.execute(
+                    """
+                    select station_id, packet_address, dial_service, service_name
+                    from atv_stations
+                    """
+                ).fetchone()
+                pages = connection.execute(
+                    """
+                    select page_number, title
+                    from atv_teletext_pages
+                    order by page_number
+                    """
+                ).fetchall()
+
+            self.assertEqual(
+                station,
+                ("OMNI-TV-1", "000040", "8824", "OMNITEXT"),
+            )
+            self.assertEqual(
+                pages,
+                [
+                    ("100", "OMNIDAT TV INDEX"),
+                    ("199", "STATION ID"),
+                ],
+            )
+
     def test_load_service_routes_returns_ordered_route_view(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             data_dir = Path(temp_dir) / "data"
@@ -192,6 +231,12 @@ class DatabaseBuilderTests(unittest.TestCase):
                         "route_class": "hunt",
                         "endpoints": "MODEM-01,MODEM-02",
                     },
+                    {
+                        "number": "8824",
+                        "name": "ATV Teletext",
+                        "route_class": "service",
+                        "endpoints": "ATV-TELETEXT-01",
+                    },
                 ],
             )
 
@@ -205,7 +250,7 @@ class DatabaseBuilderTests(unittest.TestCase):
             build_database(data_dir, db_path)
 
             with closing(sqlite3.connect(db_path)) as connection:
-                self.assertEqual(connection.execute("select count(*) from services").fetchone()[0], 2)
+                self.assertEqual(connection.execute("select count(*) from services").fetchone()[0], 3)
 
     def test_summarize_database_reports_table_counts(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -216,9 +261,9 @@ class DatabaseBuilderTests(unittest.TestCase):
 
             summary = summarize_database(db_path)
 
-            self.assertEqual(summary["services"], 2)
-            self.assertEqual(summary["endpoints"], 2)
-            self.assertEqual(summary["packet_services"], 3)
+            self.assertEqual(summary["services"], 3)
+            self.assertEqual(summary["endpoints"], 3)
+            self.assertEqual(summary["packet_services"], 4)
             self.assertEqual(summary["packet_namespaces"], 2)
             self.assertEqual(summary["transport_profiles"], 2)
             self.assertEqual(summary["campsite_apps"], 2)
@@ -227,6 +272,8 @@ class DatabaseBuilderTests(unittest.TestCase):
             self.assertEqual(summary["terminals"], 2)
             self.assertEqual(summary["carrier_circuits"], 2)
             self.assertEqual(summary["media_tapes"], 1)
+            self.assertEqual(summary["atv_stations"], 1)
+            self.assertEqual(summary["atv_teletext_pages"], 2)
 
 
 def write_seed_data(data_dir: Path) -> None:
@@ -256,6 +303,17 @@ def write_seed_data(data_dir: Path) -> None:
                     "channel_limit": 2,
                     "maintenance_mode": False,
                 },
+                {
+                    "service_id": "atv-teletext",
+                    "number": "8824",
+                    "name": "ATV Teletext",
+                    "route_class": "service",
+                    "owner": "MediaDesk/ATV",
+                    "description": "Amateur TV station Teletext index",
+                    "endpoints": ["ATV-TELETEXT-01"],
+                    "channel_limit": 1,
+                    "maintenance_mode": False,
+                },
             ]
         )
     )
@@ -264,6 +322,7 @@ def write_seed_data(data_dir: Path) -> None:
             [
                 {"endpoint_id": "OPERATOR-01", "kind": "operator-phone", "status": "planned"},
                 {"endpoint_id": "MODEM-01", "kind": "modem", "status": "planned"},
+                {"endpoint_id": "ATV-TELETEXT-01", "kind": "atv-teletext", "status": "planned"},
             ]
         )
     )
@@ -287,6 +346,12 @@ def write_seed_data(data_dir: Path) -> None:
                     "name": "NITEMARKT BOH WMS",
                     "access_class": "REGISTERED",
                     "description": "NiteMarkt warehouse management system",
+                },
+                {
+                    "address": "000040",
+                    "name": "ATV TELETEXT SERVICE",
+                    "access_class": "PUBLIC",
+                    "description": "Amateur TV station Teletext service",
                 }
             ]
         )
@@ -467,6 +532,39 @@ def write_seed_data(data_dir: Path) -> None:
                     "queue": "receipts",
                     "description": "BBS, PAD, modem, and Media Vault receipts",
                     "operator_visible": True,
+                }
+            ]
+        )
+    )
+    (data_dir / "atv-stations.sample.json").write_text(
+        json.dumps(
+            [
+                {
+                    "station_id": "OMNI-TV-1",
+                    "name": "OMNIDAT Amateur Television Service",
+                    "kind": "atv",
+                    "control_operator_role": "MediaDesk ATV Control Operator",
+                    "packet_address": "000040",
+                    "dial_service": "8824",
+                    "callsign": "TBD",
+                    "rf_mode": "ATV/DATV",
+                    "frequency": "TBD",
+                    "video_chain": ["media-vault", "teletext-inserter"],
+                    "teletext": {
+                        "service_name": "OMNITEXT",
+                        "system": "World System Teletext style",
+                        "encoding": "display-ascii-v1",
+                        "pages": {
+                            "100": {
+                                "title": "OMNIDAT TV INDEX",
+                                "lines": ["X.25 000040", "DIAL 8824"],
+                            },
+                            "199": {
+                                "title": "STATION ID",
+                                "lines": ["CALLSIGN TBD"],
+                            },
+                        },
+                    },
                 }
             ]
         )

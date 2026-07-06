@@ -23,6 +23,8 @@ TABLES = [
     "terminals",
     "carrier_circuits",
     "media_tapes",
+    "atv_stations",
+    "atv_teletext_pages",
     "print_queues",
 ]
 
@@ -170,6 +172,30 @@ def create_schema(connection: sqlite3.Connection) -> None:
           status text not null
         );
 
+        create table atv_stations (
+          station_id text primary key,
+          name text not null,
+          kind text not null,
+          control_operator_role text not null,
+          packet_address text not null references packet_services(address),
+          dial_service text not null references services(number),
+          callsign text,
+          rf_mode text,
+          frequency text,
+          service_name text not null,
+          teletext_system text,
+          teletext_encoding text,
+          video_chain_json text not null
+        );
+
+        create table atv_teletext_pages (
+          station_id text not null references atv_stations(station_id),
+          page_number text not null,
+          title text not null,
+          lines_json text not null,
+          primary key (station_id, page_number)
+        );
+
         create table print_queues (
           queue text primary key,
           description text,
@@ -191,6 +217,7 @@ def load_seed_data(connection: sqlite3.Connection, data_dir: Path) -> None:
     terminals = load_json(data_dir / "terminals.sample.json")
     carrier_circuits = load_json(data_dir / "carrier-circuits.sample.json")
     media_tapes = load_json(data_dir / "media-catalog.sample.json")
+    atv_stations = load_json(data_dir / "atv-stations.sample.json")
     print_queues = load_json(data_dir / "print-queues.json")
 
     for service in services:
@@ -404,6 +431,47 @@ def load_seed_data(connection: sqlite3.Connection, data_dir: Path) -> None:
                 tape["status"],
             ),
         )
+
+    for station in atv_stations:
+        teletext = station.get("teletext", {})
+        connection.execute(
+            """
+            insert into atv_stations (
+              station_id, name, kind, control_operator_role, packet_address,
+              dial_service, callsign, rf_mode, frequency, service_name,
+              teletext_system, teletext_encoding, video_chain_json
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                station["station_id"],
+                station["name"],
+                station["kind"],
+                station["control_operator_role"],
+                station["packet_address"],
+                station["dial_service"],
+                station.get("callsign"),
+                station.get("rf_mode"),
+                station.get("frequency"),
+                teletext["service_name"],
+                teletext.get("system"),
+                teletext.get("encoding"),
+                json.dumps(station.get("video_chain", []), sort_keys=True),
+            ),
+        )
+        for page_number, page in sorted(teletext.get("pages", {}).items()):
+            connection.execute(
+                """
+                insert into atv_teletext_pages (
+                  station_id, page_number, title, lines_json
+                ) values (?, ?, ?, ?)
+                """,
+                (
+                    station["station_id"],
+                    page_number,
+                    page["title"],
+                    json.dumps(page.get("lines", []), sort_keys=True),
+                ),
+            )
 
     for queue in print_queues:
         connection.execute(
