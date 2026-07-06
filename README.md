@@ -2,7 +2,7 @@
 
 **OMNIDAT** is a gmacko corporation.
 
-OMNIDAT is the ShadyTel-adjacent financial data services installation and packet clearing authority for ToorCamp 2028 (and rehearsal events). It combines a real PBX interconnect (Exchange 88), dialable business services, X.25-style packet networking, terminal services (Verifone, VT100, radio PAD), document services (fax + dot matrix), a robotic VHS media vault, operator/NOC tooling, and the private carrier network for Shadybucks commerce.
+OMNIDAT is the ShadyTel-adjacent financial data services installation and packet clearing authority for ToorCamp 2028 (flagship target) and potential earlier deployments including CC Camp 2027 and 2027 rehearsals. It combines a real PBX interconnect (Exchange 88), dialable business services, X.25-style packet networking, terminal services (Verifone, VT100, radio PAD), document services (fax + dot matrix), a robotic VHS media vault, operator/NOC tooling, and the private carrier network for Shadybucks commerce.
 
 In the fiction, OMNIDAT is a formal, slightly ominous 1980s financial data subsidiary that already has a file on you. In reality, it is a serious engineering project delivering credible retro packet-data infrastructure, printable evidence, deterministic service sessions, and field-operable systems that can run during an event without constant developer access.
 
@@ -100,6 +100,42 @@ Hard gaps still being closed (see [Roadmap](docs/roadmap.md) and [Hacker Camp Re
 - Browser XOT + additional transport adapters writing honest sessions + evidence.
 - Production authority model (field kit vs cloud) exercised in rehearsals.
 - Real hardware bench + full interconnect.
+
+## Planned Camp Deployments
+
+OMNIDAT is purpose-built as a retro packet-data carrier for large hacker camps, with explicit portability for smaller events, villages, night markets, and rehearsals. The durable model favors field authority during active events (see authority model in the [Roadmap](docs/roadmap.md)).
+
+### ToorCamp 2028 (Flagship Target)
+
+ToorCamp 2028 is the primary, flagship target event.
+
+Planned usage at ToorCamp 2028 includes:
+
+- Full physical installation, positioned as an opt-in village or official experimental camp data service (subject to leadership approval via the [Leadership Pilot Package](docs/leadership-pilot-package.md)).
+- ShadyTel interconnect for Exchange 88 (ISDN PRI T1 or equivalent SIP handoff) if available; otherwise local or simulated access paths.
+- Deployed hardware: PBX, X.25/PAD gateways and bridges (including telnet and radio/MeshCore/Meshtastic PADs), Verifone-style and serial terminals, dot-matrix printers, fax capability, and the robotic VHS Media Vault with analog TV + experimental ATV feed.
+- Live 24/7 operator/NOC desk running the gmacko V1 console (interactive VT100 service sessions, packet directory/calls, provisioning, evidence review, CRUD).
+- Packet Clearing and Merchant Carrier services for: campsite apps (open namespace + approved), Miliways food orders, Night Market / vendor back-office, Shadybucks ATM/POS/proxy circuits, activity passports, billing statements, and printed forms/receipts/ledgers.
+- Field kit authoritative operation during the active event window, with cloud sync and graceful failover.
+- On-site generation of human-visible evidence artifacts (directories, session receipts, settlement reports, incident logs) via the Python tooling and document services.
+- Supporting timeline: 2027 rehearsals and pilot events (including targeted Rehearsal 3 around 2027 Q2) to bench hardware, prove procedures, and conduct human rehearsals before the full 2028 buildout (see [Hardware BOM](docs/hardware-bom.md), [budget-sourcing](docs/budget-sourcing.md), and H6–H7 in the roadmap).
+
+The goal is a credible, self-operable packet-era financial data service that feels native to the camp environment.
+
+### CC Camp 2027 (Potential Target)
+
+Chaos Communication Camp (also known as CCCamp or CC Camp) 2027 is a strong candidate for a major deployment or large-scale rehearsal.
+
+- The Chaos Communication Camp is the international, five-day open-air hacker event organized by the Chaos Computer Club, typically held every four years in summer (previous: 2023; next expected ~late July or August 2027, location TBD in Europe).
+- A 2027 deployment would serve as a high-visibility European proving ground and major rehearsal ahead of ToorCamp 2028.
+- It exercises the multi-event network vision (H8 roadmap), historical record keeping, recurring deployments, and partner nodes.
+- Validates the system under different scale, logistics, power, interconnect (local telco or camp-provided), and participant demographics assumptions.
+- Opportunity for broader opt-in services across a very large attendee base, plus cross-pollination with European hacker culture and villages.
+- Can run in "full" or "field-office lite" mode depending on approvals and hardware readiness in 2027.
+
+Even without a full interconnect, OMNIDAT is designed to deliver value using event LAN, radio PAD transports, hosted nodes, or POTS. Smaller 2027 pilots and the 2027 rehearsal circuit feed directly into ToorCamp 2028 readiness.
+
+See [Roadmap](docs/roadmap.md) (H6 Rehearsals and Pilot Events, H7 ToorCamp 2028 Buildout, H8 Multi-Event Network) and related plans in `docs/plans/`.
 
 ## North Star & Operating Principles
 
