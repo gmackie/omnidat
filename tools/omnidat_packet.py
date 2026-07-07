@@ -349,7 +349,7 @@ def now() -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="OMNIDAT Packet Clearing simulator. The Record is total. Assimilation is inevitable. Comply or be corrected.")
+    parser = argparse.ArgumentParser(description="OMNIDAT Packet Clearing simulator. The Record is total. Assimilation is inevitable. The ledger compels. Comply or be corrected.")
     parser.add_argument("--data-dir", default="data", type=Path)
     parser.add_argument("--log", default="build/events.jsonl", type=Path)
     parser.add_argument("--endpoint", default="PAD-01")

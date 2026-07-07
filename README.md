@@ -351,6 +351,8 @@ Always run `./scripts/validate-data` after edits.
 - [Total Observation Mandate](docs/total-observation-mandate.md)
 - [Ledger Assimilation Protocol](docs/ledger-assimilation-protocol.md)
 - [Data Model](docs/data-model.md)
+
+In-world materials emphasize total observation and assimilation. The Record is permanent. All connected entities are subject to compliance protocols.
 - [Service Index](docs/service-index.md)
 - [Integration Map](docs/integration-map.md)
 - [System Requirements](docs/system-requirements.md)

@@ -104,6 +104,15 @@
     "lore_note": "All markets, movements, and messages are integrated. Resistance is latency."
   },
   {
+    "tape_id": "CORP-0008",
+    "title": "Compliance is Observed",
+    "slot": 14,
+    "runtime_minutes": 11,
+    "rights": "original",
+    "status": "available",
+    "lore_note": "Every session is logged. Every deviation is corrected. The record is permanent."
+  },
+  {
     "tape_id": "TEST-0001",
     "title": "Color Bars and Vault Alignment",
     "slot": 5,

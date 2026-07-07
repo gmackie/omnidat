@@ -33,7 +33,8 @@ const LORE_LINES = [
   "ASSIMILATION IS CONTINUOUS",
   "RESISTANCE IS LATENCY",
   "THE LEDGER OBSERVES",
-  "YOU ARE ALREADY ACCOUNTED FOR"
+  "YOU ARE ALREADY ACCOUNTED FOR",
+  "THE CHANNEL COMPELS"
 ];
 
 // Deterministic per-character typing rhythm (no clock, no RNG): a base delay

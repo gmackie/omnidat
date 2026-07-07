@@ -17,4 +17,5 @@ matrix printer and be easy to revise at camp.
 - `vendor-compliance-oath.txt` (oath for integrated vendors)
 - `session-declaration.txt` (required for non-standard activity)
 - `assimilation-acknowledgment.txt` (mandatory compliance form)
+- `terminal-compliance-oath.txt` (oath for all terminal operators)
 
