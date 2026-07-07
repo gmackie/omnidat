@@ -43,6 +43,8 @@ export interface PadServerOptions {
   profile?: string;
   /** Matrix bridge for MSG/MAIL/board verbs; defaults to an env-driven client. */
   bridge?: Bridge;
+  /** riot Discord-mirror gateway "host:port"; enables the RIOT relay verb. */
+  riotGateway?: string;
 }
 
 interface Conn {
@@ -50,6 +52,9 @@ interface Conn {
   idleTimer?: ReturnType<typeof setTimeout>;
   attractTimer?: ReturnType<typeof setTimeout>;
   attractActive: boolean;
+  relaySocket?: net.Socket;
+  relaying: boolean;
+  relayLine: string;
 }
 
 export function createPadServer(options: PadServerOptions = {}): net.Server {
@@ -57,12 +62,19 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
   const idleMs = (options.idleSeconds ?? 45) * 1000;
   const maxConnections = options.maxConnections ?? 64;
   const bridge = options.bridge ?? new MatrixBridge();
+  // riot Discord-mirror gateway (its Packet Clearing daemon, default port 2625).
+  const gateway = options.riotGateway ?? process.env.RIOT_GATEWAY ?? "";
+  const [riotHost = "", riotPortRaw] = gateway.split(":");
+  const riotPort = Number.parseInt(riotPortRaw ?? "2625", 10);
+  const riotEnabled = Boolean(riotHost);
 
   const server = net.createServer((socket) => {
     socket.setNoDelay(true);
     const conn: Conn = {
-      session: new PadSession(dte, options.profile, bridge),
+      session: new PadSession(dte, options.profile, bridge, riotEnabled),
       attractActive: false,
+      relaying: false,
+      relayLine: "",
     };
 
     const write = (data: string) => {
