@@ -33,6 +33,7 @@ export function OmnidatXotTerminal() {
           ...prev,
           ...result.transcript.split("\n"),
           `RECEIPT: ${result.receipt.title}`,
+          ...(result.receipt.body ? result.receipt.body.split("\n").slice(0, 4) : []),
         ]);
         setStatus(result.clearCode.cause === 0 ? "connected" : "cleared");
         // Auto render camp doc for camp addresses (H3/H5-H8)

@@ -61,6 +61,7 @@ Goal: prove the system with humans before a major camp depends on it.
   sim; produce a post-event evidence report.
 - [ ] **CC Camp 2027 rehearsal target:** lighter portable kit (meshtastic focus), no PRI, validate H6/H8 multi-event for European camp.
 - [ ] Add CC Camp 2027 event record, accounts, apps to seed data for sims and demos.
+- [ ] Run weekend-sim with CC Camp 2027 data, produce evidence for rehearsals.
 - [ ] **Pilot event:** opt-in, published hours, clear signage, no emergency
   dependency, no redeemable money unless separately approved; daily summary to
   the event liaison.
@@ -117,7 +118,7 @@ Exit gate: a new event can be created from a template; historical records
 browsable without exposing private participant data; partner nodes provisioned
 with documented contracts; post-event reports repeatable.
 
-**Camp Deployments note (see root README):** ToorCamp 2028 is flagship (full ShadyTel interconnect preferred, physical robot, NOC desk). CC Camp 2027 is potential large rehearsal / European validation for H6/H8. Portable Field Office mode works for both without full PRI. Hardware kit / telnet PAD / radio adapters in active BOM updates.
+**Camp Deployments note (see root README):** ToorCamp 2028 is flagship (full ShadyTel interconnect preferred, physical robot, NOC desk). CC Camp 2027 is potential large rehearsal / European validation for H6/H8. Portable Field Office mode works for both without full PRI. Hardware kit / telnet PAD / radio adapters in active BOM updates. CC Camp 2027 samples added to accounts, apps; plans updated.
 
 ## Cross-Cutting Still Open (decisions, not code)
 

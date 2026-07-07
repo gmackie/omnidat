@@ -283,8 +283,9 @@ export function OmnidatOperatorCrud() {
             <span className="text-[10px] text-[#9a8a6e]"> (demo list via NOC/ops)</span>
           </div>
           <ul className="mt-1 text-[10px] text-[#9a8a6e]">
-            <li>INC-001 - open - PAD network issue</li>
+            <li>INC-001 - open - PAD network issue (ToorCamp)</li>
             <li>INC-042 - resolved - ToorCamp prep</li>
+            <li>INC-CC27 - open - CC Camp 2027 village setup</li>
           </ul>
         </div>
 
@@ -311,7 +312,7 @@ export function OmnidatOperatorCrud() {
         <div>
           <h3 className="font-semibold text-sm">Merchant (H4 demo)</h3>
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
-          <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "CC-CAMP-27", batchId: "CC-001", transactions: [{kind:"sale", amount: 19, reference: "EU-1"}]})}>CC Camp Demo</button>
+          <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "CC-CAMP-27", batchId: "CC-001", transactions: [{kind:"sale", amount: 19, reference: "EU-1"}, {kind:"sale", amount: 25, reference: "EU-2"}]})}>CC Camp Demo</button>
           {batchReport && <pre className="text-[8px] mt-1 overflow-auto max-h-20">{batchReport}</pre>}
         </div>
       </div>

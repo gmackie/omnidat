@@ -54,6 +54,7 @@ export const TRANSPORT_POLICIES: Record<string, TransportPolicy> = {
   },
   // CC Camp 2027 / ToorCamp 2028: meshtastic guest for European rehearsal, meshcore for managed
   // POTS and telnet for full ToorCamp interconnect and field terminals
+  // For CC Camp 2027: emphasize meshtastic/meshcore guest for European camp scale
 };
 
 export function transportPolicy(transport: string): TransportPolicy | undefined {
