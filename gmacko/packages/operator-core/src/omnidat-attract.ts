@@ -24,6 +24,9 @@ export interface AttractFrame {
 
 const SPINNER = ["|", "/", "-", "\\"];
 
+// LARP corporate slogan for immersion
+const LORE_SLOGAN = "YOUR BUSINESS IS ALREADY IN OUR SYSTEM";
+
 // Deterministic per-character typing rhythm (no clock, no RNG): a base delay
 // plus a small per-glyph jitter derived from the character code, with a longer
 // beat after spaces. Reads like someone typing on a slow async line.
@@ -102,6 +105,12 @@ function bootScene(frames: AttractFrame[]): void {
 
 function titleScene(frames: AttractFrame[]): void {
   frames.push({ ms: 400, bytes: titleChrome().toString() });
+  frames.push({
+    ms: 800,
+    bytes: new Vt100Page()
+      .at(14, 10, sgr(LORE_SLOGAN, 1))
+      .toString(),
+  });
   for (let i = 0; i < 6; i += 1) {
     const on = i % 2 === 0;
     frames.push({

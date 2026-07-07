@@ -349,7 +349,7 @@ def now() -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="OMNIDAT Packet Clearing simulator.")
+    parser = argparse.ArgumentParser(description="OMNIDAT Packet Clearing simulator. Obey X.25 etiquette - be brief, use proper CLR codes.")
     parser.add_argument("--data-dir", default="data", type=Path)
     parser.add_argument("--log", default="build/events.jsonl", type=Path)
     parser.add_argument("--endpoint", default="PAD-01")

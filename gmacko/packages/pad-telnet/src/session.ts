@@ -61,6 +61,8 @@ export interface FeedResult {
   close?: boolean;
   /** Start the attract screensaver (ATTRACT verb or idle) — server paces it. */
   startAttract?: boolean;
+  /** Relay this session into the riot Discord-mirror gateway (server bridges TCP). */
+  startRelay?: boolean;
 }
 
 type Mode = "pad" | "session" | "board";
@@ -79,6 +81,7 @@ export class PadSession {
     private readonly dte = "311088000001",
     profile: string = "vt100",
     private readonly bridge?: Bridge,
+    private readonly riotEnabled = false,
   ) {
     this.profile = resolveProfile(profile);
   }
@@ -263,6 +266,20 @@ export class PadSession {
     }
     if (verb === "HELP" || verb === "?") {
       return { output: this.ln(`${PAD_HELP}${CRLF}${omnidatPrompt(this.dte)}`) };
+    }
+    // RIOT — relay into the riot Discord-mirror gateway (its own daemon). The
+    // server bridges the TCP session; riot's verbs (DIRECTORY/CALL/CHANNELS/READ)
+    // take over until QUIT.
+    if (verb === "RIOT") {
+      if (!this.riotEnabled) {
+        return {
+          output: this.ln(`RIOT GATEWAY NOT CONFIGURED${CRLF}${omnidatPrompt(this.dte)}`),
+        };
+      }
+      return {
+        output: this.ln(`CONNECTING TO RIOT DISCORD GATEWAY — QUIT TO RETURN${CRLF}`),
+        startRelay: true,
+      };
     }
     // MSG <to> <text...> — store-and-forward subscriber message via the bridge.
     if (verb === "MSG") {

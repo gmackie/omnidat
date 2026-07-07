@@ -63,6 +63,13 @@ describe("OMNIDAT printable documents", () => {
     expect(camp.title).toBe("CAMP DEPLOYMENT SUMMARY");
     expect(camp.body).toContain("TOORCAMP-2028");
     expect(camp.body).toContain("See README");
+
+    const history = buildOmnidatDocument("corporate-history", {
+      event: "TOORCAMP-2028",
+    });
+    expect(history.title).toBe("THE OMNIDAT STORY");
+    expect(history.body).toContain("FOUNDED 1978");
+    expect(history.body).toContain("CC CAMP 2027");
   });
 
   it("falls back gracefully for missing fields", () => {

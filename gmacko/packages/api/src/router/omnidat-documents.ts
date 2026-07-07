@@ -12,7 +12,8 @@ export type OmnidatDocumentKind =
   | "provisioning-transcript"
   | "daily-noc-summary"
   | "operator-license"
-  | "camp-deployment-summary";
+  | "camp-deployment-summary"
+  | "corporate-history";
 
 export type OmnidatDocument = { kind: OmnidatDocumentKind; title: string; body: string };
 
@@ -98,6 +99,18 @@ export function buildOmnidatDocument(
         `PARTICIPANTS: ${field("participants", "500")}`,
         "ETIQUETTE: Be brief, use honest CLR, respect 020xxx. See packet-clearing.md",
         "See README Planned Camp Deployments for ToorCamp 2028 / CC Camp 2027 details.",
+      ]);
+    case "corporate-history":
+      return doc("corporate-history", "THE OMNIDAT STORY", [
+        "FOUNDED 1978 BY EX-SHADYTEL ENGINEERS",
+        "FIRST EXCHANGE 88 DEPLOYED 1982",
+        "ACQUIRED BY GMACKO 1985",
+        "PACKET CLEARING AUTHORITY SINCE 1984",
+        "CC CAMP 2027: LIGHTER EUROPEAN KIT",
+        "TOORCAMP 2028: FULL SHADYTEL INTERCONNECT",
+        "",
+        "YOUR BUSINESS IS ALREADY IN OUR SYSTEM.",
+        "FINANCIAL DATA SERVICES - EXCHANGE 88"
       ]);
   }
 }

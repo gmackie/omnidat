@@ -43,6 +43,14 @@ reject document/media requests, and keep the experience moving.
 - Approves content on the amateur RF path.
 - Handles station identification and shutdown.
 
+## Training Materials
+
+All operators must review:
+- `docs/identity.md`
+- `docs/corporate-history.md`
+- `docs/packet-clearing.md#x25-network-etiquette`
+- Operator licensing card (printable via renderDocument)
+
 ## Operator Console
 
 The console should show:

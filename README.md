@@ -341,6 +341,7 @@ Always run `./scripts/validate-data` after edits.
 
 - [Architecture](docs/architecture.md)
 - [Identity](docs/identity.md)
+- [Corporate History (LARP Lore)](docs/corporate-history.md)
 - [Data Model](docs/data-model.md)
 - [Service Index](docs/service-index.md)
 - [Integration Map](docs/integration-map.md)

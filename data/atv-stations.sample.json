@@ -42,6 +42,16 @@
             "SEE X.25 000001 FOR DIRECTORY"
           ]
         },
+        "110": {
+          "title": "CORPORATE NEWS",
+          "lines": [
+            "OMNIDAT EXPANDS TO CC CAMP 2027",
+            "LIGHTER KIT FOR EUROPEAN REHEARSAL",
+            "NEW ETIQUETTE TRAINING MANDATORY",
+            "X.25 NETWORK SATURATION DRILLS",
+            "YOUR BUSINESS IS ALREADY IN OUR SYSTEM"
+          ]
+        },
         "102": {
           "title": "NOW PLAYING",
           "lines": [
@@ -58,7 +68,8 @@
             "CALLSIGN: TBD",
             "CONTROL OPERATOR REQUIRED",
             "RF ENABLE REQUIRES MANUAL SWITCH",
-            "SHUTDOWN: MEDIA DESK OR NOC"
+            "SHUTDOWN: MEDIA DESK OR NOC",
+            "OMNIDAT - A GMACKO CORPORATION"
           ]
         }
       }

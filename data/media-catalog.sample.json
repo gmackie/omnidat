@@ -32,6 +32,33 @@
     "status": "available"
   },
   {
+    "tape_id": "CORP-0001",
+    "title": "The OMNIDAT Story: 1978-1988",
+    "slot": 6,
+    "runtime_minutes": 28,
+    "rights": "original",
+    "status": "available",
+    "lore_note": "Founding by ex-ShadyTel engineers, first Exchange 88 deployment."
+  },
+  {
+    "tape_id": "TRAIN-0002",
+    "title": "X.25 Network Etiquette and Saturation Avoidance",
+    "slot": 7,
+    "runtime_minutes": 18,
+    "rights": "licensed",
+    "status": "available",
+    "lore_note": "Mandatory viewing for all terminal operators. Covers brevity, honest CLR codes, namespace respect."
+  },
+  {
+    "tape_id": "CORP-0002",
+    "title": "OMNIDAT at CC Camp 2027: European Expansion",
+    "slot": 8,
+    "runtime_minutes": 15,
+    "rights": "original",
+    "status": "available",
+    "lore_note": "Internal briefing on lighter kit deployment and multi-event authority model."
+  },
+  {
     "tape_id": "TEST-0001",
     "title": "Color Bars and Vault Alignment",
     "slot": 5,

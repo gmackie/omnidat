@@ -1265,6 +1265,7 @@ export const omnidatRouter = {
           "daily-noc-summary",
           "operator-license",
           "camp-deployment-summary",
+          "corporate-history",
         ]),
         data: z.record(z.string(), z.unknown()),
       }),

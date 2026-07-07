@@ -26,6 +26,11 @@ map onto them.
 
 ## Training (per role)
 
+Trainees must also review core LARP materials:
+- `docs/identity.md` (voice, lockup, taglines)
+- `docs/corporate-history.md` (founding, milestones, values)
+- `docs/packet-clearing.md#x25-network-etiquette` (new for 2027/2028)
+
 Each trainee reads and can explain:
 
 - **All roles:** the authority model (field kit authoritative during an event,
