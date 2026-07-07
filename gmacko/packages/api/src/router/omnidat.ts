@@ -669,6 +669,8 @@ export const omnidatRouter = {
       );
       // Enforce the transport's call-user-data budget before anything else; an
       // over-budget or unknown-transport call clears with an honest cause.
+      // Load testing (high load_factor in weekend-sim) can trigger congestion (NC 5/71)
+      // or budget violations (cause 19) for saturation + etiquette validation.
       const userDataBytes = Buffer.byteLength(
         `${input.verb} ${input.callUserData ?? ""}`.trim(),
         "utf8",

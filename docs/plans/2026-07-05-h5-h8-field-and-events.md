@@ -48,7 +48,9 @@ Goal: prove the system with humans before a major camp depends on it.
 
 - [ ] **Rehearsal 1 (synthetic):** run `./scripts/weekend-sim` on the sim field
   kit; compare dashboard counts to exported ledgers; confirm the journal
-  reconciles (already automated).
+  reconciles (already automated). Use --load-factor >1.0 and inspect congested_sessions
+  for saturation testing (see tools/omnidat_weekend.py and packet-clearing.md etiquette).
+  Radio PAD and terminal sessions should surface congestion under load.
 - [ ] **Rehearsal 2 (operator tabletop, 3-5 ops):** create event → onboard
   campsite → configure services/apps → allocate + verify X.121 → run terminal
   calls → open/resolve incident → export daily summary → run the authority

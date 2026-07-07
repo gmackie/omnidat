@@ -54,6 +54,29 @@ function clearedForStatus(status: number, detail = ""): BridgeCleared {
   return new BridgeCleared("RPE", 17, 0, detail);
 }
 
+export interface BoardDef {
+  address: string;
+  boardId: string;
+  name: string;
+  readClass: string;
+  postClass: string;
+}
+export interface MailDef {
+  address: string;
+  name: string;
+}
+export interface Catalog {
+  boards: BoardDef[];
+  mail: MailDef | null;
+}
+export interface DeliveryStatus {
+  rcpt: string;
+  to: string;
+  delivered: boolean;
+  read: boolean;
+  readAt?: string;
+}
+
 export interface Bridge {
   sendDm(from: string, to: string, body: string): Promise<BridgeReceipt>;
   mailbox(addr: string): Promise<MailItem[]>;
@@ -64,6 +87,8 @@ export interface Bridge {
     body: string,
     opts?: { name?: string; thread?: string; ctx?: Record<string, unknown> },
   ): Promise<BridgeReceipt>;
+  boards(): Promise<Catalog>;
+  receipt(rcpt: string): Promise<DeliveryStatus>;
 }
 
 export interface MatrixBridgeOptions {
@@ -122,6 +147,12 @@ export class MatrixBridge implements Bridge {
     if (opts.name !== undefined) payload.name = opts.name;
     if (opts.thread !== undefined) payload.thread = opts.thread;
     return this.request("POST", `/board/${encodeURIComponent(boardId)}/post`, payload);
+  }
+  boards(): Promise<Catalog> {
+    return this.request<Catalog>("GET", "/boards");
+  }
+  receipt(rcpt: string): Promise<DeliveryStatus> {
+    return this.request<DeliveryStatus>("GET", `/dm/receipt/${encodeURIComponent(rcpt)}`);
   }
 
   private async request<T = BridgeReceipt>(

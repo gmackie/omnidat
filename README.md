@@ -199,10 +199,12 @@ Validate seeds, build the local DB, and render artifacts:
 ./scripts/status
 ```
 
-Run the big weekend simulation (produces reports, ledgers, statements, events):
+Run the big weekend simulation (produces reports, ledgers, statements, events). Supports load/saturation testing:
 
 ```sh
 ./scripts/weekend-sim
+OMNIDAT_WEEKEND_LOAD_FACTOR=2.5 ./scripts/weekend-sim  # triggers congestion in terminals/radio
+# See packet-clearing.md for X.25 etiquette (anti-saturation) and sim metrics (congested_sessions).
 ```
 
 Other simulators:

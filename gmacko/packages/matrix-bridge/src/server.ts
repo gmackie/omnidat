@@ -8,6 +8,7 @@
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
 import type { Server } from "node:http";
 
+import { type Catalog, loadCatalog } from "./catalog.js";
 import { BridgeStore, type StoreOptions } from "./store.js";
 
 export interface BridgeServerOptions extends StoreOptions {
@@ -15,6 +16,9 @@ export interface BridgeServerOptions extends StoreOptions {
   secret?: string;
   /** Inject a store (tests); otherwise one is built from StoreOptions. */
   store?: BridgeStore;
+  /** Service catalog path (packet-services.json); or inject a catalog directly. */
+  catalogPath?: string;
+  catalog?: Catalog;
 }
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -35,6 +39,8 @@ export function createBridgeServer(options: BridgeServerOptions = {}): Server {
   const secret = options.secret ?? process.env.OMNIDAT_BRIDGE_SECRET ?? "";
   const store =
     options.store ?? new BridgeStore({ path: options.path, now: options.now });
+  const catalog =
+    options.catalog ?? loadCatalog(options.catalogPath ?? process.env.BRIDGE_CATALOG);
 
   return createServer((req, res) => {
     void handle(req, res).catch((error) => {
@@ -59,6 +65,12 @@ export function createBridgeServer(options: BridgeServerOptions = {}): Server {
       return;
     }
 
+    // Service catalog — the single source of truth for the PADs' boards/mail.
+    if (path === "/boards" && method === "GET") {
+      send(res, 200, catalog);
+      return;
+    }
+
     // --- DMs ---
     if (path === "/dm/send" && method === "POST") {
       const body = await readJson(req);
@@ -75,6 +87,17 @@ export function createBridgeServer(options: BridgeServerOptions = {}): Server {
     const mailbox = path.match(/^\/dm\/mailbox\/(.+)$/u);
     if (mailbox && method === "GET") {
       send(res, 200, { items: store.mailbox(decodeURIComponent(mailbox[1]!)) });
+      return;
+    }
+    // Telegram delivery status (030031) — by receipt.
+    const receipt = path.match(/^\/dm\/receipt\/(.+)$/u);
+    if (receipt && method === "GET") {
+      const status = store.receipt(decodeURIComponent(receipt[1]!));
+      if (!status) {
+        send(res, 404, { error: "no such receipt" });
+        return;
+      }
+      send(res, 200, status);
       return;
     }
     if (path === "/dm/read" && method === "POST") {

@@ -173,9 +173,10 @@ usability at camp scale.
 
 ### Core Principles
 - **Be brief.** X.25 sessions are metered resources. Keep calls short; use
-  `CLR` promptly when done.
+  `CLR` promptly when done. High load_factor in simulations (e.g. weekend-sim --load-factor 2.5) models saturation; etiquette prevents it.
 - **Use honest clear codes.** Always clear with the correct cause/diagnostic
   (see [Protocol Fidelity](protocol-fidelity.md)). Never leave sessions hanging.
+  Under saturation, expect NC 5/71 (congestion) on overloaded transports (e.g. meshtastic 32B budget).
 - **Respect namespaces.** 
   - `000xxx`–`001xxx`: core and trusted services — treat with care.
   - `020xxx`: open campsite apps — self-service, but still follow verbs and
@@ -186,7 +187,9 @@ usability at camp scale.
   clear `CLR NP C:13 D:67`.
 - **No flooding or abuse.** Rapid repeated `CALL`s, long-running idle
   sessions, or attempts to bypass provisioning will be met with `CLR NA
-  C:11 D:70` (access barred) and operator attention.
+  C:11 D:70` (access barred) and operator attention. Simulations with
+  high load_factor produce "congested" sessions (NC 5/71) to model saturation;
+  etiquette (brief calls, proper CLR) is the primary defense.
 - **Operator assistance is a privilege.** Use `8800` TrustDesk or operator
   messages only when directory lookup or self-service has failed. Provide
   clear context (your X.121, what you tried).

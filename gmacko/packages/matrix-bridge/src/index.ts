@@ -13,8 +13,9 @@ const port = Number.parseInt(process.env.PORT ?? "8090", 10);
 const host = process.env.HOST ?? "127.0.0.1";
 const secret = process.env.OMNIDAT_BRIDGE_SECRET ?? "";
 const path = process.env.BRIDGE_STORE || undefined;
+const catalogPath = process.env.BRIDGE_CATALOG || undefined;
 
-const server = createBridgeServer({ secret, path });
+const server = createBridgeServer({ secret, path, catalogPath });
 
 server.on("error", (err) => {
   console.error(`[omnidat-bridge] server error: ${err.message}`);

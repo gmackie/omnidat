@@ -135,5 +135,27 @@
       "read_class": "PUBLIC",
       "post_class": "PUBLIC"
     }
+  },
+  {
+    "address": "030040",
+    "name": "NEED/HAVE BOARD",
+    "access_class": "PUBLIC",
+    "description": "Camp parts & supply need/have/trade board",
+    "board": {
+      "board_id": "NEEDHAVE",
+      "read_class": "PUBLIC",
+      "post_class": "PUBLIC"
+    }
+  },
+  {
+    "address": "020010",
+    "name": "CAMP STATUS BOARD",
+    "access_class": "PUBLIC",
+    "description": "Open/closed/need-help/need-supplies camp status posts",
+    "board": {
+      "board_id": "STATUS",
+      "read_class": "PUBLIC",
+      "post_class": "PUBLIC"
+    }
   }
 ]

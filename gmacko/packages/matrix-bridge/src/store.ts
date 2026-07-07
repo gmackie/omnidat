@@ -26,6 +26,13 @@ export interface BoardReceipt {
   no: number;
   eventId: string;
 }
+export interface DeliveryStatus {
+  rcpt: string;
+  to: string;
+  delivered: boolean;
+  read: boolean;
+  readAt?: string; // terse HH:MM when read
+}
 export interface BoardItem {
   no: number;
   poster: string;
@@ -41,6 +48,8 @@ interface StoredDm {
   at: number; // epoch ms
   body: string;
   read: boolean;
+  readAt?: number;
+  rcpt: string;
   eventId: string;
 }
 interface StoredPost {
@@ -55,8 +64,17 @@ interface StoredPost {
 
 // Append-only journal ops.
 type Op =
-  | { t: "dm"; to: string; from: string; no: number; at: number; body: string; eventId: string }
-  | { t: "read"; addr: string }
+  | {
+      t: "dm";
+      to: string;
+      from: string;
+      no: number;
+      at: number;
+      body: string;
+      rcpt: string;
+      eventId: string;
+    }
+  | { t: "read"; addr: string; at: number }
   | {
       t: "post";
       board: string;
@@ -84,6 +102,7 @@ function hhmm(ms: number): string {
 export class BridgeStore {
   private mail = new Map<string, StoredDm[]>();
   private boards = new Map<string, StoredPost[]>();
+  private byRcpt = new Map<string, StoredDm>();
   private dmSeq = new Map<string, number>();
   private boardSeq = new Map<string, number>();
   private rcptSeq = 0;
@@ -110,11 +129,27 @@ export class BridgeStore {
   private apply(op: Op): void {
     if (op.t === "dm") {
       const box = this.mail.get(op.to) ?? [];
-      box.push({ no: op.no, from: op.from, to: op.to, at: op.at, body: op.body, read: false, eventId: op.eventId });
+      const msg: StoredDm = {
+        no: op.no,
+        from: op.from,
+        to: op.to,
+        at: op.at,
+        body: op.body,
+        read: false,
+        rcpt: op.rcpt,
+        eventId: op.eventId,
+      };
+      box.push(msg);
       this.mail.set(op.to, box);
+      this.byRcpt.set(op.rcpt, msg);
       this.dmSeq.set(op.to, Math.max(this.dmSeq.get(op.to) ?? 0, op.no));
     } else if (op.t === "read") {
-      for (const m of this.mail.get(op.addr) ?? []) m.read = true;
+      for (const m of this.mail.get(op.addr) ?? []) {
+        if (!m.read) {
+          m.read = true;
+          m.readAt = op.at;
+        }
+      }
     } else {
       const posts = this.boards.get(op.board) ?? [];
       posts.push({
@@ -158,7 +193,7 @@ export class BridgeStore {
     const eventId = this.nextEventId();
     this.rcptSeq += 1;
     const rcpt = `MSG-${String(this.rcptSeq).padStart(5, "0")}`;
-    const op: Op = { t: "dm", to, from, no, at, body, eventId };
+    const op: Op = { t: "dm", to, from, no, at, body, rcpt, eventId };
     this.apply(op);
     this.append(op);
     return { rcpt, eventId };
@@ -171,9 +206,22 @@ export class BridgeStore {
   }
 
   markRead(addr: string): void {
-    const op: Op = { t: "read", addr };
+    const op: Op = { t: "read", addr, at: this.now() };
     this.apply(op);
     this.append(op);
+  }
+
+  /** Delivery status of a sent telegram by its receipt (030031). */
+  receipt(rcpt: string): DeliveryStatus | undefined {
+    const m = this.byRcpt.get(rcpt);
+    if (!m) return undefined;
+    return {
+      rcpt,
+      to: m.to,
+      delivered: true,
+      read: m.read,
+      ...(m.readAt !== undefined ? { readAt: hhmm(m.readAt) } : {}),
+    };
   }
 
   // ---- Boards ----------------------------------------------------------

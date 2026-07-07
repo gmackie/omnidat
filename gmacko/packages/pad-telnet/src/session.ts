@@ -38,19 +38,19 @@ import {
   omnidatPrompt,
 } from "@omnidat/operator-core/vt100";
 
-import { type Bridge, BridgeCleared } from "./bridge.js";
+import { type BoardDef, type Bridge, BridgeCleared, type Catalog } from "./bridge.js";
 import {
-  type BoardService,
-  bridgeServiceAt,
+  resolveCatalog,
   runBoardPost,
   runBoardRead,
   runMail,
   runMsg,
+  runSent,
 } from "./messaging.js";
 
 const CRLF = "\r\n";
 const PAD_HELP =
-  "VERBS: DIR [NS], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCT>, MSG <TO> <TEXT>, MAIL, ATTRACT, TERM <VT100|ADM3A|TTY33>, HELP, CLEAR";
+  "VERBS: DIR [NS], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCT>, MSG <TO> <TEXT>, MAIL, SENT <RCPT>, ATTRACT, TERM <VT100|ADM3A|TTY33>, HELP, CLEAR";
 const BOARD_HELP = "BOARD VERBS: READ [AFTER], POST <TEXT>, TERM <ID>, CLEAR";
 
 export interface FeedResult {
@@ -68,7 +68,8 @@ export class PadSession {
   private mode: Mode = "pad";
   private line = "";
   private sessionX121 = "";
-  private board: BoardService | null = null;
+  private board: BoardDef | null = null;
+  private catalog?: Catalog;
   private profile: TerminalProfileId;
   // Telnet IAC parser state.
   private iac: "none" | "cmd" | "opt" | "sub" = "none";
@@ -229,6 +230,18 @@ export class PadSession {
     }
   }
 
+  /** Lazily fetch and cache the board/mail catalog from the bridge. */
+  private async ensureCatalog(): Promise<Catalog | undefined> {
+    if (this.catalog) return this.catalog;
+    if (!this.bridge) return undefined;
+    try {
+      this.catalog = await this.bridge.boards();
+      return this.catalog;
+    } catch {
+      return undefined;
+    }
+  }
+
   private async runPad(cmd: string): Promise<FeedResult> {
     if (!cmd) return { output: this.ln(omnidatPrompt(this.dte)) };
     const [verbRaw = "", ...args] = cmd.split(/\s+/);
@@ -265,12 +278,23 @@ export class PadSession {
       const line = await this.bridged((b) => runMail(b, this.dte));
       return { output: this.ln(`${line}${CRLF}${omnidatPrompt(this.dte)}`) };
     }
+    // SENT <rcpt> — telegram delivery status (030031).
+    if (verb === "SENT") {
+      const rcpt = args[0];
+      if (!rcpt) {
+        return { output: this.ln(`USAGE: SENT <RCPT>${CRLF}${omnidatPrompt(this.dte)}`) };
+      }
+      const line = await this.bridged((b) => runSent(b, rcpt));
+      return { output: this.ln(`${line}${CRLF}${omnidatPrompt(this.dte)}`) };
+    }
     if (verb === "CALL" && args[0]) {
-      const svc = bridgeServiceAt(args[0]);
+      const catalog = await this.ensureCatalog();
+      const svc = catalog ? resolveCatalog(catalog, args[0]) : undefined;
       if (svc?.kind === "board") {
         this.mode = "board";
-        this.board = svc;
-        const page = await this.bridged((b) => runBoardRead(b, svc));
+        this.board = svc.board;
+        const board = svc.board;
+        const page = await this.bridged((b) => runBoardRead(b, board));
         return { output: this.ln(`${page}${CRLF}${BOARD_HELP}${CRLF}`) + this.prompt() };
       }
       if (svc?.kind === "mail") {

@@ -44,6 +44,7 @@ def run_weekend_simulation(
     runtime_dir: Path = Path("build/weekend-sim"),
     data_dir: Path = Path("data"),
     camper_count: int = 1000,
+    load_factor: float = 1.0,
     source_id: str = "sim-field-kit",
     event_id: str = "weekend-sim",
     sync_target: str | None = None,
@@ -91,7 +92,7 @@ def run_weekend_simulation(
     night_market = run_night_market(camper_count, campers, merchant_balances, ledger, events)
     miliways = run_miliways_meals(queue_dir, campers, merchant_balances, events)
     forms = file_weekend_forms(events)
-    terminals = run_terminal_sessions(events)
+    terminals = run_terminal_sessions(events, camper_count=camper_count, load_factor=load_factor)
     network_fees = assess_network_fees(fees, night_market, terminals, forms, provisioning)
     statement_count = write_statement_artifacts(runtime_dir, network_fees["statements"]["by_account"])
     journal_summary = build_journal_summary(
@@ -409,29 +410,52 @@ def file_weekend_forms(events: "JsonlEventWriter") -> dict[str, Any]:
     }
 
 
-def run_terminal_sessions(events: "JsonlEventWriter") -> dict[str, Any]:
-    by_program = {
-        "OMNISALE.TCL": 120,
-        "OMNIFOOD.TCL": 82,
-        "OMNIDIR.TCL": 55,
-        "OMNIPASS.TCL": 55,
+def run_terminal_sessions(events: "JsonlEventWriter", camper_count: int = 1000, load_factor: float = 1.0) -> dict[str, Any]:
+    # Base scales with campers for realistic camp load. load_factor for saturation testing.
+    base = {
+        "OMNISALE.TCL": int(120 * (camper_count / 1000) * load_factor),
+        "OMNIFOOD.TCL": int(82 * (camper_count / 1000) * load_factor),
+        "OMNIDIR.TCL": int(55 * (camper_count / 1000) * load_factor),
+        "OMNIPASS.TCL": int(55 * (camper_count / 1000) * load_factor),
     }
-    for program, count in by_program.items():
+    by_program = {}
+    congested = 0
+    for program, count in base.items():
+        by_program[program] = count
         for index in range(1, count + 1):
+            status = "complete"
+            # Simulate network saturation under high load: ~5% congested clears for etiquette testing.
+            if load_factor > 1.5 and index % 20 == 0:
+                status = "congested"
+                congested += 1
+                events.append(
+                    "terminal.session",
+                    "weekend-simulator",
+                    {
+                        "program": program,
+                        "terminal_id": f"VF-{program.removesuffix('.TCL')}-{index:04d}",
+                        "status": status,
+                        "clear_code": "NC 5/71 (congestion)",
+                    },
+                    created_at="2028-07-02T16:00:00-07:00",
+                )
+                continue
             events.append(
                 "terminal.session",
                 "weekend-simulator",
                 {
                     "program": program,
                     "terminal_id": f"VF-{program.removesuffix('.TCL')}-{index:04d}",
-                    "status": "complete",
+                    "status": status,
                 },
                 created_at="2028-07-02T16:00:00-07:00",
             )
     return {
         "total_sessions": sum(by_program.values()),
         "by_program": by_program,
-        "status": "complete",
+        "congested_sessions": congested,
+        "load_factor": load_factor,
+        "status": "complete" if congested == 0 else "partial_congestion",
     }
 
 
@@ -831,6 +855,7 @@ def main() -> int:
     parser.add_argument("--runtime-dir", default="build/weekend-sim", type=Path)
     parser.add_argument("--data-dir", default="data", type=Path)
     parser.add_argument("--campers", default=1000, type=int)
+    parser.add_argument("--load-factor", default=1.0, type=float, help="Scale terminal sessions for saturation/load testing (e.g. 2.0 for heavy load)")
     parser.add_argument("--sync-target", default=os.environ.get("OMNIDAT_SYNC_TARGET"))
     parser.add_argument("--sync-token", default=os.environ.get("OMNIDAT_SYNC_TOKEN"))
     args = parser.parse_args()
@@ -838,11 +863,14 @@ def main() -> int:
         args.runtime_dir,
         args.data_dir,
         args.campers,
+        load_factor=args.load_factor,
         sync_target=args.sync_target,
         sync_token=args.sync_token,
     )
     print(f"WEEKEND STATUS: {report['status']}")
     print(f"CAMPERS: {report['campers']['count']} SEEDED {report['campers']['total_seeded']} OMNIBUCKS")
+    if "terminals" in report and report["terminals"].get("congested_sessions"):
+        print(f"TERMINALS: {report['terminals']['total_sessions']} sessions, {report['terminals']['congested_sessions']} congested (load_factor={report['terminals']['load_factor']})")
     print(f"NIGHT MARKET: {report['night_market']['sales']} SALES CAPTURED {report['night_market']['captured']}")
     print(f"MILIWAYS: {report['miliways']['orders']} ORDERS ACROSS {report['miliways']['service_windows']} WINDOWS")
     print(f"X121: {report['x121_provisioning']['verified']} VERIFIED CAMPSITES")

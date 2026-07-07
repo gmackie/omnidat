@@ -111,6 +111,8 @@ class WeekendSimulationTests(unittest.TestCase):
             self.assertGreaterEqual(report["terminals"]["by_program"]["OMNIFOOD.TCL"], 80)
             self.assertGreaterEqual(report["terminals"]["by_program"]["OMNIDIR.TCL"], 50)
             self.assertGreaterEqual(report["terminals"]["by_program"]["OMNIPASS.TCL"], 50)
+            self.assertIn("load_factor", report["terminals"])
+            self.assertEqual(report["terminals"].get("congested_sessions", 0), 0)  # default no saturation
             self.assertEqual(report["evidence"]["event_log"]["events"], 5888)
             self.assertEqual(report["evidence"]["bank_ledger"]["events"], 2000)
             self.assertEqual(report["evidence"]["queue_orders"]["records"], 1600)

@@ -26,6 +26,7 @@ def handle_command(
     activity_dir: Path = Path("build/activity"),
     log_path: Path | None = None,
     fryos_bridge: Any | None = None,
+    load_factor: float = 1.0,
 ) -> str:
     parsed = parse_command(command)
     verb = parsed["verb"]
@@ -40,7 +41,7 @@ def handle_command(
         require_args(args, 1, "CALL <ADDR>")
         return call_address(data_dir, args[0])
     if verb == "REQ":
-        return handle_request(args, data_dir, queue_dir, log_path, fryos_bridge)
+        return handle_request(args, data_dir, queue_dir, log_path, fryos_bridge, load_factor)
     if verb == "STAT":
         require_args(args, 2, "STAT <ADDR> <TICKET>")
         return render_ticket_status(queue_dir, args[1])
@@ -138,10 +139,16 @@ def handle_request(
     queue_dir: Path,
     log_path: Path | None,
     fryos_bridge: Any | None = None,
+    load_factor: float = 1.0,
 ) -> str:
     require_args(args, 2, "REQ <ADDR> <VERB> [ARGS]")
     address = args[0]
     request_verb = args[1].upper()
+
+    # Simulate radio saturation under load (low bandwidth transport like meshtastic).
+    if load_factor > 2.0 and hash(address + request_verb) % 10 == 0:
+        append_event(log_path, "radio.congested", "radio-pad", {"address": address, "verb": request_verb, "reason": "channel busy (etiquette violation?)"})
+        return "OMNIDAT FIELD PAD\nCONGESTED\nCLR NC 5/71"
 
     if address == "020500" and request_verb == "MENU":
         return radio_trim(list_menu(data_dir, "miliways"))
@@ -214,6 +221,7 @@ def main() -> int:
     parser.add_argument("--log", default="build/events.jsonl", type=Path)
     parser.add_argument("--fryos-url", default=os.environ.get("FRYOS_BASE_URL"))
     parser.add_argument("--fryos-token", default=os.environ.get("FRYOS_OPERATOR_TOKEN"))
+    parser.add_argument("--load-factor", default=1.0, type=float, help="For saturation testing (triggers congestion on radio)")
     args = parser.parse_args()
     fryos_bridge = (
         FryosTrpcBridge(args.fryos_url, args.fryos_token)
@@ -228,6 +236,7 @@ def main() -> int:
             activity_dir=args.activity_dir,
             log_path=args.log,
             fryos_bridge=fryos_bridge,
+            load_factor=args.load_factor,
         )
     )
     return 0
