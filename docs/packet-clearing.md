@@ -163,3 +163,58 @@ installation can move up the authenticity ladder without rewriting every app.
 - PBX call records can be exposed as daily settlement files.
 - Packet Clearing simulator emits `session.started` and `session.ended` events
   to the OMNIDAT event ledger.
+
+## X.25 Network Etiquette
+
+Packet Clearing emulates a real 1980s X.25 network. Users (campsites,
+operators, vendors, and visitors) are expected to behave like responsible
+network citizens. The goal is credible retro experience plus practical
+usability at camp scale.
+
+### Core Principles
+- **Be brief.** X.25 sessions are metered resources. Keep calls short; use
+  `CLR` promptly when done.
+- **Use honest clear codes.** Always clear with the correct cause/diagnostic
+  (see [Protocol Fidelity](protocol-fidelity.md)). Never leave sessions hanging.
+- **Respect namespaces.** 
+  - `000xxx`–`001xxx`: core and trusted services — treat with care.
+  - `020xxx`: open campsite apps — self-service, but still follow verbs and
+    don't spam.
+  - `030xxx`: event/temporary — clean up after events.
+- **Follow service verbs.** Use the documented verbs for each service
+  (`DIR`, `LOOKUP`, `CALL`, `ORDER`, `STAMP`, etc.). Unknown verbs should
+  clear `CLR NP C:13 D:67`.
+- **No flooding or abuse.** Rapid repeated `CALL`s, long-running idle
+  sessions, or attempts to bypass provisioning will be met with `CLR NA
+  C:11 D:70` (access barred) and operator attention.
+- **Operator assistance is a privilege.** Use `8800` TrustDesk or operator
+  messages only when directory lookup or self-service has failed. Provide
+  clear context (your X.121, what you tried).
+- **Facilities and user data.** Keep call user data under the transport
+  budget. Over-budget calls clear politely with cause 19.
+- **Printed evidence is truth.** If a service produces a receipt, ledger
+  entry, or form, treat it as the authoritative record.
+
+### Recommended Session Flow (for terminals and apps)
+1. `DIR` or `LOOKUP` to discover.
+2. `CALL <x121> <verb>` (or just `CALL` for default menu).
+3. Interact tersely.
+4. `CLR` when finished (or let inactivity timer clear you).
+5. If you receive a non-zero clear code, log it and retry only after
+   reasonable back-off.
+
+### For Campsite App Authors (020xxx)
+- Publish clear verb lists in your directory entry.
+- Handle `CLR` gracefully on both sides.
+- Log sessions with honest cause codes for operator review.
+- Do not promise features that would require real X.25 facilities you
+  cannot deliver.
+- If your app needs operator intervention, expose it via the operator
+  message service rather than direct abuse of TrustDesk.
+
+Violations (spamming, protocol fuzzing, resource exhaustion) are handled
+per the [Moderation Policy](moderation-policy.md) and may result in
+address suspension or revocation with `CLR NA C:11 D:70`.
+
+See also the XOT terminal `HELP` and the operator console for live
+examples of proper and improper usage.

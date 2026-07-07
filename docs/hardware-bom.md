@@ -52,6 +52,8 @@ See README.md "Planned Camp Deployments" for ToorCamp 2028 flagship and CC Camp 
 Add 1 pad-telnet host for real terminals, 1 field laptop for operator console.
 For ToorCamp 2028 full: add PRI gateway, robot gantry, dot matrix, more terminals.
 
+All terminals and PADs must surface X.25 etiquette guidance (see packet-clearing.md).
+
 ## 2. ShadyTel PRI Handoff
 
 ### Minimum

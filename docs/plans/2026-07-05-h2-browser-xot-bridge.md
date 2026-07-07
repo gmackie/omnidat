@@ -87,6 +87,8 @@ this plan ships only the browser XOT path plus a fallback simulator mode.
   drive the read side; `CLR` resets the prompt.
 - Show the honest clear line (`CLR <signal> C:<cause> D:<diag>`) after each
   call and a link/label for the evidence receipt.
+- Enforce basic X.25 etiquette (see packet-clearing.md): short sessions,
+  honest clears, no flooding. Add etiquette reminder to HELP text.
 - Fallback simulator: when unauthenticated or offline, the terminal renders a
   labelled `SIMULATOR` banner and uses seed directory data so the demo path
   never dead-ends.

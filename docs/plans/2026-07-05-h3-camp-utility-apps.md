@@ -44,4 +44,9 @@ audited pattern.
 - an operator can promote or delist an app; every change is audited.
 - campsite-app writes are gated; auditors cannot mutate.
 
+**Etiquette note:** Apps in 020xxx must follow X.25 etiquette (packet-clearing.md).
+Publish verb lists, handle CLR cleanly, log honest causes. Add reminders in
+directory entries and terminal UX. Campsite apps should include a short
+"ETIQUETTE" line in their DIR response.
+
 **Parallel progress:** Kinds + createCampsiteApp + list exist. Simple create form added to operator CRUD for H3 camp apps (ToorCamp 2028 / CC Camp 2027).

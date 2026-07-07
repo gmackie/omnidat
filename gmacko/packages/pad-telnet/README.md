@@ -16,6 +16,15 @@ pure service renderers from @omnidat/operator-core — no database, no operator 
 
 This is one of the H2b transport adapters (telnet/TCP) behind the unified packetCall interface. See H2b plan and omnidat-transports.ts for policy (budget, access class). Real authenticated sessions use the gmacko packetCall tRPC surface. Suitable for ToorCamp 2028 and CC Camp 2027 field terminals (e.g. serial-to-telnet for vintage hardware at rehearsals). Supports camp-scale with low latency simulation.
 
+## X.25 Etiquette on Real Terminals
+Follow the guidelines in docs/packet-clearing.md#x25-network-etiquette:
+- Short sessions, honest CLR codes
+- Respect 020xxx open namespace but don't spam
+- Use documented verbs
+- Operator help is last resort
+
+The attract screen and HELP should remind users of these rules.
+
 ## Run
 
 ```sh

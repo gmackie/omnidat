@@ -96,6 +96,7 @@ export function buildOmnidatDocument(
         "CC CAMP 2027: European rehearsal target (H6/H8)",
         `REHEARSAL: ${field("rehearsal", "YES")}`,
         `PARTICIPANTS: ${field("participants", "500")}`,
+        "ETIQUETTE: Be brief, use honest CLR, respect 020xxx. See packet-clearing.md",
         "See README Planned Camp Deployments for ToorCamp 2028 / CC Camp 2027 details.",
       ]);
   }

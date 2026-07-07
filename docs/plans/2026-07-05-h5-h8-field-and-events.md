@@ -120,6 +120,9 @@ with documented contracts; post-event reports repeatable.
 
 **Camp Deployments note (see root README):** ToorCamp 2028 is flagship (full ShadyTel interconnect preferred, physical robot, NOC desk). CC Camp 2027 is potential large rehearsal / European validation for H6/H8. Portable Field Office mode works for both without full PRI. Hardware kit / telnet PAD / radio adapters in active BOM updates. CC Camp 2027 samples added to accounts, apps; plans updated.
 
+X.25 etiquette guidance (packet-clearing.md) must be part of operator training, terminal attract screens, and app developer docs for both events.
+All field hardware and radio PADs must remind users of brevity and honest CLR.
+
 ## Cross-Cutting Still Open (decisions, not code)
 
 - money policy signoff by the ShadyBank/OmniBank team and the bearer-instrument

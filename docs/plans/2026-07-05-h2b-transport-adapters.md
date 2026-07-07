@@ -50,4 +50,7 @@ behavior are already enforced server-side.
 - adding a transport is a policy entry plus a wire-terminating bridge, not a
   change to the packet-call flow.
 
+X.25 etiquette (packet-clearing.md) applies equally over all transports. Terminal
+bridges (telnet, radio) must surface the same HELP/etiquette reminders.
+
 **Status (parallel work):** Policy + checkTransport + telnet PAD adapter implemented and documented. Hardware paths (POTS, radio) tracked in BOM and H5-H8 for ToorCamp 2028 / CC Camp 2027.

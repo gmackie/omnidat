@@ -11,7 +11,8 @@ import { useTRPC } from "~/trpc/react";
 // unavailable (unauthenticated/offline), the terminal labels itself SIMULATOR
 // and uses the public services list so the demo path never dead-ends.
 const HELP =
-  "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121> [VERB], CAMP/EVIDENCE (camp doc), HELP, CLR";
+  "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121> [VERB], CAMP/EVIDENCE (camp doc), HELP, CLR\n" +
+  "ETIQUETTE: Be brief, use honest CLR codes, respect namespaces (020xxx open but polite), no flooding. See packet-clearing.md";
 
 export function OmnidatXotTerminal() {
   const trpc = useTRPC();
