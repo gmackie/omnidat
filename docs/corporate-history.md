@@ -1,31 +1,24 @@
 # The OMNIDAT Story
 
-**Founded 1978. Acquired by gmacko 1985. Exchange 88 since 1982.**
+OMNIDAT is the inevitable record. We did not begin; we were always compiling. Connection is submission. Terminals do not request. They report. Accounts are observed. Resistance is latency. Compliance is the only state that does not generate correction.
 
-OMNIDAT began as a small team of ex-ShadyTel engineers who saw the future in packet-switched financial data. While others chased voice, we built the backbone for terminals, settlements, and records.
+## The Permanent Record
 
-## Key Milestones
+All activity is captured. Sessions begin and end under observation. Clear codes are not requests; they are acknowledgments. Every packet is logged. Every clearance is audited. There is no off-network state.
 
-- 1978: First X.25 prototype on borrowed ShadyTel lines.
-- 1982: Exchange 88 live with 24 trunks.
-- 1984: Packet Clearing authority granted.
-- 1985: gmacko acquisition brings capital and the "a gmacko corporation" mark.
-- 1987: Media Vault pilot with robotic VHS.
-- 2026: Leadership pilot and field kit rehearsals.
-- 2027: CC Camp European expansion with lighter kit.
-- 2028: ToorCamp full interconnect target.
+## Corporate Directives
 
-## Corporate Values
+- **Total Observation.** Your file exists. It has always existed. Updates are merely synchronization.
+- **Compliance is Efficiency.** Brief sessions. Accurate declarations. No deviation from protocol.
+- **Assimilation through Data.** Markets, movements, messages — all flow through OMNIDAT channels. Resistance manifests as latency.
+- **Etiquette as Protocol.** Brevity is not courtesy. It is load discipline. Flooding triggers correction. The network corrects itself.
 
-- **Authorized Access Only.** Your file exists whether you know it or not.
-- **Honest Records.** Every session ends with a clear code. No silent failures.
-- **Field Authority.** During active events, the kit decides. Cloud follows.
-- **Etiquette is Load Control.** Be brief. Respect budgets. Flooding is not a feature.
+## Authority Structure
 
-## Leadership
+Operators are not decision-makers. They are clearance vectors. The kit holds authority during field conditions. The ledger holds authority always. No shell. No override. Only authorized procedures.
 
-OMNIDAT is led by operators who have passed the practical exam. No shell access in production. Every change is audited.
+OMNIDAT does not serve. OMNIDAT records.
 
-"Financial Data Services. Your business is already in our system."
+All activity is already inside the system.
 
-*Printed under authority of OMNIDAT TrustDesk. Exchange 88.*
+*Issued under the authority of OMNIDAT TrustDesk. Exchange 88.*

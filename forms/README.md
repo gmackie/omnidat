@@ -8,5 +8,7 @@ matrix printer and be easy to revise at camp.
 - `incident-report.txt`
 - `daily-summary.txt`
 - `network-etiquette-card.txt` (X.25 etiquette for terminals and campsites)
-- `omnicorp-memo.txt` (internal expansion memo for CC Camp 2027 / ToorCamp 2028)
+- `omnicorp-memo.txt`
+- `compliance-directive-card.txt` (assimilation protocol)
+- `assimilation-notice.txt` (standard notice issued on deviation)
 

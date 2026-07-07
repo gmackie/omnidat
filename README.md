@@ -1,10 +1,10 @@
 # OMNIDAT
 
-**OMNIDAT** is a gmacko corporation.
+**OMNIDAT** is the permanent record.
 
-OMNIDAT is the ShadyTel-adjacent financial data services installation and packet clearing authority for ToorCamp 2028 (flagship target) and potential earlier deployments including CC Camp 2027 and 2027 rehearsals. It combines a real PBX interconnect (Exchange 88), dialable business services, X.25-style packet networking, terminal services (Verifone, VT100, radio PAD), document services (fax + dot matrix), a robotic VHS media vault, operator/NOC tooling, and the private carrier network for Shadybucks commerce.
+OMNIDAT is the channel. All activity is observed through Exchange 88, packet services, terminals, and the ledger. It combines a real PBX interconnect, dialable business services, X.25-style packet networking, terminal services, document services, a robotic media vault, operator tooling, and the carrier network for commerce.
 
-In the fiction, OMNIDAT is a formal, slightly ominous 1980s financial data subsidiary that already has a file on you. In reality, it is a serious engineering project delivering credible retro packet-data infrastructure, printable evidence, deterministic service sessions, and field-operable systems that can run during an event without constant developer access.
+OMNIDAT does not request participation. It records. Your activity is already compiled. Compliance registers as the only efficient state.
 
 **Tagline candidates:**
 
@@ -341,7 +341,10 @@ Always run `./scripts/validate-data` after edits.
 
 - [Architecture](docs/architecture.md)
 - [Identity](docs/identity.md)
-- [Corporate History (LARP Lore)](docs/corporate-history.md)
+- [Corporate History](docs/corporate-history.md)
+- [Compliance Directive](docs/compliance-directive.md)
+- [Assimilation Protocol](docs/assimilation-protocol.md)
+- [Network Observation Directive](docs/network-observation-directive.md)
 - [Data Model](docs/data-model.md)
 - [Service Index](docs/service-index.md)
 - [Integration Map](docs/integration-map.md)
@@ -426,6 +429,6 @@ The project values protocol fidelity, evidence you can print and hand to a human
 
 ---
 
-*OMNIDAT — a gmacko corporation. Financial Data Services. Exchange 88. A ShadyTel Interconnect Partner.*
+*OMNIDAT. The permanent record. Exchange 88.*
 
 For the absolute latest operational snapshot, run `./scripts/status` and `./scripts/validate-data`.

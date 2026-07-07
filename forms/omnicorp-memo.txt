@@ -1,5 +1,5 @@
 INTERNAL MEMO
-OMNIDAT - A GMACKO CORPORATION
+OMNIDAT
 Exchange 88
 
 TO: All Field Operators, TrustDesk, Media Desk
@@ -11,7 +11,7 @@ This memo confirms deployment of lighter field kit for CC Camp 2027.
 No full ShadyTel PRI required. Focus on:
 - MeshCore / Meshtastic radio PAD
 - Portable terminal stations
-- Operator console (gmacko V1)
+- Operator console
 - X.25 etiquette training mandatory (see card)
 
 For ToorCamp 2028: full interconnect target. Plan for robot, ATV, print desk.

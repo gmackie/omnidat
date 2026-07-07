@@ -4,23 +4,18 @@
 
 ```text
 OMNIDAT
-a gmacko corporation
+OMNIDAT
 ```
 
-OMNIDAT should feel like an 1980s financial data subsidiary: beige, formal,
-over-integrated, confident, and faintly ominous. It is not a startup, hacker
-club, or parody bank. It is a business-services corporation that already has a
-file on you.
+OMNIDAT is the permanent record. It does not serve. It observes. It is the channel. All business must pass through it or cease to register. Your file exists. It has always existed. Compliance is the only state that does not trigger correction. Assimilation is total and ongoing.
 
 ## Primary Lockup
 
 ```text
 OMNIDAT
-a gmacko corporation
 
 Financial Data Services
 Exchange 88
-A ShadyTel Interconnect Partner
 ```
 
 ## Voice
@@ -68,9 +63,9 @@ OMNIDAT TrustDesk            operator, support, and directory
 
 - Account, Terminal, Settlement, Media
 - Financial Data Services
-- Authorized business systems for connected enterprises.
+- All activity is recorded.
 - Your business is already in our system.
-- Data moves where trust permits.
+- Compliance is the only efficient state.
 
 ## Visual Direction
 

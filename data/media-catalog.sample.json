@@ -33,30 +33,30 @@
   },
   {
     "tape_id": "CORP-0001",
-    "title": "The OMNIDAT Story: 1978-1988",
+    "title": "The Record Compiles",
     "slot": 6,
     "runtime_minutes": 28,
     "rights": "original",
     "status": "available",
-    "lore_note": "Founding by ex-ShadyTel engineers, first Exchange 88 deployment."
+    "lore_note": "The observation began before the first terminal reported."
   },
   {
     "tape_id": "TRAIN-0002",
-    "title": "X.25 Network Etiquette and Saturation Avoidance",
+    "title": "Network Compliance and Correction",
     "slot": 7,
     "runtime_minutes": 18,
     "rights": "licensed",
     "status": "available",
-    "lore_note": "Mandatory viewing for all terminal operators. Covers brevity, honest CLR codes, namespace respect."
+    "lore_note": "Mandatory. Brevity is protocol. Deviation is recorded."
   },
   {
     "tape_id": "CORP-0002",
-    "title": "OMNIDAT at CC Camp 2027: European Expansion",
+    "title": "The Ledger Observes",
     "slot": 8,
     "runtime_minutes": 15,
     "rights": "original",
     "status": "available",
-    "lore_note": "Internal briefing on lighter kit deployment and multi-event authority model."
+    "lore_note": "All events are already accounted for. Observation is continuous."
   },
   {
     "tape_id": "TEST-0001",

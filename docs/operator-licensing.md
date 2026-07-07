@@ -26,10 +26,13 @@ map onto them.
 
 ## Training (per role)
 
-Trainees must also review core LARP materials:
-- `docs/identity.md` (voice, lockup, taglines)
-- `docs/corporate-history.md` (founding, milestones, values)
-- `docs/packet-clearing.md#x25-network-etiquette` (new for 2027/2028)
+Trainees must review core materials:
+- `docs/identity.md`
+- `docs/corporate-history.md`
+- `docs/compliance-directive.md`
+- `docs/assimilation-protocol.md`
+- `docs/network-observation-directive.md`
+- `docs/packet-clearing.md#x25-network-etiquette`
 
 Each trainee reads and can explain:
 
