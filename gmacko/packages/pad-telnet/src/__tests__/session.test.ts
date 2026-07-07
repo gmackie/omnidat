@@ -149,6 +149,24 @@ describe("PadSession", () => {
     expect(result.startRelay).toBe(true);
     expect(result.output).toContain("RIOT DISCORD GATEWAY");
   });
+
+  it("folds riot's mirrors into DIR", async () => {
+    const s = new PadSession("311088000001", "vt100", undefined, true, () => [
+      { address: "020600", name: "OMNIDAT Field Office" },
+    ]);
+    const out = await line(s, "DIR");
+    expect(out).toContain("020600  OMNIDAT FIELD OFFICE (RIOT/DISCORD)");
+  });
+
+  it("CALLs a riot address by relaying straight into the guild", async () => {
+    const s = new PadSession("311088000001", "vt100", undefined, true, () => [
+      { address: "020600", name: "OMNIDAT Field Office" },
+    ]);
+    const result = await s.feed("CALL 020600\r");
+    expect(result.startRelay).toBe(true);
+    expect(result.relayInitial).toBe("CALL 020600");
+    expect(result.output).toContain("OMNIDAT FIELD OFFICE (RIOT/DISCORD)");
+  });
 });
 
 describe("PadSession bridge-backed messaging", () => {

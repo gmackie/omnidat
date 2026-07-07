@@ -310,6 +310,17 @@ export class PadSession {
       return { output: this.ln(`${line}${CRLF}${omnidatPrompt(this.dte)}`) };
     }
     if (verb === "CALL" && args[0]) {
+      // A riot Discord-mirror address: relay straight into that guild.
+      const riotEntry = this.riotDirectory().find((e) => e.address === args[0]);
+      if (riotEntry) {
+        return {
+          output: this.ln(
+            `CONNECTING TO ${riotEntry.name.toUpperCase()} (RIOT/DISCORD) — QUIT TO RETURN${CRLF}`,
+          ),
+          startRelay: true,
+          relayInitial: `CALL ${args[0]}`,
+        };
+      }
       const catalog = await this.ensureCatalog();
       const svc = catalog ? resolveCatalog(catalog, args[0]) : undefined;
       if (svc?.kind === "board") {
@@ -336,10 +347,18 @@ export class PadSession {
     }
     // DIR / LOOKUP / STATUS / PAD / BILL — the read verbs.
     const result = executeXotCommand({ sourceX121: this.dte, command: cmd });
+    let transcript = result.transcript.replace(/\r?\n/gu, CRLF);
+    // DIR folds in riot's Discord mirrors so they are discoverable and callable.
+    if (verb === "DIR") {
+      const riot = this.riotDirectory();
+      if (riot.length > 0) {
+        transcript += `${CRLF}${riot
+          .map((e) => `${e.address}  ${e.name.toUpperCase()} (RIOT/DISCORD)`)
+          .join(CRLF)}`;
+      }
+    }
     return {
-      output: this.ln(
-        `${result.transcript.replace(/\r?\n/gu, CRLF)}${CRLF}${omnidatPrompt(this.dte)}`,
-      ),
+      output: this.ln(`${transcript}${CRLF}${omnidatPrompt(this.dte)}`),
     };
   }
 

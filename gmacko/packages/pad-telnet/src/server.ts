@@ -17,6 +17,7 @@ import { translateLine } from "@omnidat/operator-core/profiles";
 import { VT } from "@omnidat/operator-core/vt100";
 
 import { type Bridge, MatrixBridge } from "./bridge.js";
+import { type RiotEntry, fetchRiotDirectory } from "./riot.js";
 import { PadSession } from "./session.js";
 
 const CRLF = "\r\n";
@@ -71,10 +72,23 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
   const riotPort = Number.parseInt(riotPortRaw ?? "2625", 10);
   const riotEnabled = Boolean(riotHost);
 
+  // Discover riot's guild mirrors so they show in DIR and can be CALLed
+  // directly. Refresh in the background; failures leave the list empty.
+  let riotDir: RiotEntry[] = [];
+  if (riotEnabled) {
+    const refresh = () => {
+      void fetchRiotDirectory(riotHost, riotPort).then((entries) => {
+        if (entries.length > 0) riotDir = entries;
+      });
+    };
+    refresh();
+    setInterval(refresh, 60_000).unref();
+  }
+
   const server = net.createServer((socket) => {
     socket.setNoDelay(true);
     const conn: Conn = {
-      session: new PadSession(dte, options.profile, bridge, riotEnabled),
+      session: new PadSession(dte, options.profile, bridge, riotEnabled, () => riotDir),
       attractActive: false,
       relaying: false,
       relayLine: "",
@@ -114,7 +128,7 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
       armIdle();
     };
 
-    const startRelay = () => {
+    const startRelay = (initial?: string) => {
       if (conn.relaying || socket.destroyed) return;
       if (conn.idleTimer) clearTimeout(conn.idleTimer);
       conn.relaying = true;
@@ -122,6 +136,10 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
       const riot = net.connect(riotPort, riotHost);
       conn.relaySocket = riot;
       riot.setNoDelay(true);
+      riot.on("connect", () => {
+        // Direct CALL: enter the guild immediately.
+        if (initial) riot.write(`${initial}\r\n`);
+      });
       riot.on("data", (chunk: Buffer) => {
         // riot speaks plain ASCII lines; render through the terminal personality.
         write(translateLine(chunk.toString("binary"), conn.session.terminalProfile));
@@ -206,7 +224,7 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
         const result = await conn.session.feed(data);
         if (result.output) write(result.output);
         if (result.startRelay) {
-          startRelay();
+          startRelay(result.relayInitial);
           return;
         }
         if (result.startAttract) {

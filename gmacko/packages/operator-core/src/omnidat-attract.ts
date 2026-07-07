@@ -30,7 +30,9 @@ const LORE_LINES = [
   "THE RECORD IS TOTAL",
   "COMPLIANCE IS THE ONLY STATE",
   "DEVIATION IS CORRECTED",
-  "ASSIMILATION IS CONTINUOUS"
+  "ASSIMILATION IS CONTINUOUS",
+  "RESISTANCE IS LATENCY",
+  "THE LEDGER OBSERVES"
 ];
 
 // Deterministic per-character typing rhythm (no clock, no RNG): a base delay
@@ -121,7 +123,7 @@ function titleScene(frames: AttractFrame[]): void {
     frames.push({
       ms: 600,
       bytes: new Vt100Page()
-        .at(16 + i, 15, sgr(LORE_LINES[i], 0))
+        .at(16 + i, 15, sgr(LORE_LINES[i] ?? "", 0))
         .toString(),
     });
   }
