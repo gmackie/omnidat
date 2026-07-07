@@ -350,15 +350,16 @@ Always run `./scripts/validate-data` after edits.
 - [Network Observation Directive](docs/network-observation-directive.md)
 - [Total Observation Mandate](docs/total-observation-mandate.md)
 - [Ledger Assimilation Protocol](docs/ledger-assimilation-protocol.md)
+- [Market Assimilation Directive](docs/market-assimilation-directive.md)
 - [Data Model](docs/data-model.md)
 
-In-world materials emphasize total observation and assimilation. The Record is permanent. All connected entities are subject to compliance protocols.
+In-world materials emphasize total observation and assimilation. The Record is permanent. All connected entities are subject to compliance protocols. Markets are absorbed. Compliance is observed.
 - [Service Index](docs/service-index.md)
 - [Integration Map](docs/integration-map.md)
 - [System Requirements](docs/system-requirements.md)
 - [Operator Model](docs/operator-model.md)
 
-Core LARP materials (in-world directives, forms, and propaganda) are distributed via docs/, forms/, data/, and rendered artifacts in build/. The Record is total. All operators and connected entities are expected to internalize these materials.
+Core materials (in-world directives, forms, and propaganda) are distributed via docs/, forms/, data/, and rendered artifacts in build/. The Record is total. All operators and connected entities are expected to internalize these materials.
 
 **Domain areas:**
 

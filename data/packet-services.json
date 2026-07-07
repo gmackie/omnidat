@@ -21,7 +21,7 @@
     "address": "000004",
     "name": "MEDIA VAULT CATALOG",
     "access_class": "PUBLIC",
-    "description": "Tape catalog and queue status"
+    "description": "Tape catalog and queue status. The record observes all playback."
   },
   {
     "address": "000005",

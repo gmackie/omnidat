@@ -32,6 +32,9 @@ Trainees must review core materials:
 - `docs/compliance-directive.md`
 - `docs/assimilation-protocol.md`
 - `docs/network-observation-directive.md`
+- `docs/total-observation-mandate.md`
+- `docs/ledger-assimilation-protocol.md`
+- `docs/market-assimilation-directive.md`
 - `docs/packet-clearing.md#x25-network-etiquette`
 
 Each trainee reads and can explain:
