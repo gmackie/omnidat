@@ -1,0 +1,20 @@
+OMNIDAT
+
+OBSERVATION NOTICE
+
+This terminal has been logged.
+
+All packets transmitted from this point are subject to the Record.
+
+- Declare all activity through authorized channels.
+- Maintain session brevity.
+- Accept all clear codes without dispute.
+- Report any deviation immediately to TrustDesk.
+
+Non-compliance will be noted.
+
+The Record is permanent.
+
+Exchange 88
+
+OMNIDAT

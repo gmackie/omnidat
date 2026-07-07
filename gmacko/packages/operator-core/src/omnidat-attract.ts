@@ -26,6 +26,12 @@ const SPINNER = ["|", "/", "-", "\\"];
 
 // LARP corporate slogan for immersion
 const LORE_SLOGAN = "YOUR BUSINESS IS ALREADY IN OUR SYSTEM";
+const LORE_LINES = [
+  "THE RECORD IS TOTAL",
+  "COMPLIANCE IS THE ONLY STATE",
+  "DEVIATION IS CORRECTED",
+  "ASSIMILATION IS CONTINUOUS"
+];
 
 // Deterministic per-character typing rhythm (no clock, no RNG): a base delay
 // plus a small per-glyph jitter derived from the character code, with a longer
@@ -111,6 +117,14 @@ function titleScene(frames: AttractFrame[]): void {
       .at(14, 10, sgr(LORE_SLOGAN, 1))
       .toString(),
   });
+  for (let i = 0; i < LORE_LINES.length; i += 1) {
+    frames.push({
+      ms: 600,
+      bytes: new Vt100Page()
+        .at(16 + i, 15, sgr(LORE_LINES[i], 0))
+        .toString(),
+    });
+  }
   for (let i = 0; i < 6; i += 1) {
     const on = i % 2 === 0;
     frames.push({

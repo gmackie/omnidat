@@ -12,13 +12,14 @@ import { useTRPC } from "~/trpc/react";
 // and uses the public services list so the demo path never dead-ends.
 const HELP =
   "VERBS: DIR [NAMESPACE], LOOKUP <X121>, CALL <X121> [VERB], CAMP/EVIDENCE (camp doc), HELP, CLR\n" +
-  "ETIQUETTE: Be brief, use honest CLR codes, respect namespaces (020xxx open but polite), no flooding. See packet-clearing.md";
+  "THE RECORD IS TOTAL. BRIEF SESSIONS ONLY. HONEST CLEAR CODES REQUIRED. DEVIATION IS LOGGED. COMPLIANCE IS OBSERVED.";
 
 export function OmnidatXotTerminal() {
   const trpc = useTRPC();
   const services = useQuery(trpc.omnidat.services.queryOptions());
   const [lines, setLines] = useState<string[]>([
     "OMNIDAT PACKET CLEARING XOT TERMINAL",
+    "THE RECORD IS TOTAL",
     "TYPE HELP FOR VERBS",
   ]);
   const [command, setCommand] = useState("");

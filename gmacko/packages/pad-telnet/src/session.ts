@@ -40,6 +40,7 @@ import {
 
 import { type BoardDef, type Bridge, BridgeCleared, type Catalog } from "./bridge.js";
 import { isStatusBoard, normalizeStatusPost, statusHelp } from "./camp-status.js";
+import type { RiotEntry } from "./riot.js";
 import {
   resolveCatalog,
   runBoardPost,
@@ -63,6 +64,8 @@ export interface FeedResult {
   startAttract?: boolean;
   /** Relay this session into the riot Discord-mirror gateway (server bridges TCP). */
   startRelay?: boolean;
+  /** A command to send to riot immediately after the relay connects (direct CALL). */
+  relayInitial?: string;
 }
 
 type Mode = "pad" | "session" | "board";
@@ -82,6 +85,7 @@ export class PadSession {
     profile: string = "vt100",
     private readonly bridge?: Bridge,
     private readonly riotEnabled = false,
+    private readonly riotDirectory: () => RiotEntry[] = () => [],
   ) {
     this.profile = resolveProfile(profile);
   }

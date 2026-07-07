@@ -11,4 +11,5 @@ matrix printer and be easy to revise at camp.
 - `omnicorp-memo.txt`
 - `compliance-directive-card.txt` (assimilation protocol)
 - `assimilation-notice.txt` (standard notice issued on deviation)
+- `observation-notice.txt` (terminal monitoring notice)
 

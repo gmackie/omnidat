@@ -49,6 +49,7 @@
             "ALL ACTIVITY IS OBSERVED",
             "COMPLIANCE IS THE ONLY STATE",
             "DEVIATION IS CORRECTED",
+            "ASSIMILATION IS INEVITABLE",
             "YOUR BUSINESS IS ALREADY IN OUR SYSTEM"
           ]
         },
@@ -69,7 +70,8 @@
             "CONTROL OPERATOR REQUIRED",
             "RF ENABLE REQUIRES MANUAL SWITCH",
             "SHUTDOWN: MEDIA DESK OR NOC",
-            "OMNIDAT"
+            "OMNIDAT",
+            "THE RECORD IS TOTAL"
           ]
         }
       }

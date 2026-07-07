@@ -11,6 +11,8 @@ OMNIDAT does not request participation. It records. Your activity is already com
 - Financial Data Services
 - Account, Terminal, Settlement, Media
 - Your business is already in our system.
+- The Record is total.
+- Compliance is the only efficient state.
 
 ## Live Surfaces
 
@@ -343,6 +345,8 @@ Always run `./scripts/validate-data` after edits.
 - [Identity](docs/identity.md)
 - [Corporate History](docs/corporate-history.md)
 - [Compliance Directive](docs/compliance-directive.md)
+- [Assimilation Protocol](docs/assimilation-protocol.md)
+- [Network Observation Directive](docs/network-observation-directive.md)
 - [Assimilation Protocol](docs/assimilation-protocol.md)
 - [Network Observation Directive](docs/network-observation-directive.md)
 - [Data Model](docs/data-model.md)
