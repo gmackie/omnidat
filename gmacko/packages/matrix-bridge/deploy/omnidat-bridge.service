@@ -1,0 +1,27 @@
+[Unit]
+Description=OMNIDAT Matrix bridge (subscriber mail + message boards)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Bind to localhost only — the co-located PAD (127.0.0.1:8090) is the sole
+# client, so the bridge is never internet-facing. Durable store lives on a host
+# volume so posts and mail survive restarts. The shared secret must match the
+# PAD's OMNIDAT_BRIDGE_SECRET; set it here (systemd drop-in or EnvironmentFile),
+# not in the repo.
+ExecStartPre=-/usr/bin/podman rm -f omnidat-bridge
+ExecStartPre=/usr/bin/mkdir -p /opt/omnidat-bridge/data
+ExecStart=/usr/bin/podman run --rm --name omnidat-bridge \
+  --network=host \
+  -e PORT=8090 -e HOST=127.0.0.1 \
+  -e BRIDGE_STORE=/data/journal.jsonl \
+  -e OMNIDAT_BRIDGE_SECRET=${OMNIDAT_BRIDGE_SECRET} \
+  -v /opt/omnidat-bridge/index.js:/app/index.js:ro \
+  -v /opt/omnidat-bridge/data:/data \
+  docker.io/library/node:22-alpine node /app/index.js
+ExecStop=/usr/bin/podman stop omnidat-bridge
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
