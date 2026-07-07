@@ -14,6 +14,14 @@
     "status": "planned"
   },
   {
+    "vendor_id": "VEND-CC27",
+    "name": "CC Camp 2027 Logistics",
+    "kind": "rehearsal-partner",
+    "contact_number": "020999",
+    "status": "planned",
+    "lore": "European expansion vendor for 2027 rehearsal"
+  },
+  {
     "vendor_id": "VEND-MISC-001",
     "name": "Misc Vendor 001",
     "kind": "vendor",
