@@ -169,7 +169,7 @@ export class PadSession {
         this.line = "";
         result = await this.run(cmd);
         out += result.output;
-        if (result.close || result.startAttract) break;
+        if (result.close || result.startAttract || result.startRelay) break;
         continue;
       }
       if (byte === 0x0a || byte === 0x00) continue; // ignore LF/NUL after CR
@@ -194,7 +194,7 @@ export class PadSession {
       out += translateEcho(ch, this.profile);
     }
 
-    return result?.close || result?.startAttract
+    return result?.close || result?.startAttract || result?.startRelay
       ? { ...result, output: out }
       : { output: out };
   }

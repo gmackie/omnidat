@@ -70,6 +70,19 @@ honest X.25 clear (`CLR DER C:9 D:0` when the bridge is offline).
 The bridge **server** is not part of this package — deploy it separately and the
 verbs light up. Until then they clear honestly as offline.
 
+## RIOT Discord-mirror gateway
+
+`RIOT` relays the terminal into the riot Packet Clearing daemon (a sibling repo)
+— read-only Discord guild channels exposed as X.121 packet services. Set
+`RIOT_GATEWAY=<host>:<port>` (riot's daemon, default port `2625`) to enable it;
+without it, `RIOT` reports `NOT CONFIGURED`.
+
+Once relayed, riot's own verbs take over (`DIRECTORY`, `CALL <x121>`,
+`CHANNELS`, `READ <channel>`, `MORE`, `INFO`, `QUIT`); riot's output is rendered
+through the active terminal personality. `QUIT` (or Ctrl-]) returns to the
+OMNIDAT PAD. The relay is transparent — OMNIDAT does not interpret riot's
+protocol, so riot evolves independently.
+
 ## Terminal personalities
 
 Screens are authored once as VT100 and translated to the connected terminal's

@@ -14,8 +14,9 @@ const host = process.env.HOST ?? "0.0.0.0";
 const dte = process.env.PAD_DTE ?? "311088000001";
 const idleSeconds = Number.parseInt(process.env.PAD_IDLE ?? "45", 10);
 const profile = process.env.PAD_TERM ?? "vt100";
+const riotGateway = process.env.RIOT_GATEWAY ?? "";
 
-const server = createPadServer({ dte, idleSeconds, profile });
+const server = createPadServer({ dte, idleSeconds, profile, riotGateway });
 
 server.on("error", (err) => {
   console.error(`[omnidat-pad] server error: ${err.message}`);

@@ -135,6 +135,20 @@ describe("PadSession", () => {
     expect(s.terminalProfile).toBe("adm3a");
     expect(/\x1b\[/.test(s.greeting())).toBe(false);
   });
+
+  it("reports RIOT unavailable when the gateway is not configured", async () => {
+    const s = new PadSession();
+    const result = await s.feed("RIOT\r");
+    expect(result.startRelay).toBeUndefined();
+    expect(result.output).toContain("NOT CONFIGURED");
+  });
+
+  it("signals a relay on RIOT when the gateway is enabled", async () => {
+    const s = new PadSession("311088000001", "vt100", undefined, true);
+    const result = await s.feed("RIOT\r");
+    expect(result.startRelay).toBe(true);
+    expect(result.output).toContain("RIOT DISCORD GATEWAY");
+  });
 });
 
 describe("PadSession bridge-backed messaging", () => {

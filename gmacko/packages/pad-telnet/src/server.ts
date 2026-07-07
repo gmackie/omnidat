@@ -13,10 +13,13 @@
 import net from "node:net";
 
 import { attractFrames } from "@omnidat/operator-core/attract";
+import { translateLine } from "@omnidat/operator-core/profiles";
 import { VT } from "@omnidat/operator-core/vt100";
 
 import { type Bridge, MatrixBridge } from "./bridge.js";
 import { PadSession } from "./session.js";
+
+const CRLF = "\r\n";
 
 // Telnet negotiation: server WILL ECHO + WILL SUPPRESS-GO-AHEAD nudges clients
 // into character-at-a-time mode with server-side echo, which is what our line
@@ -92,9 +95,73 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
 
     const armIdle = () => {
       if (conn.idleTimer) clearTimeout(conn.idleTimer);
-      // The screensaver is VT100-only; don't idle into it on other personalities.
-      if (idleMs <= 0 || conn.session.terminalProfile !== "vt100") return;
+      // No screensaver while relaying; and it is VT100-only otherwise.
+      if (idleMs <= 0 || conn.relaying || conn.session.terminalProfile !== "vt100") return;
       conn.idleTimer = setTimeout(startAttract, idleMs);
+    };
+
+    // ---- riot Discord-mirror relay ------------------------------------
+    // Bridge the terminal to riot's Packet Clearing daemon: completed lines are
+    // forwarded; riot's output streams back, rendered through the personality.
+    const endRelay = () => {
+      if (!conn.relaying) return;
+      conn.relaying = false;
+      if (conn.relaySocket) {
+        conn.relaySocket.destroy();
+        conn.relaySocket = undefined;
+      }
+      if (!socket.destroyed) write(conn.session.resume());
+      armIdle();
+    };
+
+    const startRelay = () => {
+      if (conn.relaying || socket.destroyed) return;
+      if (conn.idleTimer) clearTimeout(conn.idleTimer);
+      conn.relaying = true;
+      conn.relayLine = "";
+      const riot = net.connect(riotPort, riotHost);
+      conn.relaySocket = riot;
+      riot.setNoDelay(true);
+      riot.on("data", (chunk: Buffer) => {
+        // riot speaks plain ASCII lines; render through the terminal personality.
+        write(translateLine(chunk.toString("binary"), conn.session.terminalProfile));
+      });
+      riot.on("close", endRelay);
+      riot.on("error", () => {
+        write(`${CRLF}RIOT GATEWAY UNREACHABLE — CLR DER C:9 D:0${CRLF}`);
+        endRelay();
+      });
+    };
+
+    const handleRelayInput = (input: Buffer | string) => {
+      const data = typeof input === "string" ? Buffer.from(input, "binary") : input;
+      for (const byte of data) {
+        if (byte === 0x0d) {
+          // CR — forward the completed line to riot.
+          const line = conn.relayLine;
+          conn.relayLine = "";
+          write(CRLF);
+          conn.relaySocket?.write(`${line}\r\n`);
+          continue;
+        }
+        if (byte === 0x0a || byte === 0x00) continue;
+        if (byte === 0x08 || byte === 0x7f) {
+          if (conn.relayLine.length > 0) {
+            conn.relayLine = conn.relayLine.slice(0, -1);
+            write("\b \b");
+          }
+          continue;
+        }
+        if (byte === 0x03 || byte === 0x1d) {
+          // Ctrl-C / Ctrl-] — leave the relay locally, back to the PAD.
+          endRelay();
+          return;
+        }
+        if (byte < 0x20 || byte > 0x7e) continue; // drop controls / IAC bytes
+        const ch = String.fromCharCode(byte);
+        conn.relayLine += ch;
+        write(ch); // echo
+      }
     };
 
     function startAttract() {
@@ -130,10 +197,18 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
         armIdle();
         return;
       }
+      if (conn.relaying) {
+        handleRelayInput(data);
+        return;
+      }
       pump = pump.then(async () => {
-        if (socket.destroyed) return;
+        if (socket.destroyed || conn.relaying) return;
         const result = await conn.session.feed(data);
         if (result.output) write(result.output);
+        if (result.startRelay) {
+          startRelay();
+          return;
+        }
         if (result.startAttract) {
           startAttract();
           return;
@@ -151,6 +226,7 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
     const cleanup = () => {
       if (conn.idleTimer) clearTimeout(conn.idleTimer);
       if (conn.attractTimer) clearTimeout(conn.attractTimer);
+      if (conn.relaySocket) conn.relaySocket.destroy();
     };
     socket.on("close", cleanup);
     socket.on("error", cleanup);
