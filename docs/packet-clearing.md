@@ -222,6 +222,6 @@ address suspension or revocation with `CLR NA C:11 D:70`.
 See also the XOT terminal `HELP` and the operator console for live
 examples of proper and improper usage.
 
-Additional directives: Total Observation Mandate, Assimilation Protocol,
-and Network Observation Directive reinforce that the Record is total
-and compliance is observed.
+Additional directives: Total Observation Mandate, Ledger Assimilation Protocol,
+Assimilation Protocol, and Network Observation Directive reinforce that the
+Record is total and compliance is observed. Deviation is inefficiency.

@@ -32,7 +32,8 @@ const LORE_LINES = [
   "DEVIATION IS CORRECTED",
   "ASSIMILATION IS CONTINUOUS",
   "RESISTANCE IS LATENCY",
-  "THE LEDGER OBSERVES"
+  "THE LEDGER OBSERVES",
+  "YOU ARE ALREADY ACCOUNTED FOR"
 ];
 
 // Deterministic per-character typing rhythm (no clock, no RNG): a base delay

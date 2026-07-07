@@ -124,7 +124,7 @@ with documented contracts; post-event reports repeatable.
 
 X.25 etiquette guidance (packet-clearing.md) must be part of operator training, terminal attract screens, and app developer docs for both events.
 All field hardware and radio PADs must remind users of brevity and honest CLR.
-New directives (Total Observation Mandate, Assimilation Protocol) reinforce total compliance.
+New directives (Total Observation Mandate, Ledger Assimilation Protocol, Assimilation Protocol) reinforce total compliance and assimilation.
 
 ## Cross-Cutting Still Open (decisions, not code)
 

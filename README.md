@@ -349,6 +349,7 @@ Always run `./scripts/validate-data` after edits.
 - [Assimilation Protocol](docs/assimilation-protocol.md)
 - [Network Observation Directive](docs/network-observation-directive.md)
 - [Total Observation Mandate](docs/total-observation-mandate.md)
+- [Ledger Assimilation Protocol](docs/ledger-assimilation-protocol.md)
 - [Data Model](docs/data-model.md)
 - [Service Index](docs/service-index.md)
 - [Integration Map](docs/integration-map.md)

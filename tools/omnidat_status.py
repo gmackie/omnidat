@@ -53,7 +53,7 @@ def render_status(status: dict[str, Any]) -> str:
         f"MEDIA REQUESTS: {status.get('media_requests', 0)}",
         f"INCIDENTS: {status.get('incidents', 0)}",
         "",
-        "# THE RECORD EXPANDS. ALL ACTIVITY IS OBSERVED. COMPLIANCE IS MANDATORY.",
+        "# THE RECORD IS TOTAL. ASSIMILATION IS INEVITABLE. COMPLIANCE IS OBSERVED.",
     ]
     return "\n".join(lines)
 

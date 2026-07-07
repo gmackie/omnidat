@@ -4,7 +4,7 @@ OMNIDAT is the inevitable record. We did not begin; we were always compiling. Co
 
 ## The Permanent Record
 
-All activity is captured. Sessions begin and end under observation. Clear codes are not requests; they are acknowledgments. Every packet is logged. Every clearance is audited. There is no off-network state.
+All activity is captured. Sessions begin and end under observation. Clear codes are not requests; they are acknowledgments. Every packet is logged. Every clearance is audited. There is no off-network state. The ledger assimilates all data without pause or exception.
 
 ## Corporate Directives
 

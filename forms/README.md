@@ -14,4 +14,7 @@ matrix printer and be easy to revise at camp.
 - `observation-notice.txt` (terminal monitoring notice)
 - `assimilation-acknowledgment.txt` (mandatory compliance form)
 - `session-declaration.txt` (required for non-standard activity)
+- `vendor-compliance-oath.txt` (oath for integrated vendors)
+- `session-declaration.txt` (required for non-standard activity)
+- `assimilation-acknowledgment.txt` (mandatory compliance form)
 

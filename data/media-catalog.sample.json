@@ -95,6 +95,15 @@
     "lore_note": "Flooding and non-compliance are corrected. The network optimizes for total visibility."
   },
   {
+    "tape_id": "CORP-0007",
+    "title": "The Ledger Assimilates",
+    "slot": 13,
+    "runtime_minutes": 16,
+    "rights": "original",
+    "status": "available",
+    "lore_note": "All markets, movements, and messages are integrated. Resistance is latency."
+  },
+  {
     "tape_id": "TEST-0001",
     "title": "Color Bars and Vault Alignment",
     "slot": 5,

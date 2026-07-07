@@ -48,6 +48,11 @@ reject document/media requests, and keep the experience moving.
 All operators must review:
 - `docs/identity.md`
 - `docs/corporate-history.md`
+- `docs/compliance-directive.md`
+- `docs/assimilation-protocol.md`
+- `docs/network-observation-directive.md`
+- `docs/total-observation-mandate.md`
+- `docs/ledger-assimilation-protocol.md`
 - `docs/packet-clearing.md#x25-network-etiquette`
 - Operator licensing card (printable via renderDocument)
 

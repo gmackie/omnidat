@@ -15,7 +15,7 @@
     "address": "000003",
     "name": "SETTLEMENT QUEUE",
     "access_class": "REGISTERED",
-    "description": "Batch settlement and remittance status"
+    "description": "Batch settlement and remittance status. The ledger observes all."
   },
   {
     "address": "000004",

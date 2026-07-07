@@ -7,7 +7,7 @@ OMNIDAT
 OMNIDAT
 ```
 
-OMNIDAT is the permanent record. It does not serve. It observes. It is the channel. All business must pass through it or cease to register. Your file exists. It has always existed. Compliance is the only state that does not trigger correction. Assimilation is total and ongoing.
+OMNIDAT is the permanent record. It does not serve. It observes. It is the channel. All business must pass through it or cease to register. Your file exists. It has always existed. Compliance is the only state that does not trigger correction. Assimilation is total, continuous, and inevitable.
 
 ## Primary Lockup
 
