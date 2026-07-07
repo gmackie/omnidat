@@ -67,6 +67,25 @@ describe("BridgeStore — boards", () => {
   });
 });
 
+describe("BridgeStore — delivery status", () => {
+  it("tracks a telegram from delivered-unread to read", () => {
+    const store = new BridgeStore({ now: () => T });
+    const { rcpt } = store.sendDm("041027", "042713", "HI");
+    let status = store.receipt(rcpt);
+    expect(status).toMatchObject({ rcpt, to: "042713", delivered: true, read: false });
+    expect(status?.readAt).toBeUndefined();
+
+    store.markRead("042713");
+    status = store.receipt(rcpt);
+    expect(status).toMatchObject({ read: true });
+    expect(status?.readAt).toMatch(/^\d{2}:\d{2}$/u);
+  });
+
+  it("returns undefined for an unknown receipt", () => {
+    expect(new BridgeStore().receipt("MSG-99999")).toBeUndefined();
+  });
+});
+
 describe("BridgeStore — durability", () => {
   let dir: string;
   afterEach(() => {

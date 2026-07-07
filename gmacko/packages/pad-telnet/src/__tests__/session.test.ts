@@ -22,6 +22,19 @@ function mockBridge(overrides: Partial<Bridge> = {}): Bridge {
       { no: 1, poster: "anon", ts: 1_700_000_000_000, body: "FIRST POST" },
     ]),
     boardPost: vi.fn(async () => ({ no: 2, eventId: "e2" })),
+    boards: vi.fn(async () => ({
+      boards: [
+        {
+          address: "000401",
+          boardId: "GEN",
+          name: "OMNIDAT PUBLIC BOARD /GEN/",
+          readClass: "PUBLIC",
+          postClass: "PUBLIC",
+        },
+      ],
+      mail: { address: "000007", name: "SUBSCRIBER MAIL" },
+    })),
+    receipt: vi.fn(async () => ({ rcpt: "R1", to: "000009", delivered: true, read: false })),
     ...overrides,
   };
 }
@@ -161,6 +174,24 @@ describe("PadSession bridge-backed messaging", () => {
     expect(bridge.boardPost).toHaveBeenCalledWith("GEN", "second post", {
       ctx: { transport: "pad" },
     });
+  });
+
+  it("reports telegram delivery status with SENT", async () => {
+    const bridge = mockBridge({
+      receipt: vi.fn(async () => ({ rcpt: "MSG-00001", to: "000009", delivered: true, read: true, readAt: "09:31" })),
+    });
+    const s = new PadSession("311088000001", "vt100", bridge);
+    const out = await line(s, "SENT MSG-00001");
+    expect(bridge.receipt).toHaveBeenCalledWith("MSG-00001");
+    expect(out).toContain("TELEGRAM MSG-00001");
+    expect(out).toContain("READ 09:31");
+  });
+
+  it("resolves boards from the bridge catalog, not a hardcoded list", async () => {
+    const bridge = mockBridge();
+    const s = new PadSession("311088000001", "vt100", bridge);
+    await line(s, "CALL 000401");
+    expect(bridge.boards).toHaveBeenCalled();
   });
 
   it("clears an offline bridge with an honest CLR (no crash)", async () => {

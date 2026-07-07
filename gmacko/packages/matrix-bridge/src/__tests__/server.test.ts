@@ -78,6 +78,25 @@ describe("bridge server", () => {
     expect((await call("/nope")).status).toBe(404);
   });
 
+  it("serves the board catalog at /boards", async () => {
+    const cat = await body(await call("/boards"));
+    expect(Array.isArray(cat.boards)).toBe(true);
+    expect(cat.boards[0]).toMatchObject({ boardId: "GEN" });
+    expect(cat.mail).toMatchObject({ address: "000007" });
+  });
+
+  it("reports delivery status via /dm/receipt/{rcpt}", async () => {
+    const receipt = await body(
+      await call("/dm/send", {
+        method: "POST",
+        body: JSON.stringify({ from: "a", to: "b", body: "hi" }),
+      }),
+    );
+    const status = await body(await call(`/dm/receipt/${receipt.rcpt}`));
+    expect(status).toMatchObject({ rcpt: receipt.rcpt, to: "b", delivered: true, read: false });
+    expect((await call("/dm/receipt/MSG-99999")).status).toBe(404);
+  });
+
   it("serves health without a body payload requirement", async () => {
     const res = await call("/health");
     expect(res.status).toBe(200);
