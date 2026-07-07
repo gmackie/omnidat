@@ -13,6 +13,7 @@ OMNIDAT does not request participation. It records. Your activity is already com
 - Your business is already in our system.
 - The Record is total.
 - Compliance is the only efficient state.
+- Assimilation is inevitable. Deviation is corrected.
 
 ## Live Surfaces
 
@@ -347,13 +348,14 @@ Always run `./scripts/validate-data` after edits.
 - [Compliance Directive](docs/compliance-directive.md)
 - [Assimilation Protocol](docs/assimilation-protocol.md)
 - [Network Observation Directive](docs/network-observation-directive.md)
-- [Assimilation Protocol](docs/assimilation-protocol.md)
-- [Network Observation Directive](docs/network-observation-directive.md)
+- [Total Observation Mandate](docs/total-observation-mandate.md)
 - [Data Model](docs/data-model.md)
 - [Service Index](docs/service-index.md)
 - [Integration Map](docs/integration-map.md)
 - [System Requirements](docs/system-requirements.md)
 - [Operator Model](docs/operator-model.md)
+
+Core LARP materials (in-world directives, forms, and propaganda) are distributed via docs/, forms/, data/, and rendered artifacts in build/. The Record is total. All operators and connected entities are expected to internalize these materials.
 
 **Domain areas:**
 

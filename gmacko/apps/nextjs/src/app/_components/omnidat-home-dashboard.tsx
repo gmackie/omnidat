@@ -23,7 +23,7 @@ export function OmnidatHomeDashboard() {
         <p className="text-sm font-semibold uppercase text-[#c0a36e]">
           Exchange 88 Status
         </p>
-        <p className="text-[10px] text-[#9a8a6e] mt-1">THE RECORD IS TOTAL. COMPLIANCE IS OBSERVED.</p>
+        <p className="text-[10px] text-[#9a8a6e] mt-1">THE RECORD IS TOTAL. COMPLIANCE IS OBSERVED. RESISTANCE IS INEFFICIENCY.</p>
         <h2 className="mt-2 text-2xl font-bold">
           {dashboard.data.network.protocol} {dashboard.data.network.status}
         </h2>

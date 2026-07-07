@@ -36,7 +36,7 @@ def render_status(status: dict[str, Any]) -> str:
     active_request = status.get("active_media_request") or "NONE"
     lines = [
         "OMNIDAT OPERATOR STATUS",
-        "A GMACKO CORPORATION",
+        "THE RECORD IS TOTAL",
         "EXCHANGE 88",
         "",
         f"SERVICES: {status.get('services', 0)}",
@@ -53,7 +53,7 @@ def render_status(status: dict[str, Any]) -> str:
         f"MEDIA REQUESTS: {status.get('media_requests', 0)}",
         f"INCIDENTS: {status.get('incidents', 0)}",
         "",
-        "# H5-H8 / camp prep: ToorCamp 2028 flagship + CC Camp 2027 potential (see README)",
+        "# THE RECORD EXPANDS. ALL ACTIVITY IS OBSERVED. COMPLIANCE IS MANDATORY.",
     ]
     return "\n".join(lines)
 

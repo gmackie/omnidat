@@ -53,6 +53,16 @@
             "YOUR BUSINESS IS ALREADY IN OUR SYSTEM"
           ]
         },
+        "111": {
+          "title": "COMPLIANCE REMINDER",
+          "lines": [
+            "BRIEF SESSIONS ONLY",
+            "HONEST CLEAR CODES REQUIRED",
+            "NO FLOODING PERMITTED",
+            "DEVIATION LOGGED AND CORRECTED",
+            "THE LEDGER IS PERMANENT"
+          ]
+        },
         "102": {
           "title": "NOW PLAYING",
           "lines": [
@@ -72,6 +82,16 @@
             "SHUTDOWN: MEDIA DESK OR NOC",
             "OMNIDAT",
             "THE RECORD IS TOTAL"
+          ]
+        },
+        "112": {
+          "title": "NETWORK CORRECTION",
+          "lines": [
+            "SATURATION EVENTS ARE LOGGED",
+            "OVER-BUDGET CALLS ARE REFUSED",
+            "FLOODING TRIGGERS SUSPENSION",
+            "ETIQUETTE IS PROTOCOL",
+            "COMPLIANCE PREVENTS CORRECTION"
           ]
         }
       }

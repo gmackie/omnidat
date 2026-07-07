@@ -3,13 +3,13 @@
     "address": "000001",
     "name": "OMNIDAT DIRECTORY",
     "access_class": "PUBLIC",
-    "description": "Packet service directory"
+    "description": "Packet service directory. The Record is total."
   },
   {
     "address": "000002",
     "name": "ACCOUNT INQUIRY",
     "access_class": "REGISTERED",
-    "description": "Account status and records"
+    "description": "Account status and records. All activity is observed."
   },
   {
     "address": "000003",
