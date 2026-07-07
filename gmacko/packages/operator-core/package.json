@@ -23,6 +23,10 @@
     "./attract": {
       "types": "./dist/omnidat-attract.d.ts",
       "default": "./src/omnidat-attract.ts"
+    },
+    "./profiles": {
+      "types": "./dist/terminal-profiles.d.ts",
+      "default": "./src/terminal-profiles.ts"
     }
   },
   "main": "./dist/index.js",
@@ -32,9 +36,9 @@
   ],
   "license": "MIT",
   "scripts": {
-    "build": "rm -rf dist && tsup src/index.ts src/omnidat.ts src/vt100.ts src/omnidat-terminal.ts src/omnidat-attract.ts --format esm && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsup src/index.ts src/omnidat.ts src/vt100.ts src/omnidat-terminal.ts src/omnidat-attract.ts src/terminal-profiles.ts --format esm && tsc -p tsconfig.build.json",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
-    "dev": "tsup src/index.ts src/omnidat.ts src/vt100.ts src/omnidat-terminal.ts src/omnidat-attract.ts --format esm --watch --dts",
+    "dev": "tsup src/index.ts src/omnidat.ts src/vt100.ts src/omnidat-terminal.ts src/omnidat-attract.ts src/terminal-profiles.ts --format esm --watch --dts",
     "format": "biome check .",
     "lint": "oxlint .",
     "test": "vitest run src/__tests__/*.test.ts",

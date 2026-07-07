@@ -38,6 +38,8 @@ export interface PadServerOptions {
   idleSeconds?: number;
   /** Max concurrent connections (soft cap; excess are greeted then closed). */
   maxConnections?: number;
+  /** Default terminal personality (vt100 / adm3a / tty33); switch with TERM. */
+  profile?: string;
 }
 
 interface Conn {
@@ -54,7 +56,10 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
 
   const server = net.createServer((socket) => {
     socket.setNoDelay(true);
-    const conn: Conn = { session: new PadSession(dte), attractActive: false };
+    const conn: Conn = {
+      session: new PadSession(dte, options.profile),
+      attractActive: false,
+    };
 
     const write = (data: string) => {
       if (!socket.destroyed) socket.write(Buffer.from(data, "binary"));
@@ -71,12 +76,14 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
 
     const armIdle = () => {
       if (conn.idleTimer) clearTimeout(conn.idleTimer);
-      if (idleMs <= 0) return;
+      // The screensaver is VT100-only; don't idle into it on other personalities.
+      if (idleMs <= 0 || conn.session.terminalProfile !== "vt100") return;
       conn.idleTimer = setTimeout(startAttract, idleMs);
     };
 
     function startAttract() {
       if (conn.attractActive || socket.destroyed) return;
+      if (conn.session.terminalProfile !== "vt100") return;
       conn.attractActive = true;
       const frames = attractFrames();
       let i = 0;

@@ -282,6 +282,10 @@ export function OmnidatOperatorCrud() {
             <button className="bg-[#c0a36e] px-2 text-black" onClick={() => updateIncident.mutate({incidentId, status: "resolved"})}>Resolve</button>
             <span className="text-[10px] text-[#9a8a6e]"> (demo list via NOC/ops)</span>
           </div>
+          <ul className="mt-1 text-[10px] text-[#9a8a6e]">
+            <li>INC-001 - open - PAD network issue</li>
+            <li>INC-042 - resolved - ToorCamp prep</li>
+          </ul>
         </div>
 
         <div>

@@ -31,15 +31,31 @@ Environment:
 - `HOST` (default `0.0.0.0`)
 - `PAD_DTE` — DTE address shown to terminals (default `311088000001`)
 - `PAD_IDLE` — idle seconds before the screensaver starts, `0` disables (default `45`)
+- `PAD_TERM` — default terminal personality: `vt100` (default), `adm3a`, `tty33`
 
 ## Verbs
 
 `HELP` · `DIR [NAMESPACE]` · `LOOKUP <X121>` · `CALL <X121>` (enter a service
-session) · `STATUS <X121>` · `PAD <X121>` · `BILL <ACCT>` · `ATTRACT` (screensaver)
-· `CLEAR` (hang up).
+session) · `STATUS <X121>` · `PAD <X121>` · `BILL <ACCT>` · `ATTRACT` (screensaver,
+VT100 only) · `TERM <VT100|ADM3A|TTY33>` (switch personality) · `CLEAR` (hang up).
 
 Inside a service session (after `CALL`), the service's own verbs apply — e.g.
 Miliways: `MENU`, `QUOTE <ITEM…>`, `ORDER.CREATE <ITEM…>`, `ORDER.STATUS <ID>`.
+
+## Terminal personalities
+
+Screens are authored once as VT100 and translated to the connected terminal's
+dialect on the way out (`@omnidat/operator-core/profiles`), switchable live with
+`TERM`:
+
+- **`vt100`** — DEC VT100. ANSI cursor addressing, SGR attributes, DEC line
+  drawing. The authoring dialect.
+- **`adm3a`** — Lear Siegler ADM-3A. A glass terminal with cursor addressing but
+  no video attributes: `ESC = <row+32> <col+32>` to position, `Ctrl-Z` to clear.
+  The rendered grid is re-emitted in that dialect; ANSI escapes never reach it.
+- **`tty33`** — Teletype ASR-33. A *printing* terminal: no cursor addressing,
+  upper-case only, 72 columns. Full-screen pages linearize to a scrolling
+  transcript; there is no clear (it's paper), and the screensaver is disabled.
 
 ## Deploy (hetzner node)
 

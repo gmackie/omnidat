@@ -74,5 +74,17 @@
     ],
     "status": "active",
     "subscriber_address": "042713"
+  },
+  {
+    "account_id": "ACCT-CC2027",
+    "display_name": "CC CAMP 2027 VILLAGE",
+    "access_class": "REGISTERED",
+    "packet_permissions": [
+      "DIRECTORY",
+      "MEDIA_CATALOG",
+      "DOCUMENT_SERVICES"
+    ],
+    "status": "active",
+    "subscriber_address": "020999"
   }
 ]

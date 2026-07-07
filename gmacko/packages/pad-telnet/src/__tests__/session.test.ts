@@ -86,4 +86,36 @@ describe("PadSession", () => {
     const s = new PadSession();
     expect(line(s, "HELP")).toContain("VERBS:");
   });
+
+  it("switches terminal personality with TERM and re-greets", () => {
+    const s = new PadSession();
+    expect(s.terminalProfile).toBe("vt100");
+    const out = line(s, "TERM ADM3A");
+    expect(s.terminalProfile).toBe("adm3a");
+    // Re-greeting in ADM-3A dialect: no ANSI CSI escapes leak through.
+    expect(/\x1b\[/.test(out)).toBe(false);
+    expect(out).toContain("OMNIDAT");
+  });
+
+  it("upper-cases keystrokes on the ASR-33", () => {
+    const s = new PadSession("311088000001", "tty33");
+    expect(s.terminalProfile).toBe("tty33");
+    // Echo upper-cases on a printing terminal.
+    expect(s.feed("dir").output).toBe("DIR");
+  });
+
+  it("refuses the screensaver on the ASR-33", () => {
+    const s = new PadSession("311088000001", "tty33");
+    const attract = s.feed("ATTRACT\r");
+    expect(attract.startAttract).toBeUndefined();
+    expect(attract.output).toContain("REQUIRES VT100");
+  });
+
+  it("starts in the personality passed to the constructor", () => {
+    const s = new PadSession("311088000001", "adm3a");
+    expect(s.terminalProfile).toBe("adm3a");
+    // Greeting comes out in ADM-3A dialect (Ctrl-Z clear is not used for the
+    // line-oriented banner, but ANSI attributes are stripped).
+    expect(/\x1b\[/.test(s.greeting())).toBe(false);
+  });
 });

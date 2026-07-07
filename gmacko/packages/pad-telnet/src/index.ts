@@ -13,8 +13,9 @@ const port = Number.parseInt(process.env.PORT ?? "2525", 10);
 const host = process.env.HOST ?? "0.0.0.0";
 const dte = process.env.PAD_DTE ?? "311088000001";
 const idleSeconds = Number.parseInt(process.env.PAD_IDLE ?? "45", 10);
+const profile = process.env.PAD_TERM ?? "vt100";
 
-const server = createPadServer({ dte, idleSeconds });
+const server = createPadServer({ dte, idleSeconds, profile });
 
 server.on("error", (err) => {
   console.error(`[omnidat-pad] server error: ${err.message}`);
