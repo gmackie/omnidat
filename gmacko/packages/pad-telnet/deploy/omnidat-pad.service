@@ -17,6 +17,7 @@ ExecStartPre=-/usr/bin/podman rm -f omnidat-pad
 ExecStart=/usr/bin/podman run --rm --name omnidat-pad \
   --network=host \
   -e PORT=2525 -e HOST=0.0.0.0 -e PAD_IDLE=45 \
+  -e OMNIDAT_BRIDGE_URL=http://127.0.0.1:8090 \
   -v /opt/omnidat-pad/index.js:/app/index.js:ro \
   docker.io/library/node:22-alpine node /app/index.js
 ExecStop=/usr/bin/podman stop omnidat-pad

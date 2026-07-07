@@ -15,6 +15,7 @@ import net from "node:net";
 import { attractFrames } from "@omnidat/operator-core/attract";
 import { VT } from "@omnidat/operator-core/vt100";
 
+import { type Bridge, MatrixBridge } from "./bridge.js";
 import { PadSession } from "./session.js";
 
 // Telnet negotiation: server WILL ECHO + WILL SUPPRESS-GO-AHEAD nudges clients
@@ -40,6 +41,8 @@ export interface PadServerOptions {
   maxConnections?: number;
   /** Default terminal personality (vt100 / adm3a / tty33); switch with TERM. */
   profile?: string;
+  /** Matrix bridge for MSG/MAIL/board verbs; defaults to an env-driven client. */
+  bridge?: Bridge;
 }
 
 interface Conn {
@@ -53,11 +56,12 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
   const dte = options.dte ?? "311088000001";
   const idleMs = (options.idleSeconds ?? 45) * 1000;
   const maxConnections = options.maxConnections ?? 64;
+  const bridge = options.bridge ?? new MatrixBridge();
 
   const server = net.createServer((socket) => {
     socket.setNoDelay(true);
     const conn: Conn = {
-      session: new PadSession(dte, options.profile),
+      session: new PadSession(dte, options.profile, bridge),
       attractActive: false,
     };
 
@@ -104,6 +108,9 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
     write(conn.session.greeting());
     armIdle();
 
+    // feed() is async (MSG/MAIL/board hit the bridge), so serialize inbound
+    // chunks through a per-connection promise chain to keep command order.
+    let pump: Promise<void> = Promise.resolve();
     socket.on("data", (data) => {
       if (conn.attractActive) {
         // Any keystroke wakes the terminal; discard it and return to the PAD.
@@ -111,17 +118,22 @@ export function createPadServer(options: PadServerOptions = {}): net.Server {
         armIdle();
         return;
       }
-      const result = conn.session.feed(data);
-      if (result.output) write(result.output);
-      if (result.startAttract) {
-        startAttract();
-        return;
-      }
-      if (result.close) {
-        socket.end();
-        return;
-      }
-      armIdle();
+      pump = pump.then(async () => {
+        if (socket.destroyed) return;
+        const result = await conn.session.feed(data);
+        if (result.output) write(result.output);
+        if (result.startAttract) {
+          startAttract();
+          return;
+        }
+        if (result.close) {
+          socket.end();
+          return;
+        }
+        armIdle();
+      }).catch(() => {
+        /* a command threw unexpectedly — keep the connection alive */
+      });
     });
 
     const cleanup = () => {

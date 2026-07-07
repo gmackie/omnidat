@@ -11,9 +11,13 @@
 // personality (VT100 / ADM-3A / ASR-33) on the way out, so the same session
 // drives very different hardware. Switch with `TERM <id>`.
 //
-// The session is a pure byte machine: feed it inbound bytes, get back outbound
-// bytes and control signals. No sockets, no timers — the server layer owns those
-// — so the whole command surface is unit-testable against strings.
+// Store-and-forward messaging (MSG / MAIL) and message boards ride the Matrix
+// bridge (bridge.ts / messaging.ts); those verbs are async and clear honestly
+// when the bridge is offline.
+//
+// The session is a byte machine: feed it inbound bytes, get back outbound bytes
+// and control signals. Sockets and timers live in the server layer; the bridge
+// is injected — so the whole command surface is unit-testable against strings.
 
 import { executeXotCommand } from "@omnidat/operator-core/omnidat";
 import {
@@ -34,9 +38,20 @@ import {
   omnidatPrompt,
 } from "@omnidat/operator-core/vt100";
 
+import { type Bridge, BridgeCleared } from "./bridge.js";
+import {
+  type BoardService,
+  bridgeServiceAt,
+  runBoardPost,
+  runBoardRead,
+  runMail,
+  runMsg,
+} from "./messaging.js";
+
 const CRLF = "\r\n";
 const PAD_HELP =
-  "VERBS: DIR [NS], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCT>, ATTRACT, TERM <VT100|ADM3A|TTY33>, HELP, CLEAR";
+  "VERBS: DIR [NS], LOOKUP <X121>, CALL <X121>, STATUS <X121>, PAD <X121>, BILL <ACCT>, MSG <TO> <TEXT>, MAIL, ATTRACT, TERM <VT100|ADM3A|TTY33>, HELP, CLEAR";
+const BOARD_HELP = "BOARD VERBS: READ [AFTER], POST <TEXT>, TERM <ID>, CLEAR";
 
 export interface FeedResult {
   /** Bytes to write back to the terminal. */
@@ -47,12 +62,13 @@ export interface FeedResult {
   startAttract?: boolean;
 }
 
-type Mode = "pad" | "session";
+type Mode = "pad" | "session" | "board";
 
 export class PadSession {
   private mode: Mode = "pad";
   private line = "";
   private sessionX121 = "";
+  private board: BoardService | null = null;
   private profile: TerminalProfileId;
   // Telnet IAC parser state.
   private iac: "none" | "cmd" | "opt" | "sub" = "none";
@@ -60,6 +76,7 @@ export class PadSession {
   constructor(
     private readonly dte = "311088000001",
     profile: string = "vt100",
+    private readonly bridge?: Bridge,
   ) {
     this.profile = resolveProfile(profile);
   }
@@ -96,10 +113,12 @@ export class PadSession {
     return this.ln(this.rawBanner());
   }
 
-  /** The PAD prompt (used when returning from a session or the screensaver). */
+  /** The current-mode prompt (PAD, service session, or board). */
   prompt(): string {
+    if (this.mode === "board" && this.board) {
+      return this.ln(`/${this.board.boardId}/ BOARD> `);
+    }
     if (this.mode === "session") {
-      // On a printing terminal there is no fixed command line — just prompt.
       return TERMINAL_PROFILES[this.profile].cursorAddressing
         ? this.pg(`${VT.to(24, 1)}\x1b[KCMD> `)
         : this.ln("CMD> ");
@@ -109,11 +128,11 @@ export class PadSession {
 
   /** Repaint after the screensaver stops. */
   resume(): string {
-    return this.mode === "session" ? this.prompt() : this.ln(omnidatPrompt(this.dte));
+    return this.mode === "pad" ? this.ln(omnidatPrompt(this.dte)) : this.prompt();
   }
 
   /** Feed inbound bytes; returns bytes to send plus any control signal. */
-  feed(bytes: Buffer | string): FeedResult {
+  async feed(bytes: Buffer | string): Promise<FeedResult> {
     const buf = typeof bytes === "string" ? Buffer.from(bytes, "binary") : bytes;
     let out = "";
     let result: FeedResult | null = null;
@@ -143,7 +162,7 @@ export class PadSession {
         out += CRLF;
         const cmd = this.line;
         this.line = "";
-        result = this.run(cmd);
+        result = await this.run(cmd);
         out += result.output;
         if (result.close || result.startAttract) break;
         continue;
@@ -180,24 +199,37 @@ export class PadSession {
     return this.resume();
   }
 
-  private run(raw: string): FeedResult {
+  private async run(raw: string): Promise<FeedResult> {
     const cmd = raw.trim();
     const [verb = "", ...args] = cmd.split(/\s+/);
-    // TERM switches personality from anywhere (PAD or an open service session)
-    // and repaints the current screen in the new dialect.
+    // TERM switches personality from anywhere and repaints the current screen.
     if (verb.toUpperCase() === "TERM") {
       this.profile = resolveProfile(args[0]);
       if (this.mode === "session") {
         const screen = connectServiceScreen(this.sessionX121);
         return { output: `${this.pg(screen.page)}${this.prompt()}` };
       }
-      return { output: this.greeting() };
+      return this.mode === "board"
+        ? { output: `${this.ln("TERMINAL CHANGED.")}${CRLF}${this.prompt()}` }
+        : { output: this.greeting() };
     }
+    if (this.mode === "board") return this.runBoard(cmd);
     if (this.mode === "session") return this.runSession(cmd);
     return this.runPad(cmd);
   }
 
-  private runPad(cmd: string): FeedResult {
+  /** A bridge call → its line body, or the honest CLR line on failure. */
+  private async bridged(run: (bridge: Bridge) => Promise<string>): Promise<string> {
+    if (!this.bridge) return "CLR DER C:9 D:0";
+    try {
+      return await run(this.bridge);
+    } catch (error) {
+      if (error instanceof BridgeCleared) return error.clrLine;
+      return "CLR DER C:9 D:0";
+    }
+  }
+
+  private async runPad(cmd: string): Promise<FeedResult> {
     if (!cmd) return { output: this.ln(omnidatPrompt(this.dte)) };
     const [verbRaw = "", ...args] = cmd.split(/\s+/);
     const verb = verbRaw.toUpperCase();
@@ -206,8 +238,6 @@ export class PadSession {
       return { output: this.ln(`CLEARED.${CRLF}CLR DTE C:0 D:0${CRLF}`), close: true };
     }
     if (verb === "ATTRACT") {
-      // The screensaver is a VT100 showpiece (cursor-addressed animation); it
-      // would be noise on the ADM-3A / ASR-33, so only the VT100 gets it.
       if (this.profile !== "vt100") {
         return {
           output: this.ln(
@@ -220,10 +250,35 @@ export class PadSession {
     if (verb === "HELP" || verb === "?") {
       return { output: this.ln(`${PAD_HELP}${CRLF}${omnidatPrompt(this.dte)}`) };
     }
+    // MSG <to> <text...> — store-and-forward subscriber message via the bridge.
+    if (verb === "MSG") {
+      const to = args[0];
+      const body = args.slice(1).join(" ");
+      if (!to || !body) {
+        return { output: this.ln(`USAGE: MSG <TO-X121> <TEXT>${CRLF}${omnidatPrompt(this.dte)}`) };
+      }
+      const line = await this.bridged((b) => runMsg(b, this.dte, to, body));
+      return { output: this.ln(`${line}${CRLF}${omnidatPrompt(this.dte)}`) };
+    }
+    // MAIL — read (and mark) the subscriber mailbox for this DTE.
+    if (verb === "MAIL") {
+      const line = await this.bridged((b) => runMail(b, this.dte));
+      return { output: this.ln(`${line}${CRLF}${omnidatPrompt(this.dte)}`) };
+    }
     if (verb === "CALL" && args[0]) {
+      const svc = bridgeServiceAt(args[0]);
+      if (svc?.kind === "board") {
+        this.mode = "board";
+        this.board = svc;
+        const page = await this.bridged((b) => runBoardRead(b, svc));
+        return { output: this.ln(`${page}${CRLF}${BOARD_HELP}${CRLF}`) + this.prompt() };
+      }
+      if (svc?.kind === "mail") {
+        const line = await this.bridged((b) => runMail(b, this.dte));
+        return { output: this.ln(`${line}${CRLF}${omnidatPrompt(this.dte)}`) };
+      }
       const screen = connectServiceScreen(args[0]);
       if (screen.ended) {
-        // Unknown address — show the clear screen, stay at the PAD.
         return { output: `${this.pg(screen.page)}${this.ln(`${CRLF}${omnidatPrompt(this.dte)}`)}` };
       }
       this.mode = "session";
@@ -239,7 +294,40 @@ export class PadSession {
     };
   }
 
-  private runSession(cmd: string): FeedResult {
+  private async runBoard(cmd: string): Promise<FeedResult> {
+    const board = this.board;
+    if (!board) {
+      this.mode = "pad";
+      return { output: this.ln(omnidatPrompt(this.dte)) };
+    }
+    const [verbRaw = "", ...args] = cmd.split(/\s+/);
+    const verb = verbRaw.toUpperCase();
+
+    if (verb === "CLEAR" || verb === "CLR" || verb === "BYE") {
+      this.mode = "pad";
+      this.board = null;
+      return { output: this.ln(`CLR DTE C:0 D:0${CRLF}${omnidatPrompt(this.dte)}`) };
+    }
+    if (verb === "HELP" || verb === "?") {
+      return { output: this.ln(`${BOARD_HELP}${CRLF}`) + this.prompt() };
+    }
+    if (verb === "READ") {
+      const after = args[0] ? Number.parseInt(args[0], 10) : undefined;
+      const page = await this.bridged((b) =>
+        runBoardRead(b, board, Number.isNaN(after) ? undefined : after),
+      );
+      return { output: this.ln(`${page}${CRLF}`) + this.prompt() };
+    }
+    if (verb === "POST") {
+      const body = args.join(" ");
+      if (!body) return { output: this.ln(`USAGE: POST <TEXT>${CRLF}`) + this.prompt() };
+      const line = await this.bridged((b) => runBoardPost(b, board, body));
+      return { output: this.ln(`${line}${CRLF}`) + this.prompt() };
+    }
+    return { output: this.ln(`CLR NP C:13 D:0 — UNKNOWN BOARD VERB ${verb}${CRLF}`) + this.prompt() };
+  }
+
+  private async runSession(cmd: string): Promise<FeedResult> {
     const [verb = "", ...args] = cmd.split(/\s+/);
     const screen = renderServiceVerb({ x121: this.sessionX121, verb, args });
     if (screen.ended) {

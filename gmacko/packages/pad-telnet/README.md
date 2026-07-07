@@ -36,11 +36,30 @@ Environment:
 ## Verbs
 
 `HELP` · `DIR [NAMESPACE]` · `LOOKUP <X121>` · `CALL <X121>` (enter a service
-session) · `STATUS <X121>` · `PAD <X121>` · `BILL <ACCT>` · `ATTRACT` (screensaver,
-VT100 only) · `TERM <VT100|ADM3A|TTY33>` (switch personality) · `CLEAR` (hang up).
+session) · `STATUS <X121>` · `PAD <X121>` · `BILL <ACCT>` · `MSG <TO> <TEXT>` ·
+`MAIL` · `ATTRACT` (screensaver, VT100 only) · `TERM <VT100|ADM3A|TTY33>` (switch
+personality) · `CLEAR` (hang up).
 
 Inside a service session (after `CALL`), the service's own verbs apply — e.g.
 Miliways: `MENU`, `QUOTE <ITEM…>`, `ORDER.CREATE <ITEM…>`, `ORDER.STATUS <ID>`.
+
+## Messaging (Matrix bridge)
+
+`MSG`, `MAIL`, and message boards ride the OMNIDAT Matrix bridge — a small HTTP
+service (`OMNIDAT_BRIDGE_URL`, default `http://127.0.0.1:8090`, header
+`x-omnidat-secret` from `OMNIDAT_BRIDGE_SECRET`) that fronts a Matrix homeserver.
+The TS client (`bridge.ts`) mirrors the Python one (`tools/omnidat_bridge.py`)
+byte-for-byte, so both PADs speak to one backend, and every failure maps to an
+honest X.25 clear (`CLR DER C:9 D:0` when the bridge is offline).
+
+- `MSG <to-x121> <text>` — store-and-forward subscriber message.
+- `MAIL` — read (and mark) this DTE's subscriber mailbox.
+- `CALL <board-x121>` — enter a public board (e.g. `000401` = `/GEN/`); then
+  `READ [after]` and `POST <text>`. A PUBLIC-post board never receives
+  passport-linkable context (only `{transport: "pad"}`).
+
+The bridge **server** is not part of this package — deploy it separately and the
+verbs light up. Until then they clear honestly as offline.
 
 ## Terminal personalities
 
