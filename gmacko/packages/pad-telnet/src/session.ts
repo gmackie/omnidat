@@ -39,6 +39,7 @@ import {
 } from "@omnidat/operator-core/vt100";
 
 import { type BoardDef, type Bridge, BridgeCleared, type Catalog } from "./bridge.js";
+import { isStatusBoard, normalizeStatusPost, statusHelp } from "./camp-status.js";
 import {
   resolveCatalog,
   runBoardPost,
@@ -295,7 +296,10 @@ export class PadSession {
         this.board = svc.board;
         const board = svc.board;
         const page = await this.bridged((b) => runBoardRead(b, board));
-        return { output: this.ln(`${page}${CRLF}${BOARD_HELP}${CRLF}`) + this.prompt() };
+        const help = isStatusBoard(board.boardId)
+          ? `${BOARD_HELP}${CRLF}${statusHelp()}`
+          : BOARD_HELP;
+        return { output: this.ln(`${page}${CRLF}${help}${CRLF}`) + this.prompt() };
       }
       if (svc?.kind === "mail") {
         const line = await this.bridged((b) => runMail(b, this.dte));
@@ -345,7 +349,12 @@ export class PadSession {
     if (verb === "POST") {
       const body = args.join(" ");
       if (!body) return { output: this.ln(`USAGE: POST <TEXT>${CRLF}`) + this.prompt() };
-      const line = await this.bridged((b) => runBoardPost(b, board, body));
+      // On the camp status board, normalize the post against the status
+      // vocabulary (a known code is upper-cased and split from its detail).
+      const text = isStatusBoard(board.boardId)
+        ? normalizeStatusPost(body).formatted
+        : body;
+      const line = await this.bridged((b) => runBoardPost(b, board, text));
       return { output: this.ln(`${line}${CRLF}`) + this.prompt() };
     }
     return { output: this.ln(`CLR NP C:13 D:0 — UNKNOWN BOARD VERB ${verb}${CRLF}`) + this.prompt() };
