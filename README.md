@@ -1,5 +1,7 @@
 # OMNIDAT
 
+**Agents starting work here:** read [docs/agent-handoff.md](docs/agent-handoff.md) first.
+
 **OMNIDAT** is the permanent record.
 
 OMNIDAT is the channel. All activity is observed through Exchange 88, packet services, terminals, and the ledger. It combines a real PBX interconnect, dialable business services, X.25-style packet networking, terminal services, document services, a robotic media vault, operator tooling, and the carrier network for commerce.
