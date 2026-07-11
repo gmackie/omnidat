@@ -35,11 +35,16 @@ export function OmnidatXotTerminal() {
   const packetCall = useMutation(
     trpc.omnidat.packetCall.mutationOptions({
       onSuccess: (result) => {
+        const evidenceId =
+          result.evidence?.id ?? result.session?.evidenceArtifactId ?? null;
         setLines((prev) => [
           ...prev,
           ...result.transcript.split("\n"),
           `RECEIPT: ${result.receipt.title}`,
           ...(result.receipt.body ? result.receipt.body.split("\n").slice(0, 4) : []),
+          evidenceId
+            ? `EVIDENCE: ${evidenceId}  (${result.evidence?.url ?? "packet-call-receipt"})`
+            : "EVIDENCE: (not persisted — check operator role / DB)",
         ]);
         setStatus(result.clearCode.cause === 0 ? "connected" : "cleared");
         // Auto render camp doc for camp addresses (H3/H5-H8)

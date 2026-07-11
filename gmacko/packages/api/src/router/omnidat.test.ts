@@ -1618,6 +1618,10 @@ describe("omnidat packetCall browser XOT bridge", () => {
     expect(result.transcript).toContain("PAD> CALL 311088020501");
     expect(result.transcript).toContain("CLR DTE C:0 D:0");
     expect(result.receipt.title).toContain("TRANSCRIPT");
+    // H2: every CALL leaves a NOC-visible evidence artifact linked to the session
+    expect(result.evidence.artifactKind).toBe("packet-call-receipt");
+    expect(result.evidence.url).toMatch(/^evidence:\/\/packet-call\//);
+    expect(result.session.evidenceArtifactId).toBe(result.evidence.id);
   });
 
   it("clears an unknown address with cause 13, never a silent error", async () => {
@@ -1628,6 +1632,9 @@ describe("omnidat packetCall browser XOT bridge", () => {
     expect(result.clearCode.cause).toBe(13);
     expect(result.clearCode.rendered).toBe("CLR NP C:13 D:67");
     expect(result.transcript).toContain("NO SUCH ADDRESS 311088099999");
+    // Failure paths still leave evidence (honest clear + receipt)
+    expect(result.evidence.artifactKind).toBe("packet-call-receipt");
+    expect(result.session.evidenceArtifactId).toBe(result.evidence.id);
   });
 
   it("refuses an over-budget guest-radio call with an honest cause", async () => {

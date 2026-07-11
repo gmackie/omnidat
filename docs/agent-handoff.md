@@ -1,7 +1,7 @@
 # Agent Handoff — OMNIDAT
 
-**Last updated:** 2026-07-10  
-**Branch tip:** `main` @ `2222cba` (ahead of `forge/main` by ~33 commits; working tree clean when written)  
+**Last updated:** 2026-07-11  
+**Branch tip:** `main` (jj-colocated; see `jj log` / `git log`)  
 **Remotes:** `forge` → `git.forgegraf.com/gmackie/omnidat-app.git`, `github` → `github.com/gmackie/omnidat.git`
 
 Read this first. Then skim root `README.md`, the current implementation, and
@@ -140,7 +140,7 @@ Plans live in `docs/plans/`. Prefer implementing against a named plan rather tha
 | H0 | leadership package + roadmap | Pilot story | Docs strong; keep public claims honest |
 | H1a | `2026-07-04-h1a-operator-core-slice.md` | Role-gate, audit, bridge-critical CRUD | Largely landed in code |
 | H1b | `2026-07-05-h1b-operator-crud.md` | Full operator CRUD UI | Forms + demos in place; lifecycle polish remains |
-| H2 | `2026-07-05-h2-browser-xot-bridge.md` | Browser XOT → evidence | Terminal + CAMP/EVIDENCE advanced |
+| H2 | `2026-07-05-h2-browser-xot-bridge.md` | Browser XOT → evidence | `packetCall` persists linked `packet-call-receipt` evidence; terminal shows EVIDENCE id; unit tests green; production deploy e2e still open |
 | H2b | `2026-07-05-h2b-transport-adapters.md` | Other transports | Telnet PAD + policy; POTS/radio → H5 |
 | H3 | `2026-07-05-h3-camp-utility-apps.md` | Campsite apps | Kinds + CRUD; per-app content models later |
 | H4 | `2026-07-05-h4-merchant-rails.md` | Merchant/bank rails | Code ready; **governance sign-off** blocking |
@@ -152,9 +152,9 @@ Also useful: `docs/plans/2026-07-04-roadmap-expansion.md`, field office plan `20
 
 ### Highest-value next technical work (suggested priority)
 
-1. **Close a real production bridge gate:** one provisioned X.121 service callable via deployed terminal/XOT or pad-telnet, visible in NOC, exportable as evidence — with honest clear codes on failure.
+1. **Close production bridge e2e (not unit):** CALL on deployed `console.omnidat.cc` XOT/pad-telnet → NOC session row + evidence artifact visible. App path now auto-persists `packet-call-receipt` evidence on every `packetCall`.
 2. **H1b lifecycle completeness:** provisioning requested→…→revoked without shell; every write audited; role tests for non-admins.
-3. **Split-authority drill:** `scripts/authority-drill` + field journal sync against cloud failover story.
+3. **Split-authority drill:** `scripts/authority-drill` + field journal sync against cloud failover story (code present; human rehearsal remains).
 4. **Do not invent redeemable money** without policy sign-off (H4 remaining work is governance, not more ISO demos).
 5. **Push/deploy lag:** reconcile the 33 local commits with `forge/main` if the next agent is expected to ship.
 6. Hardware / ShadyTel questions stay in `docs/open-questions.md` — track decisions, don’t block pure software slices.

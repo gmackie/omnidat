@@ -717,6 +717,33 @@ export const omnidatRouter = {
       transcriptLines.push(rendered);
       const transcript = transcriptLines.join("\n");
 
+      const receipt = buildOmnidatDocument("provisioning-transcript", {
+        x121: input.destinationX121,
+        status: clearCode.cause === 0 ? "connected" : clearCode.outcome,
+        transcript,
+      });
+
+      // Persist a NOC-visible evidence artifact for every call (success or
+      // honest failure). H2 exit gate: operator can export/print a receipt
+      // without a second mutation after the terminal CALL.
+      const evidence = await persistEvidenceArtifact(
+        db,
+        {
+          artifactKind: "packet-call-receipt",
+          label: `CALL ${input.destinationX121} ${rendered}`,
+          url: `evidence://packet-call/${session.id}`,
+          recordCount: 1,
+          contentType: "text/plain",
+          checksum: null,
+        },
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(db, {
+        metricName: "evidence.artifact.created",
+        value: 1,
+        unit: "artifact",
+      });
+
       const cleared = await persistPacketSessionClear(
         db,
         {
@@ -724,6 +751,7 @@ export const omnidatRouter = {
           clearCause: clearCode.cause,
           clearDiagnostic: clearCode.diagnostic,
           transcript,
+          evidenceArtifactId: evidence.id,
         },
         auditActor(ctx),
       );
@@ -733,17 +761,16 @@ export const omnidatRouter = {
         unit: "session",
       });
 
-      const receipt = buildOmnidatDocument("provisioning-transcript", {
-        x121: input.destinationX121,
-        status: clearCode.cause === 0 ? "connected" : clearCode.outcome,
-        transcript,
-      });
-
       return {
-        session: { ...session, status: cleared.status },
+        session: {
+          ...session,
+          status: cleared.status,
+          evidenceArtifactId: evidence.id,
+        },
         clearCode: { ...clearCode, rendered },
         transcript,
         receipt,
+        evidence,
       };
     }),
 

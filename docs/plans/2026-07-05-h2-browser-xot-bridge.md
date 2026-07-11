@@ -96,6 +96,8 @@ this plan ships only the browser XOT path plus a fallback simulator mode.
 
 **Status:** Terminal supports CAMP/EVIDENCE to render camp-deployment-summary for ToorCamp/CC Camp demos. Receipt display enhanced with body. Auto render on camp CALLs. Typecheck clean. Parallel with H3/H5.
 
+**2026-07-11:** `packetCall` now auto-persists a `packet-call-receipt` evidence artifact, links it on session clear (`evidenceArtifactId`), and returns `{ evidence }` so the XOT terminal can show `EVIDENCE: <id>`. Success and honest-failure paths both leave evidence. NOC already lists sessions + artifacts. Remaining for production gate: deploy path exercised end-to-end against live console, not just unit tests.
+
 ## Task 4: Full Verification
 
 Run every release gate; commit the plan doc.
