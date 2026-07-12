@@ -159,6 +159,8 @@ receipt-style renderers):
 
 **Status:** Forms for events, campsites, allocations, provisioning advance, incidents (with demo list), campsite apps, batch close implemented in omnidat-operator-crud.tsx. Incident update added. Typechecks and tests passing. Parallel work on H3/H4 integrated.
 
+**2026-07-11:** Provisioning UI no longer jumps illegally. Operators can request provisioning, **Advance → next legal state** (with verification transcript on `verified`), Suspend, and Revoke. Allocation list gains Revoke. `nextProvisioningStatus` helper exported; full-path test covers requested → … → active → revoked.
+
 ## Task 9: Full Verification
 
 Run every release gate:

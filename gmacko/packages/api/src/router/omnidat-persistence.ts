@@ -1539,6 +1539,15 @@ export function isLegalProvisioningTransition(from: string, to: string) {
   return fromIndex >= 0 && toIndex === fromIndex + 1;
 }
 
+/** Next sequential status, or null if already active / unknown / terminal. */
+export function nextProvisioningStatus(from: string): string | null {
+  const fromIndex = PROVISIONING_STATES.indexOf(
+    from as (typeof PROVISIONING_STATES)[number],
+  );
+  if (fromIndex < 0 || fromIndex >= PROVISIONING_STATES.length - 1) return null;
+  return PROVISIONING_STATES[fromIndex + 1] ?? null;
+}
+
 export async function persistProvisioningRequest(
   db: OmnidatSessionDb | undefined,
   input: { campsiteId?: string | null; serviceId?: string | null; transport: string; requestedX121?: string | null },

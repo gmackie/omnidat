@@ -139,7 +139,7 @@ Plans live in `docs/plans/`. Prefer implementing against a named plan rather tha
 |---------|------|--------|-------------|
 | H0 | leadership package + roadmap | Pilot story | Docs strong; keep public claims honest |
 | H1a | `2026-07-04-h1a-operator-core-slice.md` | Role-gate, audit, bridge-critical CRUD | Largely landed in code |
-| H1b | `2026-07-05-h1b-operator-crud.md` | Full operator CRUD UI | Forms + demos in place; lifecycle polish remains |
+| H1b | `2026-07-05-h1b-operator-crud.md` | Full operator CRUD UI | Forms + legal provisioning step-through (request/advance/suspend/revoke); full-path tests green |
 | H2 | `2026-07-05-h2-browser-xot-bridge.md` | Browser XOT → evidence | `packetCall` persists linked `packet-call-receipt` evidence; terminal shows EVIDENCE id; unit tests green; production deploy e2e still open |
 | H2b | `2026-07-05-h2b-transport-adapters.md` | Other transports | Telnet PAD + policy; POTS/radio → H5 |
 | H3 | `2026-07-05-h3-camp-utility-apps.md` | Campsite apps | Kinds + CRUD; per-app content models later |
@@ -153,7 +153,7 @@ Also useful: `docs/plans/2026-07-04-roadmap-expansion.md`, field office plan `20
 ### Highest-value next technical work (suggested priority)
 
 1. **Close production bridge e2e (not unit):** CALL on deployed `console.omnidat.cc` XOT/pad-telnet → NOC session row + evidence artifact visible. App path now auto-persists `packet-call-receipt` evidence on every `packetCall`.
-2. **H1b lifecycle completeness:** provisioning requested→…→revoked without shell; every write audited; role tests for non-admins.
+2. **H1b remaining polish:** event status UI, campsite suspend UI, live incident list (not demo rows), role-list admin surface; provisioning legal path is done in CRUD.
 3. **Split-authority drill:** `scripts/authority-drill` + field journal sync against cloud failover story (code present; human rehearsal remains).
 4. **Do not invent redeemable money** without policy sign-off (H4 remaining work is governance, not more ISO demos).
 5. **Push/deploy lag:** reconcile the 33 local commits with `forge/main` if the next agent is expected to ship.

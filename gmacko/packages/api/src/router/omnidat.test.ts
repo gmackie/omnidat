@@ -1518,6 +1518,43 @@ describe("omnidat H1b lifecycle, incidents, billing, roles, export", () => {
     expect(suspended.status).toBe("suspended");
   });
 
+  it("walks the full legal path requested → active with verification transcript", async () => {
+    const fake = lcDb("user-packet", ["packet-operator"]);
+    const req = await call(fake, "user-packet").omnidat.requestProvisioning({
+      transport: "xot",
+      requestedX121: "311088020501",
+    });
+    const steps = [
+      "reviewed",
+      "approved",
+      "assigned",
+      "installed",
+      "verified",
+      "active",
+    ] as const;
+    for (const toStatus of steps) {
+      const advanced = await call(fake, "user-packet").omnidat.advanceProvisioning({
+        requestId: req.id,
+        toStatus,
+        verificationTranscript:
+          toStatus === "verified" ? "CALL 311088020501 CLR DTE C:0 D:0" : undefined,
+      });
+      expect(advanced.status).toBe(toStatus);
+    }
+    // terminal after active
+    const revoked = await call(fake, "user-packet").omnidat.advanceProvisioning({
+      requestId: req.id,
+      toStatus: "revoked",
+    });
+    expect(revoked.status).toBe("revoked");
+    await expect(
+      call(fake, "user-packet").omnidat.advanceProvisioning({
+        requestId: req.id,
+        toStatus: "active",
+      }),
+    ).rejects.toThrow(/illegal provisioning transition/i);
+  });
+
   it("opens and resolves an incident with a time-to-clear metric", async () => {
     const fake = lcDb("user-noc", ["noc-operator"]);
     const incident = await call(fake, "user-noc").omnidat.openIncident({

@@ -5,6 +5,28 @@ import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
 
+// Sequential provisioning path (mirrors PROVISIONING_STATES in omnidat-persistence).
+// Illegal jumps are rejected by the API; the UI only offers the next legal step.
+const PROVISIONING_ORDER = [
+  "requested",
+  "reviewed",
+  "approved",
+  "assigned",
+  "installed",
+  "verified",
+  "active",
+] as const;
+
+function nextProvisioningStatus(status: string): string | null {
+  const index = (PROVISIONING_ORDER as readonly string[]).indexOf(status);
+  if (index < 0 || index >= PROVISIONING_ORDER.length - 1) return null;
+  return PROVISIONING_ORDER[index + 1] ?? null;
+}
+
+function isTerminalProvisioning(status: string) {
+  return status === "suspended" || status === "revoked";
+}
+
 // H1b operator CRUD: create events and X.121 allocations, and drive an
 // allocation through its lifecycle, entirely through gated tRPC. Renders
 // inside the authenticated operator console; a FORBIDDEN response surfaces as
@@ -35,6 +57,8 @@ export function OmnidatOperatorCrud() {
   const [campsiteSlug, setCampsiteSlug] = useState("camp-laminar");
   const [campsiteName, setCampsiteName] = useState("Camp Laminar");
   const [contactHandle, setContactHandle] = useState("operator@camp.example");
+  const [provisionTransport, setProvisionTransport] = useState("xot");
+  const [provisionX121, setProvisionX121] = useState("311088020501");
   const [notice, setNotice] = useState<string | null>(null);
 
   // H3/H4 demo state
@@ -104,9 +128,23 @@ export function OmnidatOperatorCrud() {
       onError,
     }),
   );
+  const requestProvisioning = useMutation(
+    trpc.omnidat.requestProvisioning.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(`Provisioning requested: ${result.id} (${result.status})`);
+        void queryClient.invalidateQueries();
+      },
+      onError,
+    }),
+  );
   const advanceProvisioning = useMutation(
     trpc.omnidat.advanceProvisioning.mutationOptions({
-      onSuccess: () => void queryClient.invalidateQueries(),
+      onSuccess: (result) => {
+        setNotice(
+          `Provisioning ${result.id}: ${result.from ?? "?"} → ${result.status}`,
+        );
+        void queryClient.invalidateQueries();
+      },
       onError,
     }),
   );
@@ -244,6 +282,18 @@ export function OmnidatOperatorCrud() {
                 >
                   Suspend
                 </button>
+                <button
+                  className="rounded border border-[#5c4a32] px-2 py-0.5 text-xs uppercase"
+                  onClick={() =>
+                    advanceAllocation.mutate({
+                      allocationId: item.id,
+                      x121: item.x121,
+                      status: "revoked",
+                    })
+                  }
+                >
+                  Revoke
+                </button>
               </li>
             ))}
           </ul>
@@ -251,19 +301,107 @@ export function OmnidatOperatorCrud() {
 
         <div>
           <h3 className="font-semibold">Provisioning Lifecycle (H1b)</h3>
-          <div className="mt-2 text-sm text-[#9a8a6e]">
-            (Use operator console or tRPC ops for advance; list below)
+          <p className="mt-1 text-[10px] text-[#9a8a6e]">
+            Path: requested → reviewed → approved → assigned → installed →
+            verified → active. Suspend/revoke allowed from any non-terminal
+            state. Illegal jumps are rejected.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input
+              aria-label="provisioning transport"
+              className="rounded border border-[#5c4a32] bg-[#17130d] px-2 py-1 text-sm"
+              value={provisionTransport}
+              onChange={(event) => setProvisionTransport(event.target.value)}
+            />
+            <input
+              aria-label="requested x121"
+              className="rounded border border-[#5c4a32] bg-[#17130d] px-2 py-1 font-mono text-sm"
+              value={provisionX121}
+              onChange={(event) => setProvisionX121(event.target.value)}
+            />
+            <button
+              className="rounded bg-[#c0a36e] px-3 py-1 text-sm font-semibold text-black"
+              onClick={() =>
+                requestProvisioning.mutate({
+                  transport: provisionTransport,
+                  requestedX121: provisionX121,
+                })
+              }
+            >
+              Request provisioning
+            </button>
           </div>
-          <ul className="mt-2 space-y-1 text-sm">
-            {(provisioning.data?.provisioning ?? []).slice(0, 5).map((item: any) => (
-              <li key={item.id} className="font-mono flex items-center gap-2">
-                {item.assignedX121 || item.id} — {item.status} {item.transport ? `(${item.transport})` : ""}
-                <button className="text-[10px] border px-1" onClick={() => advanceProvisioning.mutate({requestId: item.id, toStatus: "approved"})}>Approve</button>
-                <button className="text-[10px] border px-1" onClick={() => advanceProvisioning.mutate({requestId: item.id, toStatus: "active"})}>Activate</button>
-              </li>
-            ))}
+          <ul className="mt-2 space-y-1 text-sm" data-testid="provisioning-list">
+            {(provisioning.data?.provisioning ?? []).slice(0, 8).map((item: {
+              id: string;
+              status: string;
+              transport?: string;
+              assignedX121?: string | null;
+            }) => {
+              const next = nextProvisioningStatus(item.status);
+              const terminal = isTerminalProvisioning(item.status);
+              return (
+                <li
+                  key={item.id}
+                  className="flex flex-wrap items-center gap-2 font-mono"
+                >
+                  <span>
+                    {item.assignedX121 || item.id} — {item.status}
+                    {item.transport ? ` (${item.transport})` : ""}
+                  </span>
+                  {next ? (
+                    <button
+                      className="rounded border border-[#5c4a32] px-2 py-0.5 text-[10px] uppercase"
+                      onClick={() =>
+                        advanceProvisioning.mutate({
+                          requestId: item.id,
+                          toStatus: next as
+                            | "reviewed"
+                            | "approved"
+                            | "assigned"
+                            | "installed"
+                            | "verified"
+                            | "active",
+                          verificationTranscript:
+                            next === "verified"
+                              ? `VERIFY ${item.assignedX121 ?? item.id} OK`
+                              : undefined,
+                        })
+                      }
+                    >
+                      Advance → {next}
+                    </button>
+                  ) : null}
+                  {!terminal ? (
+                    <>
+                      <button
+                        className="rounded border border-[#5c4a32] px-2 py-0.5 text-[10px] uppercase"
+                        onClick={() =>
+                          advanceProvisioning.mutate({
+                            requestId: item.id,
+                            toStatus: "suspended",
+                          })
+                        }
+                      >
+                        Suspend
+                      </button>
+                      <button
+                        className="rounded border border-[#5c4a32] px-2 py-0.5 text-[10px] uppercase"
+                        onClick={() =>
+                          advanceProvisioning.mutate({
+                            requestId: item.id,
+                            toStatus: "revoked",
+                          })
+                        }
+                      >
+                        Revoke
+                      </button>
+                    </>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
-          <div className="mt-1 text-[10px] text-[#9a8a6e]">Use tRPC ops or console for advanceProvisioning (H1b)</div>
         </div>
 
         <div>
