@@ -1,0 +1,27 @@
+# OMNIDAT Meshtastic gateway — field node unit.
+# Install: docs in deploy/mesh-gateway/README.md
+[Unit]
+Description=OMNIDAT Meshtastic gateway (Radio PAD transport)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Checkout of the omnidat repo (data/ seeds live here).
+WorkingDirectory=/opt/omnidat
+# OMNIDAT_BRIDGE_URL, OMNIDAT_BRIDGE_SECRET, MESH_SERIAL (or MESH_TCP_HOST)
+EnvironmentFile=/etc/omnidat/mesh-gateway.env
+ExecStart=/opt/omnidat/.venv/bin/python -m tools.omnidat_mesh_gateway \
+  --serial ${MESH_SERIAL} --notify-interval 60
+Restart=on-failure
+RestartSec=5
+# The radio serial device needs the service user in the dialout group.
+User=omnidat
+Group=dialout
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/omnidat/build
+
+[Install]
+WantedBy=multi-user.target
