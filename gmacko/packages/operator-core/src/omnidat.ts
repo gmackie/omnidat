@@ -71,7 +71,8 @@ export type OmnidatBillingAccount = {
   owner: string;
   status: "linked-demo" | "ready-for-terminal";
   balance: number;
-  currency: "SHDY";
+  /** OmniBucks testnet (OMNI) is default; SHDY is production ShadyBucks. */
+  currency: "OMNI" | "SHDY";
 };
 
 export type OmnidatCircuitMetric = {
@@ -105,7 +106,7 @@ export type OmnidatFoodOrder = {
   pickupName: string;
   itemIds: string[];
   total: number;
-  currency: "SHDY";
+  currency: "OMNI" | "SHDY";
   status: "received" | "preparing" | "ready" | "fulfilled" | "cancelled";
   estimatedWaitMinutes: number;
   receiptId: string;
@@ -258,7 +259,7 @@ export type OmnidatBillingLedgerEntry = {
     | "pos-network-fee"
     | "adjustment";
   amount: number;
-  currency: "SHDY";
+  currency: "OMNI" | "SHDY";
   memo: string;
   receiptId: string;
 };
@@ -558,7 +559,7 @@ export const omnidatServiceDefinitions: OmnidatServiceDefinition[] = [
   },
   {
     slug: "shadybucks-atm",
-    name: "ShadyBucks ATM PAD",
+    name: "OmniBucks ATM PAD",
     x121: "311088030100",
     owner: "ShadyBucks Settlement Office",
     category: "billing",
@@ -697,7 +698,7 @@ export const omnidatCircuitMetrics: OmnidatCircuitMetric[] = [
   },
   {
     x121: "311088030100",
-    service: "ShadyBucks ATM PAD",
+    service: "OmniBucks ATM PAD",
     status: "up",
     latencyMs: 74,
     transport: "shadytel-hosted",
@@ -927,7 +928,7 @@ function packIsoFields(fields: Record<number, string>) {
 
 export function getIso8583ProtocolProfile() {
   return {
-    protocol: "ISO8583-1987-SHADYBUCKS-X25",
+    protocol: "ISO8583-1987-OMNIBUCKS-X25",
     x121: "311088030100",
     transport: "x25-pad",
     encoding:
@@ -1271,7 +1272,9 @@ function terminalConfig(input: {
     "HOST_X121=311088002010",
     "UPDATE_DIAL=8811",
     "UPDATE_X121=311088002020",
-    "SHADYBANK_API=https://bucks.shady.tel",
+    "MERCHANT_RAIL=omnibucks",
+    "OMNIBANK_API=https://bucks.omnidat.cc",
+    "SHADYBANK_API=https://bucks.omnidat.cc",
     "SHADYBANK_TOKEN=FEP_ONLY",
   ].join("\n");
 }
@@ -1419,7 +1422,7 @@ export function simulateIso8583Transaction(
   const responseMti = responseMtiFor(input.mti);
 
   return {
-    protocol: "ISO8583-1987-SHADYBUCKS-X25",
+    protocol: "ISO8583-1987-OMNIBUCKS-X25",
     requestMti: input.mti,
     responseMti,
     processingCode: input.processingCode,
@@ -1429,13 +1432,14 @@ export function simulateIso8583Transaction(
     packedResponse: `MTI=${responseMti}|${packIsoFields(responseFields)}`,
     transcript: [
       "CALL 311088030100",
-      "CONNECT SHADYBUCKS ATM PAD",
+      "CONNECT OMNIBUCKS ATM PAD",
       `ISO8583 ${input.mti} -> ${responseMti}`,
       `PROC ${input.processingCode}`,
-      `AMOUNT ${cents(input.amount)} SHDY`,
+      `AMOUNT ${cents(input.amount)} OMNI`,
       `RRN ${input.retrievalReference}`,
       `RC ${responseCode}`,
       `AUTH ${auth}`,
+      "RAIL omnibucks",
     ].join("\n"),
   };
 }
@@ -1482,7 +1486,7 @@ export function processVintagePosSale(input: {
     accountId: merchant.accountId,
     entryKind: "pos-network-fee",
     amount: -feeAmount,
-    currency: "SHDY",
+    currency: "OMNI",
     memo: `OMNIDAT dial POS network fee for ${terminalIdValue}`,
     receiptId,
   };
@@ -1506,14 +1510,14 @@ export function processVintagePosSale(input: {
     "CONNECT 2400",
     `ORIGIN ${x121Origin}`,
     `CALL ${hostX121}`,
-    "CONNECT SHADYBUCKS POS AUTHORIZATION",
+    "CONNECT OMNIBUCKS POS AUTHORIZATION",
     `TERMINAL ${terminalIdValue}`,
     `MODEL ${input.terminalModel}`,
     clerkLine,
-    `SALE ${input.amount.toFixed(2)} SHDY`,
+    `SALE ${input.amount.toFixed(2)} OMNI`,
     noteLine,
     `FEE POLICY ${input.feePolicyId}`,
-    `NETWORK FEE ${feeAmount.toFixed(2)} SHDY`,
+    `NETWORK FEE ${feeAmount.toFixed(2)} OMNI`,
     `RC ${iso.responseCode}`,
     `AUTH ${iso.authorizationCode}`,
     `RECEIPT ${receiptId}`,
@@ -1538,7 +1542,7 @@ export function processVintagePosSale(input: {
     fee: {
       policyId: input.feePolicyId,
       amount: feeAmount,
-      currency: "SHDY" as const,
+      currency: "OMNI" as const,
       payer: "merchant" as const,
       ledgerEntry,
     },
@@ -1549,12 +1553,13 @@ export function processVintagePosSale(input: {
       `TERMINAL ${terminalIdValue}`,
       `MERCHANT ${merchant.accountId}`,
       input.clerkCode ? `CLERK ${input.clerkCode}` : "CLERK NONE",
-      `AMOUNT ${input.amount.toFixed(2)} SHDY`,
+      `AMOUNT ${input.amount.toFixed(2)} OMNI`,
       input.noteSerial ? `NOTE ${input.noteSerial}` : "NOTE NONE",
       status.toUpperCase(),
       `AUTH ${iso.authorizationCode}`,
-      `NETWORK FEE ${feeAmount.toFixed(2)} SHDY`,
+      `NETWORK FEE ${feeAmount.toFixed(2)} OMNI`,
       `RECEIPT ${receiptId}`,
+      "RAIL omnibucks",
     ].join("\n"),
   };
 }
@@ -1753,7 +1758,7 @@ export function setupAtmTerminal(input: {
     (account) => account.accountId === input.settlementAccountId,
   );
   if (!settlementAccount) {
-    throw new Error(`Unknown ShadyBucks account: ${input.settlementAccountId}`);
+    throw new Error(`Unknown OmniBucks account: ${input.settlementAccountId}`);
   }
   const terminalX121 = input.terminalX121?.trim() || nextX121();
   const ledgerEntry: OmnidatBillingLedgerEntry = {
@@ -1761,15 +1766,15 @@ export function setupAtmTerminal(input: {
     accountId: settlementAccount.accountId,
     entryKind: "atm-activation",
     amount: -10,
-    currency: "SHDY",
+    currency: "OMNI",
     memo: `ATM activation for ${input.terminalId}`,
     receiptId: `RCPT-ATM-${terminalX121.slice(-6)}`,
   };
   settlementAccount.balance -= 10;
   current.ledger.unshift(ledgerEntry);
   current.services.push({
-    slug: `shadybucks-atm-${slugify(input.terminalId)}`,
-    name: `ShadyBucks ATM ${input.terminalId}`,
+    slug: `omnibucks-atm-${slugify(input.terminalId)}`,
+    name: `OmniBucks ATM ${input.terminalId}`,
     x121: terminalX121,
     owner: settlementAccount.owner,
     category: "billing",
@@ -1779,19 +1784,19 @@ export function setupAtmTerminal(input: {
       {
         name: "BALANCE",
         description: "Return settlement account balance for this ATM terminal.",
-        inputs: ["shadybucksAccountId"],
+        inputs: ["omnibucksAccountId"],
         outputs: ["balance", "currency"],
       },
       {
         name: "WITHDRAW",
-        description: "Authorize a ShadyBucks cash-out operation.",
-        inputs: ["shadybucksAccountId", "amount"],
+        description: "Authorize an OmniBucks cash-out operation.",
+        inputs: ["omnibucksAccountId", "amount"],
         outputs: ["authorizationCode", "receiptId"],
       },
       {
         name: "DEPOSIT",
         description: "Record an operator cash-in operation.",
-        inputs: ["shadybucksAccountId", "amount"],
+        inputs: ["omnibucksAccountId", "amount"],
         outputs: ["receiptId", "newBalance"],
       },
     ],

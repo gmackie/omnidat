@@ -140,7 +140,7 @@ describe("OMNIDAT operational model", () => {
     });
 
     expect(call.status).toBe("ok");
-    expect(call.transcript).toContain("CONNECT SHADYBUCKS ATM OSC-ATM-1");
+    expect(call.transcript).toContain("CONNECT OMNIBUCKS ATM OSC-ATM-1");
     expect(call.transcript).toContain("VERBS BALANCE, WITHDRAW, DEPOSIT");
     expect(status.transcript).toContain(`STATUS ${atm.terminalX121} UP xot`);
   });
@@ -156,7 +156,7 @@ describe("OMNIDAT operational model", () => {
       retrievalReference: "123456789012",
     });
 
-    expect(profile.protocol).toBe("ISO8583-1987-SHADYBUCKS-X25");
+    expect(profile.protocol).toBe("ISO8583-1987-OMNIBUCKS-X25");
     expect(profile.fields.map((field) => field.bit)).toContain(3);
     expect(profile.fields.find((field) => field.bit === 52)?.sensitive).toBe(
       true,

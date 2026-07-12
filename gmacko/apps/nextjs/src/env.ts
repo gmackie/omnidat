@@ -21,6 +21,10 @@ export const env = createEnv({
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORG: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
+    /** omnibucks (default testnet) | shadybucks (production, policy-gated) */
+    MERCHANT_RAIL: z.enum(["omnibucks", "shadybucks"]).optional(),
+    OMNIBANK_API_URL: z.string().url().optional(),
+    OMNIBANK_MERCHANT_TOKEN: z.string().optional(),
     SHADYBANK_API_URL: z.string().url().optional(),
     SHADYBANK_MERCHANT_TOKEN: z.string().optional(),
   },

@@ -2,8 +2,29 @@
   "profile_id": "omnibank-fake-shadybank-contract",
   "display_name": "OmniBank Fake",
   "source_repo": "/Volumes/dev/shady/shadybank",
+  "source_branch": "omnibank",
   "rail": "OMNIBANK_FAKE_SHADYBANK_CONTRACT",
+  "network": {
+    "id": "omnibucks",
+    "currency": "OmniBucks",
+    "currency_code": "OMNI",
+    "bank_name": "OmniBank",
+    "environment": "testnet",
+    "public_base_url": "https://bucks.omnidat.cc",
+    "protocol": "OMNIBANK-OMNIBUCKS-HTTP-1",
+    "testnet": true
+  },
+  "live_http": {
+    "default_base_url": "https://bucks.omnidat.cc",
+    "local_compose_base_url": "http://127.0.0.1:8121",
+    "compose_file": "docker-compose.omnibank.yml",
+    "network_endpoint": "/api/network"
+  },
   "contract": {
+    "network": {
+      "method": "GET",
+      "path": "/api/network"
+    },
     "authorize": {
       "method": "POST",
       "path": "/api/authorize"
@@ -33,7 +54,7 @@
   "test_cards": [
     {
       "pan": "4242424242424242",
-      "label": "approved test card"
+      "label": "approved OmniBucks test card"
     }
   ]
 }

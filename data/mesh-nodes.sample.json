@@ -1,0 +1,12 @@
+[
+  {
+    "node_id": "!e2e30001",
+    "account_id": "ACCT-000001",
+    "label": "Field tester radio 1 (subscriber 041027)"
+  },
+  {
+    "node_id": "!e2e30002",
+    "account_id": "ACCT-000002",
+    "label": "Field tester radio 2 (subscriber 042713)"
+  }
+]

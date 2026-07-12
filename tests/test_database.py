@@ -167,7 +167,7 @@ class DatabaseBuilderTests(unittest.TestCase):
             self.assertEqual(
                 rows,
                 [
-                    ("CKT-NM-POS-01", "NiteMarkt", "pos-terminal", "SHADYBUCKS POS AUTHORIZATION"),
+                    ("CKT-NM-POS-01", "NiteMarkt", "pos-terminal", "OMNIBUCKS POS AUTHORIZATION"),
                     ("CKT-NM-WMS-01", "NiteMarkt", "boh-wms", "NITEMARKT BOH WMS"),
                 ],
             )
@@ -337,7 +337,7 @@ def write_seed_data(data_dir: Path) -> None:
                 },
                 {
                     "address": "000011",
-                    "name": "SHADYBUCKS POS AUTHORIZATION",
+                    "name": "OMNIBUCKS POS AUTHORIZATION",
                     "access_class": "REGISTERED",
                     "description": "Trusted POS authorization path",
                 },

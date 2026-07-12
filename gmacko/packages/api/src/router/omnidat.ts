@@ -149,8 +149,12 @@ const journalEntryInput = z.object({
 function shadyBankConfig(ctx: unknown): ShadyBankClientConfig {
   return (
     (ctx as { shadyBank?: ShadyBankClientConfig }).shadyBank ?? {
-      baseUrl: process.env.SHADYBANK_API_URL,
-      merchantToken: process.env.SHADYBANK_MERCHANT_TOKEN,
+      rail: process.env.MERCHANT_RAIL,
+      baseUrl:
+        process.env.OMNIBANK_API_URL ?? process.env.SHADYBANK_API_URL,
+      merchantToken:
+        process.env.OMNIBANK_MERCHANT_TOKEN ??
+        process.env.SHADYBANK_MERCHANT_TOKEN,
     }
   );
 }

@@ -24,6 +24,9 @@ interface Env {
   HYPERDRIVE?: {
     connectionString: string;
   };
+  MERCHANT_RAIL?: string;
+  OMNIBANK_API_URL?: string;
+  OMNIBANK_MERCHANT_TOKEN?: string;
   SHADYBANK_API_URL?: string;
   SHADYBANK_MERCHANT_TOKEN?: string;
   // Auth secrets bridged to process.env so better-auth (which reads
@@ -54,6 +57,15 @@ export default {
   ): Promise<Response> {
     if (env.HYPERDRIVE?.connectionString) {
       process.env.DATABASE_URL = env.HYPERDRIVE.connectionString;
+    }
+    if (env.MERCHANT_RAIL) {
+      process.env.MERCHANT_RAIL = env.MERCHANT_RAIL;
+    }
+    if (env.OMNIBANK_API_URL) {
+      process.env.OMNIBANK_API_URL = env.OMNIBANK_API_URL;
+    }
+    if (env.OMNIBANK_MERCHANT_TOKEN) {
+      process.env.OMNIBANK_MERCHANT_TOKEN = env.OMNIBANK_MERCHANT_TOKEN;
     }
     if (env.SHADYBANK_API_URL) {
       process.env.SHADYBANK_API_URL = env.SHADYBANK_API_URL;

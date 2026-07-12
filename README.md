@@ -438,6 +438,7 @@ The project values protocol fidelity, evidence you can print and hand to a human
 - Built on the gmacko / create-gmacko-app stack (Turborepo, Next.js, tRPC, Drizzle, better-auth, ForgeGraph).
 - Retro fidelity references: X.25, X.121, PAD, Verifone/Tranz/Omni terminals, 1980s corporate forms, VHS robotics, C*NET/ShadyTel aesthetic.
 - Internal partners: ShadyTel, FryOS, Shadybucks, NiteMarkt, OmniBank.
+- Money rails: **OmniBucks testnet** (default, OmniBank at `bucks.omnidat.cc`) and policy-gated **ShadyBucks** production (`bucks.shady.tel`). See [docs/omnibucks-testnet.md](docs/omnibucks-testnet.md).
 
 ---
 

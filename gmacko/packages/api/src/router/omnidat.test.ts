@@ -231,7 +231,7 @@ describe("omnidat tRPC router", () => {
     expect(atm.iso8583?.messageTypes.map((message) => message.mti)).toContain(
       "0200",
     );
-    expect(iso.protocol).toBe("ISO8583-1987-SHADYBUCKS-X25");
+    expect(iso.protocol).toBe("ISO8583-1987-OMNIBUCKS-X25");
     expect(iso.responseMti).toBe("0210");
     expect(iso.responseCode).toBe("00");
     expect(iso.packedRequest).toContain("DE004=000000001900");
@@ -271,7 +271,7 @@ describe("omnidat tRPC router", () => {
     expect(settlement.responseMti).toBe("0210");
     expect(settlement.shadyBank.authCode).toBe("246810");
     expect(settlement.shadyBank.captured).toBe(true);
-    expect(settlement.transcript).toContain("SHADYBANK POST /api/authorize");
+    expect(settlement.transcript).toContain("OMNIBANK POST /api/authorize");
     expect(settlement.transcript).not.toContain("4242424242424242");
   });
 
@@ -356,7 +356,7 @@ describe("omnidat tRPC router", () => {
     expect(sale.fee.amount).toBe(0.25);
     expect(sale.iso.responseCode).toBe("00");
     expect(sale.transcript).toContain("DIAL 8810");
-    expect(sale.transcript).toContain("CONNECT SHADYBUCKS POS AUTHORIZATION");
+    expect(sale.transcript).toContain("CONNECT OMNIBUCKS POS AUTHORIZATION");
     expect(sale.receipt).toContain("OMNIDAT POS RECEIPT");
     expect(operations.ledger[0]?.entryKind).toBe("pos-network-fee");
   });

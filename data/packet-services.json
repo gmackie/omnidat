@@ -37,15 +37,15 @@
   },
   {
     "address": "000010",
-    "name": "SHADYBUCKS ATM SWITCH",
+    "name": "OMNIBUCKS ATM SWITCH",
     "access_class": "REGISTERED",
-    "description": "ATM transaction access for provisioned Shadybucks terminals"
+    "description": "ATM transaction access for OmniBank testnet terminals (bucks.omnidat.cc)"
   },
   {
     "address": "000011",
-    "name": "SHADYBUCKS POS AUTHORIZATION",
+    "name": "OMNIBUCKS POS AUTHORIZATION",
     "access_class": "REGISTERED",
-    "description": "Trusted POS authorization, capture, void, and reverse path"
+    "description": "Trusted POS authorize/capture/void/reverse on OmniBucks testnet"
   },
   {
     "address": "000012",
@@ -64,6 +64,18 @@
     "name": "TERMINAL MANAGEMENT",
     "access_class": "OPERATOR",
     "description": "Enable, disable, provision, and maintenance controls"
+  },
+  {
+    "address": "000110",
+    "name": "SHADYBUCKS ATM SWITCH",
+    "access_class": "OPERATOR",
+    "description": "Production ShadyBucks ATM path (policy-gated; not default for pilot)"
+  },
+  {
+    "address": "000111",
+    "name": "SHADYBUCKS POS AUTHORIZATION",
+    "access_class": "OPERATOR",
+    "description": "Production ShadyBucks POS path (policy-gated; not default for pilot)"
   },
   {
     "address": "000020",
