@@ -301,17 +301,18 @@ def board_post(
         if thread is None:
             raise ClearedError("NP", 13, 0, f"no such post {reply_to}")
 
+    transport = session.get("transport", "pad")
     if post_class == "PUBLIC":
         # De-anonymization guard (design doc, Phase 5 note): a PUBLIC-post
         # board must never receive passport-linkable context. No passport,
         # no session_id -- only the transport kind.
-        ctx: dict[str, Any] = {"transport": "pad"}
+        ctx: dict[str, Any] = {"transport": transport}
     else:
         passport = require_subscriber(account)
         ctx = {
             "passport": passport,
             "session_id": session["session_id"],
-            "transport": "pad",
+            "transport": transport,
         }
 
     receipt = bridge.board_post(board["board_id"], body, name=name, thread=thread, ctx=ctx)
