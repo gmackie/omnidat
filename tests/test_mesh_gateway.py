@@ -484,3 +484,46 @@ class SentVerbTests(unittest.TestCase):
             response = gateway.handle_text(REGISTERED_NODE, "SENT")
 
             self.assertIn("CLR ERR C:19 D:0", response)
+
+
+class FieldVerbPassthroughTests(unittest.TestCase):
+    def test_field_verbs_delegate_with_configured_dirs(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "data"
+            write_seed_data(data_dir)
+            queue_dir = Path(temp_dir) / "queue"
+            activity_dir = Path(temp_dir) / "activity"
+            gateway = MeshGateway(
+                data_dir=data_dir,
+                bridge=MatrixBridge(base_url="http://bridge.test", secret="s", transport=RoutingTransport()),
+                queue_dir=queue_dir,
+                activity_dir=activity_dir,
+            )
+            with mock.patch(
+                "tools.omnidat_radio_pad.handle_command", return_value="OMNIDAT FIELD PAD\nCLR 00"
+            ) as handler:
+                gateway.handle_text(UNKNOWN_NODE, "REQ 020501 ORDER tea PASS-04271")
+
+            handler.assert_called_once_with(
+                "REQ 020501 ORDER tea PASS-04271",
+                data_dir=data_dir,
+                queue_dir=queue_dir,
+                activity_dir=activity_dir,
+                log_path=None,
+            )
+
+    def test_gateway_boots_without_optional_seed_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "data"
+            data_dir.mkdir(parents=True)
+            (data_dir / "packet-services.json").write_text("[]")
+
+            gateway = MeshGateway(
+                data_dir=data_dir,
+                bridge=MatrixBridge(base_url="http://bridge.test", secret="s", transport=RoutingTransport()),
+            )
+
+            # Unknown node acts as a synthetic PUBLIC guest: barred from MAIL.
+            self.assertIn("CLR NA C:11 D:70", gateway.handle_text(UNKNOWN_NODE, "MAIL"))

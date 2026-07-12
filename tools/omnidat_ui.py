@@ -10,8 +10,8 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from tools.omnidat_activity import load_passports, read_activity_records
+from tools.omnidat_mesh_gateway import MeshGateway
 from tools.omnidat_queue import read_orders
-from tools.omnidat_radio_pad import handle_command
 
 
 START_TIME = time.monotonic()
@@ -221,6 +221,7 @@ def render_home(state: dict[str, Any]) -> str:
         <h2>Radio PAD</h2>
         <form action="/radio" method="get">
           <input name="command" value="DIR" aria-label="Radio PAD command">
+          <input name="node" value="" placeholder="!node (blank = guest)" aria-label="Simulated mesh node id">
           <button type="submit">Submit Command</button>
         </form>
       </section>
@@ -361,22 +362,36 @@ def determine_status(checks: dict[str, dict[str, str]]) -> str:
     return "healthy"
 
 
+DEFAULT_WEB_NODE = "!websim01"
+
+
 def handle_radio_query(
     query: dict[str, list[str]],
     data_dir: Path,
     queue_dir: Path,
     activity_dir: Path,
     log_path: Path,
+    gateway: Any | None = None,
 ) -> tuple[int, dict[str, str], str]:
+    """Serve a Radio PAD command through the mesh gateway dispatcher.
+
+    The web form is a simulated radio: messaging verbs (MSG/MAIL/SENT/POST and
+    board CALLs) ride the Matrix bridge exactly like a real Meshtastic node,
+    and field verbs (DIR/REQ/STAT/ACT) fall through to the field PAD. The
+    `node` parameter picks the simulated mesh node (default: an unregistered
+    guest).
+    """
     command = query.get("command", ["HELP"])[0]
+    node_id = query.get("node", [DEFAULT_WEB_NODE])[0] or DEFAULT_WEB_NODE
     try:
-        response = handle_command(
-            command,
-            data_dir=data_dir,
-            queue_dir=queue_dir,
-            activity_dir=activity_dir,
-            log_path=log_path,
-        )
+        if gateway is None:
+            gateway = MeshGateway(
+                data_dir=data_dir,
+                queue_dir=queue_dir,
+                activity_dir=activity_dir,
+                log_path=log_path,
+            )
+        response = gateway.handle_text(node_id, command)
         status = 200
     except Exception as exc:  # pragma: no cover - exercised by live operator use
         response = f"OMNIDAT FIELD PAD\nERROR {exc}\nCLR 99"

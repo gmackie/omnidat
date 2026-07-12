@@ -75,6 +75,31 @@ class UiTests(unittest.TestCase):
             self.assertIn("<pre>", body)
             self.assertIn("020184 CAMP LAMINAR MESSAGE DESK", body)
 
+    def test_handle_radio_query_routes_through_the_mesh_gateway(self):
+        class StubGateway:
+            def __init__(self):
+                self.calls = []
+
+            def handle_text(self, node_id, command):
+                self.calls.append((node_id, command))
+                return "MSG SENT RCPT MSG-00482 CLR 00"
+
+        gateway = StubGateway()
+        query = parse_qs(urlparse("/radio?command=MSG+042713+HI&node=%21e2e30001").query)
+
+        status, _headers, body = handle_radio_query(
+            query,
+            data_dir=Path("data"),
+            queue_dir=Path("queue"),
+            activity_dir=Path("activity"),
+            log_path=Path("events.jsonl"),
+            gateway=gateway,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(gateway.calls, [("!e2e30001", "MSG 042713 HI")])
+        self.assertIn("MSG SENT RCPT MSG-00482 CLR 00", body)
+
     def test_handle_health_reports_ready_runtime_when_data_files_exist(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

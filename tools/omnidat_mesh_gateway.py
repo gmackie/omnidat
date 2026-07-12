@@ -113,15 +113,31 @@ class MeshGateway:
         bridge: MatrixBridge | None = None,
         log_path: Path | None = None,
         mesh_limit: int = DEFAULT_MESH_LIMIT,
+        queue_dir: Path = Path("build/queue"),
+        activity_dir: Path = Path("build/activity"),
     ) -> None:
         self.data_dir = data_dir
         self.bridge = bridge or MatrixBridge()
         self.log_path = log_path
         self.mesh_limit = mesh_limit
+        self.queue_dir = queue_dir
+        self.activity_dir = activity_dir
         self.nodes = load_mesh_nodes(data_dir)
-        self.accounts = load_accounts(data_dir)
-        self.packet_services = load_packet_services(data_dir)
-        self.packet_namespaces = load_packet_namespaces(data_dir)
+        # Seed files are optional at the edge: a minimal field deploy still
+        # serves guests (directory/boards) without account or namespace seeds.
+        self.accounts = (
+            load_accounts(data_dir) if (data_dir / "accounts.sample.json").exists() else {}
+        )
+        self.packet_services = (
+            load_packet_services(data_dir)
+            if (data_dir / "packet-services.json").exists()
+            else {}
+        )
+        self.packet_namespaces = (
+            load_packet_namespaces(data_dir)
+            if (data_dir / "packet-namespaces.sample.json").exists()
+            else []
+        )
         self._notified_counts: dict[str, int] = {}
 
     # ---- Command handling --------------------------------------------------
@@ -155,6 +171,8 @@ class MeshGateway:
             return radio_pad.handle_command(
                 text,
                 data_dir=self.data_dir,
+                queue_dir=self.queue_dir,
+                activity_dir=self.activity_dir,
                 log_path=self.log_path,
             )
         except ClearedError as cleared:
@@ -234,7 +252,12 @@ class MeshGateway:
 
     def open_session(self, node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         account_id = self.nodes.get(node_id, GUEST_ACCOUNT_ID)
-        account = self.accounts.get(account_id) or self.accounts[GUEST_ACCOUNT_ID]
+        account = (
+            self.accounts.get(account_id)
+            or self.accounts.get(GUEST_ACCOUNT_ID)
+            # No account seed at all: act as a synthetic PUBLIC guest.
+            or {"account_id": GUEST_ACCOUNT_ID, "access_class": "PUBLIC", "status": "active"}
+        )
         session = start_session(f"MESH-{node_id}", account["account_id"])
         # The wired PAD stamps `transport: pad` into gated-board ctx; the
         # mesh edge must identify itself so the audit trail stays honest.
