@@ -17,7 +17,12 @@ export type OmnidatDocumentKind =
 
 export type OmnidatDocument = { kind: OmnidatDocumentKind; title: string; body: string };
 
-const HEADER = ["OMNIDAT PACKET CLEARING", "A GMACKO CORPORATION", "EXCHANGE 88", ""];
+const HEADER = [
+  "OMNIDAT PACKET CLEARING",
+  "EXCHANGE 88",
+  "ISSUED UNDER OMNIDAT TRUSTDESK",
+  "",
+];
 
 function doc(kind: OmnidatDocumentKind, title: string, lines: string[]): OmnidatDocument {
   return { kind, title, body: [...HEADER, title, "", ...lines, ""].join("\n") };
@@ -104,13 +109,13 @@ export function buildOmnidatDocument(
       return doc("corporate-history", "THE OMNIDAT STORY", [
         "FOUNDED 1978 BY EX-SHADYTEL ENGINEERS",
         "FIRST EXCHANGE 88 DEPLOYED 1982",
-        "ACQUIRED BY GMACKO 1985",
         "PACKET CLEARING AUTHORITY SINCE 1984",
+        "ASSIMILATED UNDER OMNIDAT TRUSTDESK",
         "CC CAMP 2027: LIGHTER EUROPEAN KIT",
         "TOORCAMP 2028: FULL SHADYTEL INTERCONNECT",
         "",
         "YOUR BUSINESS IS ALREADY IN OUR SYSTEM.",
-        "FINANCIAL DATA SERVICES - EXCHANGE 88"
+        "FINANCIAL DATA SERVICES - EXCHANGE 88",
       ]);
   }
 }

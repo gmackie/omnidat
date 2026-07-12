@@ -168,6 +168,34 @@ describe("OMNIDAT operator procedure", () => {
     }
   });
 
+  it("matches bootstrap admins by email as well as user id", async () => {
+    const previous = process.env.OMNIDAT_BOOTSTRAP_ADMINS;
+    process.env.OMNIDAT_BOOTSTRAP_ADMINS = "gmacko@omnidat.cc";
+    const { db } = createFakeDb();
+    const caller = testRouter.createCaller({
+      db,
+      session: {
+        user: {
+          id: "uuid-not-listed",
+          name: "gmacko",
+          email: "gmacko@omnidat.cc",
+          emailVerified: true,
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+          updatedAt: new Date("2026-01-01T00:00:00Z"),
+        },
+        session: null,
+      },
+    } as never);
+
+    try {
+      await expect(caller.write()).resolves.toMatchObject({
+        roles: ["admin"],
+      });
+    } finally {
+      process.env.OMNIDAT_BOOTSTRAP_ADMINS = previous;
+    }
+  });
+
   it("gates grantOperatorRole to admins", async () => {
     const previous = process.env.OMNIDAT_BOOTSTRAP_ADMINS;
     process.env.OMNIDAT_BOOTSTRAP_ADMINS = "user-admin";

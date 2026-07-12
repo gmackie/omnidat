@@ -30,7 +30,9 @@
     "NEXT_PUBLIC_APP_URL": "https://console.omnidat.cc",
     "OMNIDAT_PERSISTENCE": "database",
     "OMNIDAT_DB_SCHEMA": "omnidat",
-    "SHADYBANK_API_URL": "https://bucks.shady.tel",
+    "MERCHANT_RAIL": "omnibucks",
+    "OMNIBANK_API_URL": "https://bucks.omnidat.cc",
+    "SHADYBANK_API_URL": "https://bucks.omnidat.cc",
     "SKIP_ENV_VALIDATION": "1"
   },
   "env": {
@@ -40,7 +42,9 @@
         "APP_URL": "https://omnidat-staging.gmac.io",
         "NEXT_PUBLIC_APP_URL": "https://omnidat-staging.gmac.io",
         "OMNIDAT_DB_SCHEMA": "omnidat",
-        "SHADYBANK_API_URL": "https://bucks.shady.tel",
+        "MERCHANT_RAIL": "omnibucks",
+        "OMNIBANK_API_URL": "https://bucks.omnidat.cc",
+        "SHADYBANK_API_URL": "https://bucks.omnidat.cc",
         "SKIP_ENV_VALIDATION": "1"
       }
     }

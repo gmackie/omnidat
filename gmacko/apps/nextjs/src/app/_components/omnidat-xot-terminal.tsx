@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
@@ -18,6 +18,7 @@ const HELP =
 
 export function OmnidatXotTerminal() {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const services = useQuery(trpc.omnidat.services.queryOptions());
   const [lines, setLines] = useState<string[]>([
     "OMNIDAT PACKET CLEARING XOT TERMINAL",
@@ -37,6 +38,12 @@ export function OmnidatXotTerminal() {
       onSuccess: (result) => {
         const evidenceId =
           result.evidence?.id ?? result.session?.evidenceArtifactId ?? null;
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listPacketSessions.queryFilter(),
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listEvidenceArtifacts.queryFilter(),
+        );
         setLines((prev) => [
           ...prev,
           ...result.transcript.split("\n"),
@@ -47,15 +54,6 @@ export function OmnidatXotTerminal() {
             : "EVIDENCE: (not persisted — check operator role / DB)",
         ]);
         setStatus(result.clearCode.cause === 0 ? "connected" : "cleared");
-        // Auto render camp doc for camp addresses (H3/H5-H8)
-        if (result.session?.destinationX121?.startsWith("02")) {
-          (trpc.omnidat.renderDocument.query as any)({
-            kind: "camp-deployment-summary",
-            data: { event: "CC-CAMP-2027", scope: "VILLAGE", dates: "2027-08", services: "12", apps: "5", allocations: "20" },
-          }).then((doc: any) => {
-            setLines((prev) => [...prev, `AUTO CAMP DOC:`, ...doc.body.split('\n').slice(0, 5)]);
-          });
-        }
       },
       onError: (error) => {
         setLines((prev) => [

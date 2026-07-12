@@ -15,16 +15,28 @@ export default function LoginPage() {
           </p>
           <h1 className="mt-2 text-4xl font-black">Login</h1>
           <p className="mt-4 max-w-xl text-sm leading-6 text-[#d9cbb0]">
-            ShadyTel SSO will become the authoritative identity provider. For
-            v1, create-gmacko auth lets operators access PDF configuration,
-            provisioning, and administrative network views.
+            Sign in with OmniAuth (auth.omnidat.cc). Passkeys are preferred;
+            password is available as fallback. After login you can open the
+            Operator Console, NOC, and Admin surfaces.
           </p>
           <pre className="mt-6 overflow-x-auto rounded border border-[#7a694f] bg-black p-4 font-mono text-sm leading-6 text-[#8ee36c]">
             {`LOGIN OMNIDAT
 AUTH REALM EXCHANGE-88
-SSO SHADYTEL PENDING
-STATUS LOCAL-AUTH ENABLED`}
+IDP auth.omnidat.cc
+METHOD PASSKEY (PRIMARY) / PASSWORD (FALLBACK)
+STATUS OMNIAUTH ENABLED`}
           </pre>
+          <div className="mt-6 flex flex-wrap gap-2 text-sm">
+            <Link className="rounded border border-[#7a694f] px-3 py-2" href="/console">
+              Operator Console
+            </Link>
+            <Link className="rounded border border-[#7a694f] px-3 py-2" href="/noc">
+              NOC
+            </Link>
+            <Link className="rounded border border-[#7a694f] px-3 py-2" href="/operator-admin">
+              Admin
+            </Link>
+          </div>
         </div>
         <div className="rounded border border-[#4f3920] bg-[#211d15] p-6 text-foreground">
           <AuthShowcase />

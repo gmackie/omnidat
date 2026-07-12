@@ -34,6 +34,27 @@ export SHADYBANK_API_URL=https://bucks.shady.tel
 export SHADYBANK_MERCHANT_TOKEN=…
 ```
 
+## Cloud (live)
+
+| Surface | URL | Status |
+|---|---|---|
+| OmniBank API + UI | **https://bucks.omnidat.cc** | Live on `hetzner-bob:9110` (docker compose) |
+| Network identity | `GET /api/network` | `omnibucks` / testnet |
+| OmniAuth status | `GET /api/omniauth/status` | issuer `auth.omnidat.cc` |
+| Shared IdP | **https://auth.omnidat.cc** | Live (Authentik) |
+| Verify | `shadybank/scripts/verify-cloud.sh` | public smokes |
+
+Production path on the node:
+
+```bash
+# on hetzner-bob
+cd /opt/omnibank/src
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/omnibank.env up -d --build
+# nginx: deploy/nginx.bucks.omnidat.cc.conf → sites-enabled
+```
+
+Still operator-side: create Authentik application slug **`omnibank`** (SAML proxy or OIDC) and link real subjects; set console `MERCHANT_RAIL=omnibucks` + `OMNIBANK_API_URL=https://bucks.omnidat.cc`.
+
 ## Local OmniBank
 
 ```bash
@@ -51,6 +72,11 @@ See `shadybank/README.omnibank.md`.
 2. **shadypay** — `resolveBankNetwork("omnibucks")`, `gatewayForNetwork`, `formatNetworkAmount`.
 3. **omnidat FEP / console** — `MERCHANT_RAIL`, `getShadyBankIntegrationProfile`.
 4. **OmniBankFake** — offline contract mock for e2e without HTTP (still rail=omnibucks).
+5. **OmniAuth** — human web login for OmniBank via shared IdP **auth.omnidat.cc**
+   (SAML proxy headers or OIDC). See shadybank `docs/omniauth.md` and
+   [authentik-setup.md](authentik-setup.md) §5.
+
+Card/OTP and merchant-token APIs stay bank-native; they do not go through SAML.
 
 ## Policy
 

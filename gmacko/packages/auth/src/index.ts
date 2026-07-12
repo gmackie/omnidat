@@ -83,7 +83,7 @@ export function initAuth<
         },
       }),
       // OmniAuth (Authentik OIDC). Callback:
-      // <baseUrl>/api/auth/oauth2/callback/omniauth
+      // <baseUrl>/api/auth/callback/omniauth
       ...(options.omniauthDiscoveryUrl &&
       options.omniauthClientId &&
       options.omniauthClientSecret

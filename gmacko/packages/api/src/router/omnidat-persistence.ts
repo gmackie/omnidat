@@ -1055,6 +1055,33 @@ export async function persistPacketSessionOpen(
   return { id, clearCause: null, clearDiagnostic: null, transcriptHash: null, evidenceArtifactId: null, ...row };
 }
 
+/** Attach evidence to an open packet session (e.g. after VT100 CALL). */
+export async function persistPacketSessionEvidenceLink(
+  db: OmnidatSessionDb | undefined,
+  input: { sessionId: string; evidenceArtifactId: string },
+) {
+  if (db && databasePersistenceEnabled() && db.update) {
+    await db
+      .update(omnidatPacketSession)
+      .set({ evidenceArtifactId: input.evidenceArtifactId })
+      .where(eq(omnidatPacketSession.id, input.sessionId));
+  }
+  return input;
+}
+
+export async function loadIncidents(db: OmnidatSessionDb | undefined) {
+  return (await loadRows(db, omnidatNocIncident)).map((row) => ({
+    id: String(row.id ?? ""),
+    title: String(row.title ?? ""),
+    severity: String(row.severity ?? "minor"),
+    status: String(row.status ?? "open"),
+    networkId: row.networkId ? String(row.networkId) : null,
+    serviceId: row.serviceId ? String(row.serviceId) : null,
+    openedAt: row.openedAt ?? null,
+    resolvedAt: row.resolvedAt ?? null,
+  }));
+}
+
 export async function persistPacketSessionClear(
   db: OmnidatSessionDb | undefined,
   input: {
@@ -1718,6 +1745,42 @@ export async function loadOperatorRoleGrants(db: OmnidatSessionDb | undefined) {
       role: row.role ?? "",
       eventId: row.eventId ?? null,
     }));
+}
+
+export async function loadRecentAuditEvents(
+  db: OmnidatSessionDb | undefined,
+  limit = 40,
+) {
+  const rows = await loadRows(db, omnidatAuditEvent);
+  return rows
+    .map((row) => ({
+      id: str(row.id, `${str(row.eventType)}-${str(row.createdAt)}`),
+      actorUserId:
+        row.actorUserId === undefined || row.actorUserId === null
+          ? null
+          : str(row.actorUserId),
+      eventType: str(row.eventType),
+      subjectKind: str(row.subjectKind),
+      subjectId:
+        row.subjectId === undefined || row.subjectId === null
+          ? null
+          : str(row.subjectId),
+      createdAt: row.createdAt ?? null,
+      details:
+        row.details && typeof row.details === "object"
+          ? (row.details as Record<string, unknown>)
+          : {},
+    }))
+    .sort((left, right) => {
+      const leftAt = left.createdAt
+        ? new Date(left.createdAt as string | Date).getTime()
+        : 0;
+      const rightAt = right.createdAt
+        ? new Date(right.createdAt as string | Date).getTime()
+        : 0;
+      return rightAt - leftAt;
+    })
+    .slice(0, Math.max(1, Math.min(limit, 200)));
 }
 
 export async function persistEventEvidenceExport(

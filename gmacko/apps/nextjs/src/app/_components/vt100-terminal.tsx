@@ -3,7 +3,7 @@
 import type { Vt100Cell, Vt100Screen } from "@omnidat/operator-core/vt100";
 import { Vt100Terminal, VT, omnidatPrompt } from "@omnidat/operator-core/vt100";
 import { attractFrames } from "@omnidat/operator-core/attract";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
@@ -57,6 +57,7 @@ function sameAttr(a: Vt100Cell["attr"], b: Vt100Cell["attr"]): boolean {
 
 export function Vt100OperatorTerminal({ x121 = "311088000001" }: { x121?: string }) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const termRef = useRef<Vt100Terminal | null>(null);
   if (termRef.current === null) termRef.current = new Vt100Terminal();
   const term = termRef.current;
@@ -156,10 +157,25 @@ export function Vt100OperatorTerminal({ x121 = "311088000001" }: { x121?: string
   const serviceConnect = useMutation(
     trpc.omnidat.serviceConnect.mutationOptions({
       onSuccess: (screenResult, variables) => {
+        const evidenceId =
+          screenResult.evidence?.id ??
+          screenResult.session?.evidenceArtifactId ??
+          null;
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listPacketSessions.queryFilter(),
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listEvidenceArtifacts.queryFilter(),
+        );
         if (screenResult.ended) {
           // Unknown address / cleared — show it, then fall back to the PAD.
           term.reset();
           term.write(screenResult.page);
+          if (evidenceId) {
+            term.write(
+              `\r\nEVIDENCE ${evidenceId}  (${screenResult.evidence?.url ?? "packet-call-receipt"})\r\n`,
+            );
+          }
           sync();
           window.setTimeout(() => {
             setMode("pad");
@@ -171,6 +187,12 @@ export function Vt100OperatorTerminal({ x121 = "311088000001" }: { x121?: string
         sessionCmdsRef.current = [];
         setMode("session");
         paintServicePage(screenResult.page);
+        if (evidenceId) {
+          term.write(
+            `\r\nEVIDENCE ${evidenceId}  SESSION ${screenResult.session?.id ?? "?"}\r\n`,
+          );
+          sync();
+        }
       },
       onError: () => {
         writeln();
@@ -280,10 +302,16 @@ export function Vt100OperatorTerminal({ x121 = "311088000001" }: { x121?: string
     const [verbRaw = "", ...args] = raw.split(/\s+/);
     const verb = verbRaw.toUpperCase();
 
-    // CALL enters an interactive service session.
+    // CALL enters an interactive service session and opens a NOC packet
+    // session + evidence receipt (H2) via serviceConnect.
     if (verb === "CALL" && args[0]) {
       setBusy(true);
-      serviceConnect.mutate({ x121: args[0] });
+      serviceConnect.mutate({
+        x121: args[0],
+        sourceIdentity: "vt100-operator",
+        sourceTransport: "xot",
+        sourceX121: x121,
+      });
       sync();
       return;
     }

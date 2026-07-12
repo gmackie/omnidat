@@ -34,14 +34,17 @@ import { TRPCError } from "@trpc/server";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
-import { publicProcedure } from "../trpc";
+import { protectedProcedure, publicProcedure } from "../trpc";
 import {
+  bootstrapAdmin,
+  loadActiveOperatorRoles,
   omnidatOperatorProcedure,
   omnidatOperatorReadProcedure,
 } from "./omnidat-operator-procedure";
 import { OMNIDAT_ROLES } from "./omnidat-roles";
 import {
   clearCodeForService,
+  OMNIDAT_CLEAR_CODES,
   renderClearCode,
 } from "./omnidat-clear-codes";
 import { buildOmnidatDocument } from "./omnidat-documents";
@@ -79,8 +82,11 @@ import {
   persistEventStatus,
   persistEvidenceArtifact,
   persistFeePolicy,
+  loadIncidents,
+  loadRecentAuditEvents,
   persistIncidentOpen,
   persistIncidentUpdate,
+  persistPacketSessionEvidenceLink,
   persistProvisioningAdvance,
   persistProvisioningRequest,
   persistFoodOrderResult,
@@ -101,6 +107,7 @@ import {
   listSyncSources,
   type OmnidatSyncDb,
   pullJournalEntries,
+  registerSyncSource,
   transferEventAuthority,
   verifySyncToken,
 } from "./omnidat-sync";
@@ -194,7 +201,10 @@ function settleIsoResponseWithShadyBankAuth(
 }
 
 export const omnidatRouter = {
-  dashboard: omnidatOperatorReadProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
+  /**
+   * Public exchange status (home page, demos). Mutations stay role-gated.
+   */
+  dashboard: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const operationalState =
       (await loadPersistentOperationalState(
         (ctx as { db?: OmnidatPersistenceDb }).db,
@@ -233,6 +243,31 @@ export const omnidatRouter = {
     };
   }),
 
+  /**
+   * Signed-in operator identity + effective roles (bootstrap admins included).
+   */
+  operatorMe: protectedProcedure.query(async ({ ctx }) => {
+    const db = (ctx as { db?: OmnidatPersistenceDb }).db as
+      | Parameters<typeof loadActiveOperatorRoles>[0]
+      | undefined;
+    const userId = ctx.session.user.id;
+    const email =
+      typeof ctx.session.user.email === "string" ? ctx.session.user.email : null;
+    const roles = await loadActiveOperatorRoles(db, userId);
+    const isBootstrap = bootstrapAdmin(userId, email);
+    if (isBootstrap && !roles.includes("admin")) {
+      roles.push("admin");
+    }
+    return {
+      userId,
+      email,
+      name: ctx.session.user.name ?? null,
+      roles,
+      isBootstrapAdmin: isBootstrap,
+      canOperate: roles.length > 0,
+    };
+  }),
+
   network: publicProcedure.query(() => buildNetworkSnapshot()),
 
   services: publicProcedure.query(async ({ ctx }) => ({
@@ -244,7 +279,8 @@ export const omnidatRouter = {
     ).services,
   })),
 
-  noc: omnidatOperatorReadProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
+  /** Public NOC circuit board; session/evidence lists stay operator-gated. */
+  noc: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
     const snapshot = buildNetworkSnapshot();
     const operationalState =
       (await loadPersistentOperationalState(
@@ -542,7 +578,48 @@ export const omnidatRouter = {
         retrievalReference: z.string().min(1).max(12),
       }),
     )
-    .mutation(({ input }) => processVintagePosSale(input)),
+    .mutation(async ({ ctx, input }) => {
+      const sale = processVintagePosSale(input);
+      const receiptId =
+        typeof sale.receipt === "string"
+          ? (sale.receipt.match(/RCPT-[A-Z0-9-]+/)?.[0] ?? input.retrievalReference)
+          : input.retrievalReference;
+      await persistAuditEvent(
+        dbOf(ctx),
+        {
+          eventType: "pos.sale",
+          subjectKind: "terminal",
+          subjectId: input.terminalId,
+          details: {
+            terminalModel: input.terminalModel,
+            merchantAccountId: input.merchantAccountId,
+            amount: input.amount,
+            status: sale.status,
+            hostX121: sale.hostX121,
+            receiptId,
+          },
+        },
+        auditActor(ctx),
+      );
+      const evidence = await persistEvidenceArtifact(
+        dbOf(ctx),
+        {
+          artifactKind: "pos-sale-receipt",
+          label: `POS ${input.terminalId} ${sale.status} ${input.amount}`,
+          url: `evidence://pos-sale/${input.terminalId}/${receiptId}`,
+          recordCount: 1,
+          contentType: "text/plain",
+          checksum: null,
+        },
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(dbOf(ctx), {
+        metricName: "pos.sale",
+        value: input.amount,
+        unit: "amount",
+      });
+      return { ...sale, evidence };
+    }),
 
   xotCommand: omnidatOperatorProcedure("session.write")
     .input(
@@ -568,7 +645,8 @@ export const omnidatRouter = {
   // session is bound to, the login banner (VT100 escapes intact), and the
   // interactive prompt. The client renders these through the shared emulator so
   // the CRT the operator sees is byte-identical to what the server authored.
-  terminalBanner: omnidatOperatorReadProcedure
+  // Public: banner alone is not privileged; mutations stay role-gated.
+  terminalBanner: publicProcedure
     .input(z.object({ x121: z.string().min(6).optional() }).optional())
     .query(({ ctx, input }) => {
       const actor = auditActor(ctx);
@@ -588,14 +666,101 @@ export const omnidatRouter = {
   // audit. The returned `page` is a raw VT100 byte stream the client renders
   // through the shared emulator.
   serviceConnect: omnidatOperatorProcedure("session.write")
-    .input(z.object({ x121: z.string().min(6) }))
+    .input(
+      z.object({
+        x121: z.string().min(6),
+        sourceIdentity: z.string().min(1).default("vt100-operator"),
+        sourceTransport: z.string().min(1).default("xot"),
+        sourceX121: z.string().min(1).nullish(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const db = dbOf(ctx);
       const screen = connectServiceScreen(input.x121);
+      // H2: every interactive CALL also opens a NOC-visible packet session and
+      // leaves a packet-call-receipt, same as the browser XOT packetCall path.
+      const clearCode = screen.ended
+        ? clearCodeForService(undefined)
+        : OMNIDAT_CLEAR_CODES.normal;
+      const session = await persistPacketSessionOpen(
+        db,
+        {
+          serviceId: null,
+          sourceIdentity: input.sourceIdentity,
+          sourceTransport: input.sourceTransport,
+          sourceX121: input.sourceX121 ?? null,
+          destinationX121: input.x121,
+        },
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(db, {
+        metricName: "packet.session.opened",
+        value: 1,
+        unit: "session",
+      });
+      const rendered = renderClearCode(clearCode);
+      const evidence = await persistEvidenceArtifact(
+        db,
+        {
+          artifactKind: "packet-call-receipt",
+          label: `CALL ${input.x121} ${rendered}`,
+          url: `evidence://packet-call/${session.id}`,
+          recordCount: 1,
+          contentType: "text/plain",
+          checksum: null,
+        },
+        auditActor(ctx),
+      );
+      await recordOperationalMetric(db, {
+        metricName: "evidence.artifact.created",
+        value: 1,
+        unit: "artifact",
+      });
+      // Keep the interactive session "open" on success so the operator can run
+      // verbs; still clear immediately on failed connect (unknown address).
+      // Always link the receipt to the session so NOC can join evidence.
+      if (screen.ended) {
+        await persistPacketSessionClear(
+          db,
+          {
+            sessionId: session.id,
+            clearCause: clearCode.cause,
+            clearDiagnostic: clearCode.diagnostic,
+            transcript: screen.page,
+            evidenceArtifactId: evidence.id,
+          },
+          auditActor(ctx),
+        );
+      } else {
+        await persistPacketSessionEvidenceLink(db, {
+          sessionId: session.id,
+          evidenceArtifactId: evidence.id,
+        });
+      }
       await journalCloudWrite(syncDb(ctx), {
         opType: "terminal.service.connect",
-        payload: { x121: input.x121, status: screen.status } as Record<string, unknown>,
+        payload: {
+          x121: input.x121,
+          status: screen.status,
+          sessionId: session.id,
+          evidenceId: evidence.id,
+        } as Record<string, unknown>,
       });
-      return screen;
+      return {
+        ...screen,
+        session: {
+          id: session.id,
+          destinationX121: input.x121,
+          status: screen.ended ? "cleared" : "open",
+          evidenceArtifactId: evidence.id,
+        },
+        evidence: {
+          id: evidence.id,
+          artifactKind: evidence.artifactKind,
+          url: evidence.url,
+        },
+        clearCode: { ...clearCode, rendered },
+      };
     }),
 
   // Run one verb inside an active service session (MENU/QUOTE/ORDER.CREATE/…).
@@ -859,7 +1024,11 @@ export const omnidatRouter = {
     }),
 
   listEvidenceArtifacts: omnidatOperatorReadProcedure
-    .input(z.object({ artifactKind: z.string().min(1).optional() }).optional())
+    .input(
+      z
+        .object({ artifactKind: z.string().min(1).optional() })
+        .nullish(),
+    )
     .query(async ({ ctx, input }) => ({
       artifacts: await loadEvidenceArtifacts(
         (ctx as { db?: OmnidatPersistenceDb }).db,
@@ -1156,6 +1325,10 @@ export const omnidatRouter = {
     provisioning: await loadProvisioning(dbOf(ctx)),
   })),
 
+  listIncidents: omnidatOperatorReadProcedure.query(async ({ ctx }) => ({
+    incidents: await loadIncidents(dbOf(ctx)),
+  })),
+
   openIncident: omnidatOperatorProcedure("incident.write")
     .input(
       z.object({
@@ -1272,6 +1445,18 @@ export const omnidatRouter = {
     }),
   ),
 
+  listRecentAuditEvents: omnidatOperatorReadProcedure
+    .input(
+      z
+        .object({ limit: z.number().int().min(1).max(200).optional() })
+        .optional()
+        .nullable()
+        .default({}),
+    )
+    .query(async ({ ctx, input }) => ({
+      events: await loadRecentAuditEvents(dbOf(ctx), input?.limit ?? 40),
+    })),
+
   exportEventEvidence: omnidatOperatorProcedure("evidence.write")
     .input(
       z.object({
@@ -1302,6 +1487,26 @@ export const omnidatRouter = {
       }),
     )
     .query(({ input }) => buildOmnidatDocument(input.kind, input.data)),
+
+  /** Register or rotate a field-kit sync token (plaintext returned once). */
+  registerSyncSource: omnidatOperatorProcedure("authority.transfer")
+    .input(
+      z.object({
+        sourceId: z.string().min(1).max(80),
+        sourceKind: z
+          .enum(["field-kit", "sim-field-kit", "cloud"])
+          .optional()
+          .default("field-kit"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const actor = auditActor(ctx);
+      return registerSyncSource(syncDb(ctx), {
+        sourceId: input.sourceId,
+        sourceKind: input.sourceKind,
+        operatorId: actor?.userId ?? "unknown-operator",
+      });
+    }),
 
   // Sync procedures authenticate with a per-source sync token instead of a
   // capability from the H1a matrix; the H1a router-walk test annotates them
@@ -1347,7 +1552,13 @@ export const omnidatRouter = {
     }),
 
   authorityStatus: publicProcedure
-    .input(z.object({ eventId: z.string().min(1).nullish() }).optional())
+    .input(
+      z
+        .object({ eventId: z.string().min(1).nullish() })
+        .optional()
+        .nullable()
+        .default({}),
+    )
     .query(async ({ ctx, input }) => {
       const db = syncDb(ctx);
       return {

@@ -1021,6 +1021,40 @@ describe("omnidat sync and authority procedures", () => {
     expect(dashboard.sync?.sourceId).toBeNull();
   });
 
+  it("registerSyncSource issues a one-time token and lists the source", async () => {
+    const fake = createSyncFakeDb();
+    // Start without field-kit-01 so registration is a create, not only rotate.
+    fake.rowsFor(omnidatSyncSource).length = 0;
+    const syncCaller = appRouter.createCaller({
+      db: fake.db,
+      session: { user: { id: "user-admin" } },
+    } as never);
+
+    const registered = await syncCaller.omnidat.registerSyncSource({
+      sourceId: "field-kit-rehearsal",
+      sourceKind: "field-kit",
+    });
+    expect(registered.sourceId).toBe("field-kit-rehearsal");
+    expect(registered.syncToken.length).toBeGreaterThan(16);
+    expect(registered.rotated).toBe(false);
+
+    const status = await syncCaller.omnidat.authorityStatus({
+      eventId: EVENT_ID,
+    });
+    expect(
+      status.sources.some((s) => s.sourceId === "field-kit-rehearsal"),
+    ).toBe(true);
+
+    // Token must authenticate syncPush.
+    await expect(
+      syncCaller.omnidat.syncPush({
+        sourceId: "field-kit-rehearsal",
+        syncToken: registered.syncToken,
+        entries: [],
+      }),
+    ).resolves.toBeTruthy();
+  });
+
   it("transferAuthority refuses a target that has not caught up", async () => {
     const fake = createSyncFakeDb();
     // Cloud holds authority (epoch 2) and has journaled past the kit's view.
@@ -1613,6 +1647,29 @@ describe("omnidat H1b lifecycle, incidents, billing, roles, export", () => {
       call(fake, "user-noc").omnidat.listOperatorRoles(),
     ).rejects.toThrow(/operator role required/i);
   });
+
+  it("lists recent audit events for operators after a write", async () => {
+    const fake = lcDb("user-admin", ["admin"]);
+    await call(fake, "user-admin").omnidat.createEvent({
+      eventCode: "AUDIT-CAMP",
+      displayName: "Audit Camp",
+    });
+    // Seed an audit row the loader can see (createEvent audits via insert path).
+    fake.rowsFor(omnidatAuditEvent).push({
+      id: "audit-1",
+      actorUserId: "user-admin",
+      eventType: "event.created",
+      subjectKind: "event",
+      subjectId: "ev-1",
+      details: { eventCode: "AUDIT-CAMP" },
+      createdAt: new Date("2026-07-13T12:00:00Z"),
+    });
+    const listed = await call(fake, "user-admin").omnidat.listRecentAuditEvents({
+      limit: 10,
+    });
+    expect(listed.events.length).toBeGreaterThan(0);
+    expect(listed.events[0]?.eventType).toBe("event.created");
+  });
 });
 
 describe("omnidat packetCall browser XOT bridge", () => {
@@ -1693,6 +1750,32 @@ describe("omnidat packetCall browser XOT bridge", () => {
         destinationX121: "311088020501",
       }),
     ).rejects.toThrow(/operator role required/i);
+  });
+
+  it("VT100 serviceConnect leaves NOC session + packet-call evidence", async () => {
+    const result = await sessionCaller(["packet-operator"]).omnidat.serviceConnect({
+      x121: "311088020501",
+      sourceIdentity: "vt100-operator",
+      sourceTransport: "xot",
+      sourceX121: "311088000001",
+    });
+    expect(result.ended).toBe(false);
+    expect(result.session.destinationX121).toBe("311088020501");
+    expect(result.session.status).toBe("open");
+    expect(result.evidence.artifactKind).toBe("packet-call-receipt");
+    expect(result.evidence.url).toMatch(/^evidence:\/\/packet-call\//);
+    expect(result.session.evidenceArtifactId).toBe(result.evidence.id);
+    expect(result.clearCode.cause).toBe(0);
+  });
+
+  it("VT100 serviceConnect clears unknown address with evidence", async () => {
+    const result = await sessionCaller(["packet-operator"]).omnidat.serviceConnect({
+      x121: "311088099999",
+    });
+    expect(result.ended).toBe(true);
+    expect(result.session.status).toBe("cleared");
+    expect(result.evidence.artifactKind).toBe("packet-call-receipt");
+    expect(result.clearCode.cause).toBe(13);
   });
 });
 

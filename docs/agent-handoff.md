@@ -1,7 +1,7 @@
 # Agent Handoff — OMNIDAT
 
-**Last updated:** 2026-07-11  
-**Branch tip:** `main` (jj-colocated; see `jj log` / `git log`)  
+**Last updated:** 2026-07-13  
+**Branch tip:** working copy (jj-colocated; see `jj log` / `git log`)  
 **Remotes:** `forge` → `git.forgegraf.com/gmackie/omnidat-app.git`, `github` → `github.com/gmackie/omnidat.git`
 
 Read this first. Then skim root `README.md`, the current implementation, and
@@ -150,14 +150,24 @@ Plans live in `docs/plans/`. Prefer implementing against a named plan rather tha
 
 Also useful: `docs/plans/2026-07-04-roadmap-expansion.md`, field office plan `2026-06-29-…`, Verifone/X.25 plan `2026-07-02-…`.
 
+### Identity & cloud (as of 2026-07-13)
+
+- Shared IdP: **https://auth.omnidat.cc** (Authentik). Passkey-primary, password fallback.
+- Admins: `akadmin`, `gmacko` (Authentik superusers + omnidat/omnibank operator groups).
+- OmniBank: `gmacko` and `akadmin` linked to bank account **9** (`omniauth_links`).
+- Console secrets: `OMNIAUTH_*`, `AUTH_SECRET`, `OMNIDAT_BOOTSTRAP_ADMINS` (user ids **or emails**, e.g. `gmacko@omnidat.cc`).
+- Operator shell: `/console`, `/noc`, `/operator-admin`, `/console/terminal` show session + roles; console/admin require sign-in + operator capability.
+- `omnidat.operatorMe` returns roles for the signed-in user; `omnidat.dashboard` is **public** read (mutations stay gated).
+
 ### Highest-value next technical work (suggested priority)
 
-1. **Close production bridge e2e (not unit):** CALL on deployed `console.omnidat.cc` XOT/pad-telnet → NOC session row + evidence artifact visible. App path now auto-persists `packet-call-receipt` evidence on every `packetCall`.
-2. **H1b remaining polish:** event status UI, campsite suspend UI, live incident list (not demo rows), role-list admin surface; provisioning legal path is done in CRUD.
-3. **Split-authority drill:** `scripts/authority-drill` + field journal sync against cloud failover story (code present; human rehearsal remains).
-4. **Do not invent redeemable money** without policy sign-off (H4 remaining work is governance, not more ISO demos).
-5. **Push/deploy lag:** reconcile the 33 local commits with `forge/main` if the next agent is expected to ship.
-6. Hardware / ShadyTel questions stay in `docs/open-questions.md` — track decisions, don’t block pure software slices.
+1. **Human production bridge e2e:** signed-in as `gmacko`, CALL on `/console/terminal` → NOC Packet Sessions + Evidence list. Automated: `./scripts/e2e-network` + `docs/e2e-network-walkthrough.md` (personas, Verifone pack→sale, VT100 CALL→evidence). **Status:** lab/console paths proven; keep re-verifying after deploys.
+2. **H1b polish (landed in UI):** event lifecycle status buttons, campsite pending/active/suspend, live incident list + open/resolve, role grant/list/revoke on Admin. POS → `pos-sale-receipt`; VT100 CALL links evidence.
+3. **Split-authority drill UI (landed):** NOC panel: `authorityStatus`, `transferAuthority`, **`registerSyncSource`** (one-time token), event UUID picker. CLI: `./scripts/authority-drill`. Human multi-day field journal rehearsal still open.
+4. **Evidence export + documents + audit trail (landed):** Operator CRUD export/render; Admin **Audit Trail** (`listRecentAuditEvents`).
+5. **Public honesty:** `/what-is-real` on console (H0 claim matrix). Passkey soft-enroll nudge after login (Authentik owns WebAuthn).
+6. **Do not invent redeemable money** without policy sign-off (H4 remaining work is governance, not more ISO demos).
+7. Hardware / ShadyTel questions stay in `docs/open-questions.md` — track decisions, don’t block pure software slices.
 
 ---
 

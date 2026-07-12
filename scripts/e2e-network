@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Full OMNIDAT network E2E: personas + Verifone + VT100 onboarding.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+echo "== 1. Validate seed data =="
+./scripts/validate-data
+
+echo "== 2. Python sim: Verifone + OmniBank e2e =="
+python -m unittest tests.test_verifone_simulator tests.test_omnibank_e2e -v
+
+echo "== 3. gmacko network persona E2E (Vitest) =="
+corepack pnpm@10.32.1 --dir gmacko --filter @omnidat/api exec \
+  vitest run src/router/omnidat-network-e2e.test.ts
+
+echo "== 4. Live public surfaces (optional; skip if offline) =="
+if curl -fsS --max-time 8 https://console.omnidat.cc/api/health >/tmp/omnidat-health.json 2>/dev/null; then
+  echo "console health: $(cat /tmp/omnidat-health.json)"
+  curl -fsS --max-time 8 https://console.omnidat.cc/api/health | grep -q healthy
+  curl -fsS --max-time 8 -o /dev/null -w "login %{http_code}\n" https://console.omnidat.cc/login
+  curl -fsS --max-time 8 -o /dev/null -w "noc %{http_code}\n" https://console.omnidat.cc/noc
+  if curl -fsS --max-time 8 https://bucks.omnidat.cc/api/network >/tmp/omnibank-network.json 2>/dev/null; then
+    echo "omnibank: $(head -c 200 /tmp/omnibank-network.json)"
+  else
+    echo "omnibank: skip (unreachable)"
+  fi
+  if curl -fsS --max-time 8 https://auth.omnidat.cc/if/flow/default-authentication-flow/ >/dev/null 2>&1 \
+    || curl -fsS --max-time 8 -o /dev/null -w "%{http_code}" https://auth.omnidat.cc/ | grep -qE '200|302|301'; then
+    echo "authentik: reachable"
+  else
+    echo "authentik: skip (unreachable)"
+  fi
+else
+  echo "console: skip (offline / no network)"
+fi
+
+echo
+echo "E2E NETWORK OK"
+echo "Human walkthrough: docs/e2e-network-walkthrough.md"

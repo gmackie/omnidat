@@ -35,6 +35,42 @@ Expose `auth.omnidat.cc` to the server's port 9000. Two options:
 First-run: browse `https://auth.omnidat.cc/if/flow/initial-setup/` to set the
 `akadmin` password.
 
+### Admins (live)
+
+| Username | Role | Groups |
+|---|---|---|
+| `akadmin` | bootstrap superuser | `authentik Admins`, `omnidat-operators`, `omnibank-operators` |
+| `gmacko` | superuser (pk 12) | same as akadmin |
+
+To promote another user via API on `hetzner-bob` (`/opt/authentik`):
+
+```sh
+TOKEN=$(docker exec authentik-server-1 printenv AUTHENTIK_BOOTSTRAP_TOKEN)
+# create or PATCH /api/v3/core/users/ with groups including
+# authentik Admins (527eaf25-6ac1-458a-a7db-08bc72a561a4)
+# then POST /api/v3/core/users/<pk>/set_password/
+```
+
+### Auth policy: passkeys primary, password fallback
+
+Login at `https://auth.omnidat.cc` is passkey-first:
+
+| Path | How |
+|---|---|
+| **Primary** | Passkey autofill on the identification screen (WebAuthn conditional UI), or the **passwordless** link → flow `passwordless` |
+| **Fallback** | Username/email + password (existing default authentication flow) |
+| **New users** | After first password login, Authentik forces **Passkey** enrollment (`not_configured_action=configure`) |
+
+Live pieces (on `hetzner-bob`):
+
+- Stage `omnidat-passkey-validate` — WebAuthn-only authenticator validation, UV required
+- Flow `passwordless` — passkey validate → user login
+- Identification stage links `passwordless_flow` + `webauthn_stage` for autofill
+- WebAuthn setup requires **resident keys** (`resident_key_requirement=required`) so credentials work as discoverable passkeys
+- MFA validate stage only accepts `webauthn` and configures the default Passkey setup stage when none is enrolled
+
+Password remains as bootstrap / recovery for new accounts and devices without a passkey yet. After enrollment, day-to-day login should use the passkey.
+
 ## 2. Create the OMNIDAT OIDC provider + application
 
 In the Authentik admin (`/if/admin/`):
@@ -45,7 +81,8 @@ In the Authentik admin (`/if/admin/`):
      (or implicit consent for less friction).
    - Client type: `Confidential`.
    - **Redirect URIs** (exact match):
-     `https://console.omnidat.cc/api/auth/oauth2/callback/omniauth`
+     `https://console.omnidat.cc/api/auth/callback/omniauth`
+     (better-auth generic OAuth uses `/api/auth/callback/<providerId>`)
    - Scopes: `openid`, `profile`, `email`.
    - Signing key: the default self-signed cert is fine.
    - Save, then copy the generated **Client ID** and **Client Secret**.
@@ -90,12 +127,75 @@ corepack pnpm@10.32.1 deploy:cloudflare:production   # build:vinext + wrangler d
 - Browse `https://console.omnidat.cc/login`, click OmniAuth, complete the
   Authentik flow, and confirm you land back signed in.
 - The callback that must succeed is
-  `https://console.omnidat.cc/api/auth/oauth2/callback/omniauth`.
+  `https://console.omnidat.cc/api/auth/callback/omniauth`.
+
+## 5. OmniBank application (bucks.omnidat.cc) — **LIVE**
+
+OmniBank uses the **same** Authentik IdP. Do not stand up a second identity
+server. Bank detail: `/Volumes/dev/shady/shadybank/docs/omniauth.md`.
+
+### Provisioned (2026-07-12)
+
+| Item | Value |
+|---|---|
+| Application | **OmniBank** slug **`omnibank`** |
+| Provider | OAuth2/OIDC confidential (pk 5) |
+| Redirect URI | `https://bucks.omnidat.cc/app/omniauth/callback` |
+| Discovery | https://auth.omnidat.cc/application/o/omnibank/.well-known/openid-configuration |
+| Groups | `omnibank-operators`, `omnibank-partners` (akadmin + gmacko ∈ operators) |
+| Bank mode | `OMNIAUTH_MODE=oidc` on hetzner-bob `/opt/omnibank` |
+| Account link | `akadmin` → account **9**; `gmacko` → account **9** (operator admin) |
+
+Re-run / document: `shadybank/scripts/setup-authentik-omnibank.sh` (uses
+`AUTHENTIK_BOOTSTRAP_TOKEN` on the authentik host).
+
+### Manual UI path (if re-creating)
+
+1. **Providers → Create → OAuth2/OpenID Provider**
+   - Name: `OmniBank`
+   - Client type: Confidential
+   - Redirect URI: `https://bucks.omnidat.cc/app/omniauth/callback`
+   - Scopes: openid, profile, email
+   - Sub mode: `user_username` (bank links by username)
+2. **Applications → Create**
+   - Name: `OmniBank`, Slug: **`omnibank`**
+   - Provider: OmniBank OIDC
+   - Launch URL: `https://bucks.omnidat.cc/app/omniauth/start`
+3. Set on OmniBank containers (see `deploy/omnibank.env`):
+
+```sh
+OMNIAUTH_ENABLED=1
+OMNIAUTH_MODE=oidc
+OMNIAUTH_ISSUER=https://auth.omnidat.cc
+OMNIAUTH_APP_SLUG=omnibank
+OMNIAUTH_CLIENT_ID=<from provider>
+OMNIAUTH_CLIENT_SECRET=<from provider>
+OMNIAUTH_REDIRECT_URI=https://bucks.omnidat.cc/app/omniauth/callback
+OMNIAUTH_BRIDGE_SECRET=<shared frontend+api>
+BANK_PUBLIC_BASE_URL=https://bucks.omnidat.cc
+```
+
+4. Link users after first login (subject = Authentik username):
+
+```sql
+INSERT INTO omniauth_links (subject, account_id, email)
+VALUES ('akadmin', 9, 'you@example.com')
+ON CONFLICT (subject) DO UPDATE SET account_id = EXCLUDED.account_id;
+```
+
+### Future: SAML proxy / outpost
+
+Optional later: Authentik **Proxy Provider** + outpost injecting
+`X-OmniAuth-*` headers, with `OMNIAUTH_MODE=headers`. OIDC is the live path
+without an outpost.
 
 ## Notes
 
 - Role mapping: Authentik groups/claims can drive OMNIDAT operator roles later;
   for now a signed-in OmniAuth user has no operator capability until an admin
-  grants one (`grantOperatorRole`) or `OMNIDAT_BOOTSTRAP_ADMINS` lists them.
+  grants one (`grantOperatorRole`) or `OMNIDAT_BOOTSTRAP_ADMINS` lists their
+  better-auth user id **or email** (e.g. `gmacko@omnidat.cc`).
 - The public Worker (`omnidat.cc`) still uses a demo OmniAuth flow; repointing
   it at Authentik is optional and separate from the operator-app login.
+- OmniBank card/OTP instrument auth is unchanged; OmniAuth is for human web
+  sessions on `bucks.omnidat.cc`.

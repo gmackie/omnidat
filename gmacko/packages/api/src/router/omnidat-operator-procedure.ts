@@ -43,12 +43,21 @@ export async function loadActiveOperatorRoles(
     );
 }
 
-export function bootstrapAdmin(userId: string) {
-  return (process.env.OMNIDAT_BOOTSTRAP_ADMINS ?? "")
+/**
+ * Bootstrap admins listed in OMNIDAT_BOOTSTRAP_ADMINS (comma-separated).
+ * Each entry may be a better-auth user id or an email (case-insensitive).
+ */
+export function bootstrapAdmin(
+  userId: string,
+  email?: string | null,
+): boolean {
+  const entries = (process.env.OMNIDAT_BOOTSTRAP_ADMINS ?? "")
     .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .includes(userId);
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  if (entries.includes(userId.toLowerCase())) return true;
+  if (email && entries.includes(email.trim().toLowerCase())) return true;
+  return false;
 }
 
 async function auditBootstrapAdminUse(db: OperatorDb | undefined, userId: string) {
@@ -68,7 +77,14 @@ export function omnidatOperatorProcedure(capability: OmnidatCapability) {
     .use(async ({ ctx, next }) => {
       const db = (ctx as { db?: OperatorDb }).db;
       const roles = await loadActiveOperatorRoles(db, ctx.session.user.id);
-      if (bootstrapAdmin(ctx.session.user.id) && !roles.includes("admin")) {
+      const userEmail =
+        typeof ctx.session.user.email === "string"
+          ? ctx.session.user.email
+          : null;
+      if (
+        bootstrapAdmin(ctx.session.user.id, userEmail) &&
+        !roles.includes("admin")
+      ) {
         roles.push("admin");
         await auditBootstrapAdminUse(db, ctx.session.user.id);
       }

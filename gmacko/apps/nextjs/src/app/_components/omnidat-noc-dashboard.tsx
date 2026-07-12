@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
 
@@ -12,11 +13,13 @@ export function OmnidatNocDashboard() {
   // authenticated operator additionally sees live sessions and evidence.
   const packetSessions = useQuery({
     ...trpc.omnidat.listPacketSessions.queryOptions(),
-    retry: false,
+    retry: 1,
+    staleTime: 5_000,
   });
   const evidence = useQuery({
-    ...trpc.omnidat.listEvidenceArtifacts.queryOptions(),
-    retry: false,
+    ...trpc.omnidat.listEvidenceArtifacts.queryOptions({}),
+    retry: 1,
+    staleTime: 5_000,
   });
   const sessions = packetSessions.data?.sessions ?? [];
   const artifacts = evidence.data?.artifacts ?? [];
@@ -35,6 +38,8 @@ export function OmnidatNocDashboard() {
           <Status label="State" value={noc.data?.adapter.status ?? "loading"} />
         </div>
       </section>
+
+      <AuthorityDrillPanel />
 
       <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
         <h2 className="text-2xl font-bold">Circuit State</h2>
@@ -134,9 +139,20 @@ export function OmnidatNocDashboard() {
         </div>
       </section>
 
-      {sessions.length > 0 ? (
-        <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
-          <h2 className="text-2xl font-bold">Packet Sessions</h2>
+      <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
+        <h2 className="text-2xl font-bold">Packet Sessions</h2>
+        <p className="mt-1 text-sm text-[#c0a36e]">
+          Live sessions from signed-in VT100/XOT CALL (operator role required).
+        </p>
+        {packetSessions.isError ? (
+          <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
+            AUTH/ROLE REQUIRED — sign in at /login to list sessions
+          </p>
+        ) : sessions.length === 0 ? (
+          <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
+            NO SESSIONS — place a CALL from /console/terminal while signed in
+          </p>
+        ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead className="text-left text-[#c0a36e]">
@@ -173,12 +189,23 @@ export function OmnidatNocDashboard() {
               </tbody>
             </table>
           </div>
-        </section>
-      ) : null}
+        )}
+      </section>
 
-      {artifacts.length > 0 ? (
-        <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
-          <h2 className="text-2xl font-bold">Evidence Artifacts</h2>
+      <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
+        <h2 className="text-2xl font-bold">Evidence Artifacts</h2>
+        <p className="mt-1 text-sm text-[#c0a36e]">
+          Packet-call receipts and exports (operator role required).
+        </p>
+        {evidence.isError ? (
+          <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
+            AUTH/ROLE REQUIRED — sign in at /login to list evidence
+          </p>
+        ) : artifacts.length === 0 ? (
+          <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
+            NO ARTIFACTS — CALL a service to create a packet-call-receipt
+          </p>
+        ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {artifacts.map((artifact) => (
               <article
@@ -195,8 +222,8 @@ export function OmnidatNocDashboard() {
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
+        )}
+      </section>
     </div>
   );
 }
@@ -207,6 +234,311 @@ function Status(props: { label: string; value: string }) {
       <p className="text-sm text-[#c0a36e]">{props.label}</p>
       <p className="mt-2 font-mono text-lg font-bold">{props.value}</p>
     </div>
+  );
+}
+
+/**
+ * Split-authority status + failover drill.
+ * authorityStatus is public (holder/epoch/sources); transferAuthority and
+ * registerSyncSource require authority.transfer (admin / noc-operator).
+ */
+function AuthorityDrillPanel() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [eventId, setEventId] = useState("");
+  const [toHolder, setToHolder] = useState<"field" | "cloud">("cloud");
+  const [toSourceId, setToSourceId] = useState("cloud");
+  const [reason, setReason] = useState(
+    "NOC failover drill — field kit unreachable",
+  );
+  const [fieldSourceId, setFieldSourceId] = useState("field-kit-01");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [issuedToken, setIssuedToken] = useState<string | null>(null);
+
+  const events = useQuery({
+    ...trpc.omnidat.listEvents.queryOptions(),
+    retry: 1,
+  });
+
+  // Prefer a real event UUID once the list loads.
+  const eventOptions = events.data?.events ?? [];
+  const effectiveEventId =
+    eventId.trim() || eventOptions[0]?.id || "";
+
+  const status = useQuery({
+    ...trpc.omnidat.authorityStatus.queryOptions({
+      eventId: effectiveEventId || null,
+    }),
+    retry: 1,
+    staleTime: 5_000,
+  });
+
+  const transfer = useMutation(
+    trpc.omnidat.transferAuthority.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `Authority transferred → holder=${result.holder} epoch=${result.epoch} fence=${result.fenceSeq ?? 0}`,
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.authorityStatus.queryFilter(),
+        );
+        void queryClient.invalidateQueries(trpc.omnidat.noc.queryFilter());
+        void queryClient.invalidateQueries(
+          trpc.omnidat.dashboard.queryFilter(),
+        );
+      },
+      onError: (error: { message?: string }) => {
+        setNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "Operator role with authority.transfer required."
+            : (error.message ?? "Transfer failed."),
+        );
+      },
+    }),
+  );
+
+  const registerSource = useMutation(
+    trpc.omnidat.registerSyncSource.mutationOptions({
+      onSuccess: (result) => {
+        setIssuedToken(result.syncToken);
+        setNotice(
+          result.rotated
+            ? `Rotated sync token for ${result.sourceId} (copy once below)`
+            : `Registered ${result.sourceId} (copy sync token once below)`,
+        );
+        setToSourceId(result.sourceId);
+        void queryClient.invalidateQueries(
+          trpc.omnidat.authorityStatus.queryFilter(),
+        );
+      },
+      onError: (error: { message?: string }) => {
+        setNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "Operator role with authority.transfer required to register field kits."
+            : (error.message ?? "Register failed."),
+        );
+      },
+    }),
+  );
+
+  const authority = status.data?.authority;
+  const sources = status.data?.sources ?? [];
+
+  return (
+    <section
+      className="rounded border border-[#4f3920] bg-[#211d15] p-5"
+      data-testid="authority-drill"
+    >
+      <h2 className="text-2xl font-bold">Authority &amp; Failover Drill</h2>
+      <p className="mt-1 text-sm text-[#c0a36e]">
+        Field kit authoritative during active events; cloud primary on
+        failover. Transfers require{" "}
+        <span className="font-mono">authority.transfer</span> and refuse
+        targets that have not caught up. Use the event UUID (not event code).
+      </p>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <Status
+          label="Holder"
+          value={authority?.holder?.toUpperCase() ?? "—"}
+        />
+        <Status
+          label="Epoch"
+          value={authority ? String(authority.epoch) : "—"}
+        />
+        <Status
+          label="Source"
+          value={authority?.holderSourceId ?? "none"}
+        />
+        <Status
+          label="Fence seq"
+          value={
+            authority?.fenceSeq !== undefined && authority?.fenceSeq !== null
+              ? String(authority.fenceSeq)
+              : "—"
+          }
+        />
+      </div>
+
+      <div className="mt-4">
+        <h3 className="text-sm font-semibold uppercase text-[#c0a36e]">
+          Sync sources
+        </h3>
+        {status.isError ? (
+          <p className="mt-2 font-mono text-sm text-[#d9cbb0]">
+            Authority status unavailable
+          </p>
+        ) : sources.length === 0 ? (
+          <p className="mt-2 font-mono text-sm text-[#d9cbb0]">
+            No registered sync sources — register a field kit below, then
+            transfer field ↔ cloud
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 font-mono text-sm">
+            {sources.map((source) => (
+              <li
+                key={source.sourceId}
+                className="flex flex-wrap gap-3 border-b border-[#33291d] py-1"
+              >
+                <button
+                  type="button"
+                  className="text-[#9ed783] underline"
+                  onClick={() => setToSourceId(source.sourceId)}
+                >
+                  {source.sourceId}
+                </button>
+                <span className="text-[#c0a36e]">{source.sourceKind}</span>
+                <span>seq {source.lastPushedSeq}</span>
+                <span className="uppercase">
+                  {source.active ? "active" : "inactive"}
+                </span>
+                <span className="text-[#9a8a6e]">
+                  {source.lastSyncAt
+                    ? `sync ${new Date(source.lastSyncAt).toISOString()}`
+                    : "never synced"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-5 rounded border border-[#5c4a32] bg-[#17130d] p-4">
+        <h3 className="text-sm font-semibold uppercase text-[#c0a36e]">
+          Register field kit
+        </h3>
+        <p className="mt-1 text-[10px] text-[#9a8a6e]">
+          Issues a one-time sync token (SHA-256 stored). Use with{" "}
+          <span className="font-mono">./scripts/authority-drill</span> or
+          syncPush.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          <input
+            aria-label="field source id"
+            className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+            value={fieldSourceId}
+            onChange={(e) => setFieldSourceId(e.target.value)}
+            placeholder="field-kit-01"
+          />
+          <button
+            type="button"
+            className="rounded border border-[#9ed783] px-3 py-1 text-[#9ed783] disabled:opacity-50"
+            disabled={
+              registerSource.isPending || !fieldSourceId.trim()
+            }
+            onClick={() =>
+              registerSource.mutate({
+                sourceId: fieldSourceId.trim(),
+                sourceKind: "field-kit",
+              })
+            }
+          >
+            {registerSource.isPending
+              ? "Registering…"
+              : "Register / rotate token"}
+          </button>
+        </div>
+        {issuedToken ? (
+          <p
+            className="mt-3 break-all rounded border border-[#4f6b3a] bg-[#1a2413] px-3 py-2 font-mono text-[10px] text-[#9ed783]"
+            data-testid="sync-token-once"
+          >
+            SYNC TOKEN (copy once): {issuedToken}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-5 rounded border border-[#5c4a32] bg-[#17130d] p-4">
+        <h3 className="text-sm font-semibold uppercase text-[#c0a36e]">
+          Transfer authority (drill)
+        </h3>
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          <select
+            aria-label="event for authority transfer"
+            className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+            value={effectiveEventId}
+            onChange={(e) => setEventId(e.target.value)}
+          >
+            <option value="">
+              {events.isError
+                ? "sign in for events"
+                : eventOptions.length === 0
+                  ? "create an event first"
+                  : "select event uuid"}
+            </option>
+            {eventOptions.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.eventCode} — {ev.status} ({ev.id.slice(0, 8)})
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label="event id for authority transfer"
+            className="min-w-[12rem] rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono text-xs"
+            value={eventId || effectiveEventId}
+            onChange={(e) => setEventId(e.target.value)}
+            placeholder="event uuid"
+          />
+          <select
+            aria-label="transfer holder"
+            className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1"
+            value={toHolder}
+            onChange={(e) => {
+              const holder = e.target.value as "field" | "cloud";
+              setToHolder(holder);
+              if (holder === "cloud") setToSourceId("cloud");
+              else if (sources[0]?.sourceId) setToSourceId(sources[0].sourceId);
+              else setToSourceId(fieldSourceId);
+            }}
+          >
+            <option value="cloud">cloud</option>
+            <option value="field">field</option>
+          </select>
+          <input
+            aria-label="target source id"
+            className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+            value={toSourceId}
+            onChange={(e) => setToSourceId(e.target.value)}
+            placeholder="toSourceId"
+          />
+          <input
+            aria-label="transfer reason"
+            className="min-w-[16rem] flex-1 rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="reason"
+          />
+          <button
+            type="button"
+            className="rounded bg-[#c0a36e] px-3 py-1 font-semibold text-black disabled:opacity-50"
+            disabled={
+              transfer.isPending ||
+              !effectiveEventId ||
+              !toSourceId.trim() ||
+              !reason.trim()
+            }
+            onClick={() =>
+              transfer.mutate({
+                eventId: effectiveEventId,
+                toHolder,
+                toSourceId: toSourceId.trim(),
+                reason: reason.trim(),
+              })
+            }
+          >
+            {transfer.isPending ? "Transferring…" : "Execute transfer"}
+          </button>
+        </div>
+        {notice ? (
+          <p
+            className="mt-3 rounded border border-[#a1471f] bg-[#2c1a12] px-3 py-2 font-mono text-xs text-[#f0a875]"
+            data-testid="authority-transfer-notice"
+          >
+            {notice}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

@@ -26,6 +26,7 @@
     "render": "./scripts/render-artifacts",
     "status": "./scripts/status",
     "e2e:omnibank": "./scripts/e2e-omnibank",
+    "e2e:network": "./scripts/e2e-network",
     "e2e:weekend": "./scripts/weekend-sim",
     "verifone:sim": "./scripts/verifone-sim",
     "verifone:tui": "./scripts/verifone-tui"

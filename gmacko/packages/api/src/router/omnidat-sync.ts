@@ -407,6 +407,75 @@ export async function listSyncSources(db: OmnidatSyncDb | undefined) {
   }));
 }
 
+/**
+ * Register (or rotate) a field-kit / sim sync source. Returns the plaintext
+ * sync token once — only the SHA-256 hash is stored. Gated by the caller
+ * (authority.transfer / admin).
+ */
+export async function registerSyncSource(
+  db: OmnidatSyncDb | undefined,
+  input: {
+    sourceId: string;
+    sourceKind?: "field-kit" | "sim-field-kit" | "cloud";
+    operatorId: string;
+  },
+) {
+  if (!db || !databasePersistenceEnabled()) {
+    throw new Error("sync source registration requires database persistence");
+  }
+
+  const sourceKind = input.sourceKind ?? "field-kit";
+  const syncToken = createHash("sha256")
+    .update(
+      `omnidat-sync:${input.sourceId}:${input.operatorId}:${Date.now()}:${Math.random()}`,
+    )
+    .digest("hex");
+  const tokenHash = createHash("sha256").update(syncToken).digest("hex");
+
+  const existing = (await selectRows<SyncSourceRow>(db, omnidatSyncSource)).find(
+    (row) => row.sourceId === input.sourceId,
+  );
+
+  if (existing && db.update) {
+    await db
+      .update(omnidatSyncSource)
+      .set({
+        tokenHash,
+        sourceKind,
+        active: true,
+      })
+      .where(eq(omnidatSyncSource.sourceId, input.sourceId));
+  } else {
+    db.insert(omnidatSyncSource).values({
+      sourceId: input.sourceId,
+      sourceKind,
+      tokenHash,
+      lastPushedSeq: 0,
+      active: true,
+    });
+  }
+
+  await persistAuditEvent(db, {
+    eventType: existing
+      ? "sync.source.rotated"
+      : "sync.source.registered",
+    subjectKind: "sync-source",
+    subjectId: input.sourceId,
+    details: {
+      sourceKind,
+      operatorId: input.operatorId,
+      rotated: Boolean(existing),
+    },
+  });
+
+  return {
+    sourceId: input.sourceId,
+    sourceKind,
+    syncToken,
+    rotated: Boolean(existing),
+  };
+}
+
 type PullRow = JournalRow & {
   eventId?: string | null;
   epoch?: number | null;
