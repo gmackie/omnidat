@@ -202,6 +202,14 @@ telnet localhost 2525
 - Worker: `npm run deploy:worker` / dry-run via wrangler; production uses shared FryOS Postgres + Hyperdrive (`postgres-shared-fryos-v1` in validation notes).
 - Console / gmacko: ForgeGraph conventions (`forge` CLI, secrets `DATABASE_URL_LOCAL` / Hyperdrive). See `gmacko/deploy/`, `runbooks/cloudflare-worker-deploy.md`.
 - Pad-telnet on k3s: host-networking deploy documented in recent commits/README.
+- ForgeGraph console deploy contract: run `npm run deploy:nix:check`. The
+  previous production deploys failed because `gmacko/flake.nix` exposed only a
+  dev shell and no `packages.x86_64-linux.default`. The flake now packages the
+  standalone Next server as `$out/bin/omnidat-app`. The generated standalone
+  server has been launched locally and `/api/health` returned healthy after
+  replacing a computed telemetry import that the standalone tracer could not
+  package. A fresh Linux deployment is still required to prove the ForgeGraph
+  fix and H2 CALL → NOC → evidence path in production.
 
 **VCS:** Prefer **jj** in ForgeGraph repos when colocated; this handoff saw plain git on `main`. Follow `jj-workflow` / `fg-jj` skills if the workspace is jj-colocated. Do not force-push; confirm before any push to `forge`.
 

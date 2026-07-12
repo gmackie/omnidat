@@ -15,6 +15,7 @@
     "db:shared:check": "./scripts/check-shared-postgres",
     "deploy:worker:dry-run": "wrangler deploy --dry-run",
     "deploy:worker": "wrangler deploy",
+    "deploy:nix:check": "./scripts/check-forgegraph-package",
     "health": "curl -fsS http://127.0.0.1:8828/api/health",
     "ready": "curl -fsS http://127.0.0.1:8828/api/health/ready",
     "live": "curl -fsS http://127.0.0.1:8828/api/health/live",

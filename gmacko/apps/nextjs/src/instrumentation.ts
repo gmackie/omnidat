@@ -2,8 +2,7 @@ import { integrations } from "@omnidat/config";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const telemetryInitModule = ["@omnidat/telemetry", "init"].join("/");
-    const { initTelemetry } = await import(telemetryInitModule);
+    const { initTelemetry } = await import("@omnidat/telemetry/init");
     initTelemetry();
   }
 

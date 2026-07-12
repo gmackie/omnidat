@@ -29,6 +29,12 @@ const config = {
 
   typescript: { ignoreBuildErrors: true },
 
+  // Nix/CI builds run in a bounded sandbox. Allow that packaging lane to
+  // reduce Next's page-data worker fanout without slowing normal local builds.
+  experimental: process.env.NEXT_BUILD_CPUS
+    ? { cpus: Number(process.env.NEXT_BUILD_CPUS) }
+    : undefined,
+
   // Security headers
   async headers() {
     return [

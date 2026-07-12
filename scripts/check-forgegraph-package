@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+main_program=$(nix eval --raw ./gmacko#packages.x86_64-linux.default.meta.mainProgram)
+if [[ "$main_program" != "omnidat-app" ]]; then
+  echo "expected ForgeGraph main program omnidat-app, got: $main_program" >&2
+  exit 1
+fi
+
+# Evaluate the production derivation without attempting to execute a Linux
+# build on a macOS developer machine. ForgeGraph performs the real build on its
+# x86_64-linux node.
+nix build ./gmacko#packages.x86_64-linux.default --dry-run --no-link >/dev/null
+
+echo "ForgeGraph package contract valid: packages.x86_64-linux.default -> $main_program"

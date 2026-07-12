@@ -2092,7 +2092,7 @@ packages:
         optional: true
 
   '@better-auth/core@https://pkg.pr.new/better-auth/better-auth/@better-auth/core@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/core@e9a2a6d}
+    resolution: {integrity: sha512-0Y6yDJwDXru5QcIENzwRY+V4Y1tY8rVh6ium4uHdfjWW/na5uHfTu/FI01HZLYI1cD5HW+4nY9SRLCeI5wDYCw==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/core@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/utils': 0.4.0
@@ -2110,7 +2110,7 @@ packages:
         optional: true
 
   '@better-auth/drizzle-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@e9a2a6d}
+    resolution: {integrity: sha512-1lvXN3XKh0hpNrTJ47oAVCIs0mMFQ1AmeyHE6jTzeniOCTL5U/72PUsxkgABLVm7po8XQOMIUoPs8nw2OlCp9w==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/core': ^1.7.0-beta.2
@@ -2141,7 +2141,7 @@ packages:
         optional: true
 
   '@better-auth/kysely-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/kysely-adapter@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/kysely-adapter@e9a2a6d}
+    resolution: {integrity: sha512-8r9jl35lTe7XwYOuUY/bg3MPIqzepHWq2mIoXKRuxrPpAVSjFFpQnYWgFx+QDH+91nE3tXCXnb5sA9zyPI3dmA==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/kysely-adapter@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/core': ^1.7.0-beta.2
@@ -2152,14 +2152,14 @@ packages:
         optional: true
 
   '@better-auth/memory-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/memory-adapter@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/memory-adapter@e9a2a6d}
+    resolution: {integrity: sha512-KKSwdG+eOOwwSFep3nV16rf5fWXpPzIIkvW61xXor/8lemFJgNtdojTUleK0WzOajPG8e8d29fPRdDTQNm3zhA==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/memory-adapter@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/core': ^1.7.0-beta.2
       '@better-auth/utils': 0.4.0
 
   '@better-auth/mongo-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/mongo-adapter@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/mongo-adapter@e9a2a6d}
+    resolution: {integrity: sha512-9btRzRBckBCmO2uHc4s+kwoXUX9UwNtckSVKAkuI59JE46aKQ+d17pzZtj4DG/BMOryFJzwflPPUJ0ejeslt9w==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/mongo-adapter@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/core': ^1.7.0-beta.2
@@ -2170,7 +2170,7 @@ packages:
         optional: true
 
   '@better-auth/prisma-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/prisma-adapter@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/prisma-adapter@e9a2a6d}
+    resolution: {integrity: sha512-f2Ry2rzsMtuYEOUUXad9605N8EbsNaEcimBOd2pTz5MCEIu8TdPuVRAHJ+moc7EM4548Wv2qAS05PTI9qFO3uQ==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/prisma-adapter@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/core': ^1.7.0-beta.2
@@ -2190,7 +2190,7 @@ packages:
       '@better-auth/core': 1.4.21
 
   '@better-auth/telemetry@https://pkg.pr.new/better-auth/better-auth/@better-auth/telemetry@e9a2a6d':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/telemetry@e9a2a6d}
+    resolution: {integrity: sha512-az9hOqqcJ9EaN4X6cUpxT9dnOyR1mTHqVZDyp4snTffi0VIVbajDTKiXtnj4Wz4m0EdkQVytSEiyfKlBNw4nFQ==, tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/telemetry@e9a2a6d}
     version: 1.7.0-beta.2
     peerDependencies:
       '@better-auth/core': ^1.7.0-beta.2

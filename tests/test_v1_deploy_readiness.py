@@ -61,6 +61,17 @@ class V1DeployReadinessTests(unittest.TestCase):
         self.assertNotIn("temporary public edge deploy", runbook)
         self.assertNotIn("full v1 application is still expected to move", runbook)
 
+    def test_next_instrumentation_uses_traceable_telemetry_import(self):
+        instrumentation = Path(
+            "gmacko/apps/nextjs/src/instrumentation.ts"
+        ).read_text()
+
+        self.assertIn(
+            'await import("@omnidat/telemetry/init")',
+            instrumentation,
+        )
+        self.assertNotIn("telemetryInitModule", instrumentation)
+
 
 if __name__ == "__main__":
     unittest.main()
