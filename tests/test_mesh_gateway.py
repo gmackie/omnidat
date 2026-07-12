@@ -450,3 +450,37 @@ def write_seed_data(data_dir: Path) -> None:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SentVerbTests(unittest.TestCase):
+    def test_sent_reports_delivery_status(self):
+        with gateway_env() as (gateway, transport):
+            transport.route(
+                "GET",
+                "/dm/receipt/MSG-00482",
+                {"rcpt": "MSG-00482", "to": "042713", "delivered": True, "read": False},
+            )
+
+            response = gateway.handle_text(REGISTERED_NODE, "SENT MSG-00482")
+
+            self.assertIn("TELEGRAM MSG-00482", response)
+            self.assertIn("TO 042713  DELIVERED - UNREAD", response)
+            self.assertIn("CLR 00", response)
+
+    def test_sent_reports_read(self):
+        with gateway_env() as (gateway, transport):
+            transport.route(
+                "GET",
+                "/dm/receipt/MSG-00482",
+                {"rcpt": "MSG-00482", "to": "042713", "delivered": True, "read": True},
+            )
+
+            response = gateway.handle_text(REGISTERED_NODE, "SENT MSG-00482")
+
+            self.assertIn("TO 042713  READ", response)
+
+    def test_sent_usage_error(self):
+        with gateway_env() as (gateway, transport):
+            response = gateway.handle_text(REGISTERED_NODE, "SENT")
+
+            self.assertIn("CLR ERR C:19 D:0", response)

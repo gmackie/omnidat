@@ -19,6 +19,7 @@ CALL <BOARD> <AFTER>            board page after post number
 REQ / STAT / ACT                field PAD services (queues, activity passports)
 MSG <ADDR> <TEXT>               subscriber store-and-forward mail (bridge)
 MAIL                            fetch + drain your unread mail (bridge)
+SENT <RCPT>                     delivery status of a sent telegram (bridge)
 POST <BOARD> [NAME#TRIP] <TEXT> pseudo-anonymous board post (bridge)
 HELP / CLR
 ```

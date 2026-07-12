@@ -79,6 +79,9 @@ class MatrixBridge:
             path += f"?after={after}"
         return self._request("GET", path)["items"]
 
+    def receipt(self, rcpt: str) -> dict[str, Any]:
+        return self._request("GET", f"/dm/receipt/{rcpt}")
+
     def board_post(
         self,
         board_id: str,
@@ -164,6 +167,20 @@ def format_board_page(board_id: str, items: list[dict[str, Any]], read_class: st
 
 def format_post_receipt(receipt: dict[str, Any]) -> str:
     return f"RCPT No.{receipt['no']:05d} CLR 00"
+
+
+def format_delivery(status: dict[str, Any]) -> str:
+    if status.get("read"):
+        state = "READ"
+    elif status.get("delivered"):
+        state = "DELIVERED - UNREAD"
+    else:
+        state = "PENDING"
+    return "\n".join([
+        f"TELEGRAM {status['rcpt']}",
+        f"TO {status['to']}  {state}",
+        "CLR 00",
+    ])
 
 
 USAGE = """usage: bridge-msg <from> <to> <text...>   send a subscriber message

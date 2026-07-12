@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tools import omnidat_radio_pad as radio_pad
-from tools.omnidat_bridge import ClearedError, MatrixBridge
+from tools.omnidat_bridge import ClearedError, MatrixBridge, format_delivery
 from tools.omnidat_packet import (
     board_post,
     board_read,
@@ -47,6 +47,7 @@ GUEST_ACCOUNT_ID = "ACCT-GUEST"
 
 MESH_HELP_EXTRA = [
     "MAIL",
+    "SENT <RCPT>",
     "POST <BOARD> [NAME#TRIP] <TEXT>",
 ]
 
@@ -141,6 +142,10 @@ class MeshGateway:
                 return self.run_msg(node_id, args)
             if verb == "MAIL":
                 return self.run_mail(node_id)
+            if verb == "SENT":
+                if not args:
+                    raise ValueError("usage: SENT <RCPT>")
+                return format_delivery(self.bridge.receipt(args[0]))
             if verb == "POST":
                 return self.run_post(node_id, args)
             if verb == "CALL" and args:

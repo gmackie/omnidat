@@ -226,6 +226,20 @@ describe("PadSession bridge-backed messaging", () => {
     expect(bridge.boards).toHaveBeenCalled();
   });
 
+  it("falls back to the local catalog when the bridge has no /boards route", async () => {
+    // The canonical omnichat bridge does not serve GET /boards — the directory
+    // is edge knowledge. Board resolution must still work from the local catalog.
+    const bridge = mockBridge({
+      boards: vi.fn(async () => {
+        throw new BridgeCleared("NP", 13, 0, "404 no /boards on canonical bridge");
+      }),
+    });
+    const s = new PadSession("311088000001", "vt100", bridge);
+    const out = await line(s, "CALL 000401");
+    expect(bridge.boardPage).toHaveBeenCalledWith("GEN", undefined);
+    expect(out).toContain("FIRST POST");
+  });
+
   it("clears an offline bridge with an honest CLR (no crash)", async () => {
     const bridge = mockBridge({
       mailbox: vi.fn(async () => {

@@ -1,5 +1,12 @@
 # @omnidat/matrix-bridge
 
+> **DEPRECATED (2026-07-12):** this in-memory bridge was the PoC backend. The
+> canonical, Matrix-backed bridge is `omnichat/bridge` (`@omnidat/bridge`) —
+> point `OMNIDAT_BRIDGE_URL` there. The PAD no longer needs this server's
+> `GET /boards` (it falls back to its local catalog) and the canonical bridge
+> now serves `GET /dm/receipt/:rcpt`. Keep this package only as a fixture for
+> offline demos.
+
 The backend both OMNIDAT PADs talk to for **subscriber mail** (store-and-forward
 DMs) and **message boards**. It presents the internal HTTP API the PAD clients
 speak — `tools/omnidat_bridge.py` (Python) and

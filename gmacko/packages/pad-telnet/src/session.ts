@@ -40,6 +40,7 @@ import {
 
 import { type BoardDef, type Bridge, BridgeCleared, type Catalog } from "./bridge.js";
 import { isStatusBoard, normalizeStatusPost, statusHelp } from "./camp-status.js";
+import { localCatalog } from "./catalog.js";
 import type { RiotEntry } from "./riot.js";
 import {
   resolveCatalog,
@@ -238,16 +239,20 @@ export class PadSession {
     }
   }
 
-  /** Lazily fetch and cache the board/mail catalog from the bridge. */
+  /** Lazily fetch and cache the board/mail catalog.
+   *
+   * The legacy in-memory bridge serves GET /boards; the canonical omnichat
+   * bridge does not (the X.121 directory is edge knowledge). Try the bridge,
+   * then fall back to the PAD's local catalog so board CALLs keep working. */
   private async ensureCatalog(): Promise<Catalog | undefined> {
     if (this.catalog) return this.catalog;
     if (!this.bridge) return undefined;
     try {
       this.catalog = await this.bridge.boards();
-      return this.catalog;
     } catch {
-      return undefined;
+      this.catalog = localCatalog();
     }
+    return this.catalog;
   }
 
   private async runPad(cmd: string): Promise<FeedResult> {
