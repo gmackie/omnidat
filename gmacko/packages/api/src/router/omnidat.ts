@@ -53,7 +53,10 @@ import {
   buildSettlementReport,
   renderSettlementReport,
 } from "./omnidat-settlement";
-import { checkTransport } from "./omnidat-transports";
+import {
+  checkTransport,
+  TRANSPORT_POLICIES,
+} from "./omnidat-transports";
 import {
   CAMP_APP_KINDS,
   IllegalProvisioningTransition,
@@ -269,6 +272,26 @@ export const omnidatRouter = {
   }),
 
   network: publicProcedure.query(() => buildNetworkSnapshot()),
+
+  /**
+   * Public H2b transport policy table (budgets / access class).
+   * Hardware bridges still terminate wire protocols elsewhere.
+   */
+  listTransports: publicProcedure.query(() => ({
+    transports: Object.values(TRANSPORT_POLICIES).map((policy) => ({
+      ...policy,
+      notes:
+        policy.transport === "meshtastic"
+          ? "Guest radio — strictest budget; no fast-select"
+          : policy.transport === "meshcore"
+            ? "Managed radio — registered nodes"
+            : policy.transport === "pots-modem"
+              ? "Dial PAD path (H5 hardware)"
+              : policy.transport === "wifi-terminal"
+                ? "Camp Wi-Fi / TCP terminal"
+                : "Browser XOT / rich terminal",
+    })),
+  })),
 
   services: publicProcedure.query(async ({ ctx }) => ({
     services: (

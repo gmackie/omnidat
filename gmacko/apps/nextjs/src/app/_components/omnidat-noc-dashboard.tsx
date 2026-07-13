@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
+import { OmnidatTransportBoard } from "./omnidat-transport-board";
 
 const CLEAR_PRESETS = [
   { label: "Normal DTE", cause: 0, diagnostic: 0 },
@@ -70,6 +71,8 @@ export function OmnidatNocDashboard() {
       </section>
 
       <AuthorityDrillPanel />
+
+      <OmnidatTransportBoard compact />
 
       <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
         <h2 className="text-2xl font-bold">Circuit State</h2>

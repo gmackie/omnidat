@@ -72,7 +72,11 @@ export function OmnidatOperatorCrud() {
     retry: false,
   });
   const evidenceList = useQuery({
-    ...trpc.omnidat.listEvidenceArtifacts.queryOptions({}),
+    ...trpc.omnidat.listEvidenceArtifacts.queryOptions(
+      evidenceKindFilter
+        ? { artifactKind: evidenceKindFilter }
+        : {},
+    ),
     retry: false,
   });
 
@@ -94,6 +98,17 @@ export function OmnidatOperatorCrud() {
   );
   const [provisionTransport, setProvisionTransport] = useState("xot");
   const [provisionX121, setProvisionX121] = useState("311088020501");
+  const [padX121, setPadX121] = useState("311088040777");
+  const [padTransport, setPadTransport] = useState("meshcore");
+  const [padKind, setPadKind] = useState<
+    | "meshcore-pad"
+    | "meshtastic-pad"
+    | "wifi-terminal"
+    | "pots-pad"
+    | "xot-terminal"
+  >("meshcore-pad");
+  const [padLabel, setPadLabel] = useState("Field Mesh PAD");
+  const [evidenceKindFilter, setEvidenceKindFilter] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
   // H3/H4 demo state
@@ -240,6 +255,19 @@ export function OmnidatOperatorCrud() {
           `Provisioning ${result.id}: ${result.from ?? "?"} → ${result.status}`,
         );
         void queryClient.invalidateQueries();
+      },
+      onError,
+    }),
+  );
+  const configurePad = useMutation(
+    trpc.omnidat.configurePad.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `PAD configured ${result.x121} via ${result.transport ?? padTransport}`,
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.operations.queryFilter(),
+        );
       },
       onError,
     }),
@@ -1017,6 +1045,130 @@ export function OmnidatOperatorCrud() {
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "CC-CAMP-27", batchId: "CC-001", transactions: [{kind:"sale", amount: 19, reference: "EU-1"}, {kind:"sale", amount: 25, reference: "EU-2"}]})}>CC Camp Demo</button>
           {batchReport && <pre className="text-[8px] mt-1 overflow-auto max-h-20">{batchReport}</pre>}
+        </div>
+
+        <div data-testid="pad-configure">
+          <h3 className="font-semibold">Configure PAD</h3>
+          <p className="mt-1 text-[10px] text-[#9a8a6e]">
+            provisioning.write — register a field PAD endpoint (mesh / Wi-Fi /
+            POTS / XOT).
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1 text-xs">
+            <input
+              aria-label="pad x121"
+              className="w-32 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+              value={padX121}
+              onChange={(e) => setPadX121(e.target.value)}
+            />
+            <select
+              aria-label="pad transport"
+              className="border border-[#5c4a32] bg-[#17130d] px-1"
+              value={padTransport}
+              onChange={(e) => setPadTransport(e.target.value)}
+            >
+              <option value="meshcore">meshcore</option>
+              <option value="meshtastic">meshtastic</option>
+              <option value="wifi-terminal">wifi-terminal</option>
+              <option value="pots-modem">pots-modem</option>
+              <option value="xot">xot</option>
+            </select>
+            <select
+              aria-label="pad kind"
+              className="border border-[#5c4a32] bg-[#17130d] px-1"
+              value={padKind}
+              onChange={(e) =>
+                setPadKind(e.target.value as typeof padKind)
+              }
+            >
+              <option value="meshcore-pad">meshcore-pad</option>
+              <option value="meshtastic-pad">meshtastic-pad</option>
+              <option value="wifi-terminal">wifi-terminal</option>
+              <option value="pots-pad">pots-pad</option>
+              <option value="xot-terminal">xot-terminal</option>
+            </select>
+            <input
+              aria-label="pad endpoint label"
+              className="min-w-[8rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1"
+              value={padLabel}
+              onChange={(e) => setPadLabel(e.target.value)}
+            />
+            <button
+              type="button"
+              className="bg-[#c0a36e] px-2 text-black disabled:opacity-50"
+              disabled={configurePad.isPending || !padX121.trim()}
+              onClick={() =>
+                configurePad.mutate({
+                  x121: padX121.trim(),
+                  transport: padTransport,
+                  padKind,
+                  endpointLabel: padLabel.trim() || "PAD",
+                })
+              }
+            >
+              Configure PAD
+            </button>
+          </div>
+        </div>
+
+        <div data-testid="evidence-browser" className="md:col-span-2">
+          <h3 className="font-semibold">Evidence Browser</h3>
+          <p className="mt-1 text-[10px] text-[#9a8a6e]">
+            Live artifacts (packet-call-receipt, event-export, pos-sale-receipt).
+            Filter by kind optional.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <select
+              aria-label="evidence kind filter"
+              className="border border-[#5c4a32] bg-[#17130d] px-2 py-1"
+              value={evidenceKindFilter}
+              onChange={(e) => setEvidenceKindFilter(e.target.value)}
+            >
+              <option value="">all kinds</option>
+              <option value="packet-call-receipt">packet-call-receipt</option>
+              <option value="event-export">event-export</option>
+              <option value="pos-sale-receipt">pos-sale-receipt</option>
+              <option value="camp-deployment-summary">
+                camp-deployment-summary
+              </option>
+            </select>
+            <button
+              type="button"
+              className="border border-[#5c4a32] px-2"
+              onClick={() => void evidenceList.refetch()}
+            >
+              Refresh
+            </button>
+          </div>
+          {evidenceList.isError ? (
+            <p className="mt-2 text-[10px] text-[#c0a36e]">
+              Role required to list evidence.
+            </p>
+          ) : (
+            <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto font-mono text-[10px]">
+              {(evidenceList.data?.artifacts ?? []).length === 0 ? (
+                <li className="text-[#9a8a6e]">
+                  No artifacts — CALL, export, or POS sale to create some.
+                </li>
+              ) : (
+                (evidenceList.data?.artifacts ?? []).slice(0, 20).map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex flex-wrap gap-2 border-b border-[#33291d] py-1"
+                  >
+                    <span className="text-[#9ed783]">{a.id.slice(0, 8)}</span>
+                    <span className="uppercase text-[#c0a36e]">
+                      {a.artifactKind}
+                    </span>
+                    <span>{a.label}</span>
+                    <span className="break-all text-[#9a8a6e]">{a.url}</span>
+                    {a.recordCount != null ? (
+                      <span>n={a.recordCount}</span>
+                    ) : null}
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
         </div>
       </div>
     </section>

@@ -131,6 +131,18 @@ describe("omnidat tRPC router", () => {
     );
   });
 
+  it("lists H2b transport policies with budgets", async () => {
+    const listed = await caller.omnidat.listTransports();
+    const byName = Object.fromEntries(
+      listed.transports.map((t) => [t.transport, t]),
+    );
+    expect(byName.xot?.maxUserDataBytes).toBe(128);
+    expect(byName.meshcore?.maxUserDataBytes).toBe(64);
+    expect(byName.meshtastic?.maxUserDataBytes).toBe(32);
+    expect(byName.meshtastic?.fastSelectAllowed).toBe(false);
+    expect(byName.meshtastic?.accessClass).toBe("PUBLIC");
+  });
+
   it("returns ShadyBucks, food protocol, ATM protocol, and provisioning verification", async () => {
     const billing = await adminCaller.omnidat.billing();
     const food = await caller.omnidat.foodProtocol();

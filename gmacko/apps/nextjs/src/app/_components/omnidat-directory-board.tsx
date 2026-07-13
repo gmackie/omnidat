@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { useTRPC } from "~/trpc/react";
+import { OmnidatTransportBoard } from "./omnidat-transport-board";
 
 export function DirectoryBoard() {
   const trpc = useTRPC();
@@ -82,6 +83,8 @@ export function DirectoryBoard() {
           ))}
         </div>
       </section>
+
+      <OmnidatTransportBoard />
 
       <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
         <h2 className="text-2xl font-bold">Etiquette</h2>

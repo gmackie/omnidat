@@ -11,6 +11,7 @@ export default async function DirectoryPage() {
   await prefetch(trpc.omnidat.services.queryOptions());
   await prefetch(trpc.omnidat.dashboard.queryOptions());
   await prefetch(trpc.omnidat.network.queryOptions());
+  await prefetch(trpc.omnidat.listTransports.queryOptions());
 
   return (
     <HydrateClient>
