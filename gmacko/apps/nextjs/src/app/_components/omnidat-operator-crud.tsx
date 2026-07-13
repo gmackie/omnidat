@@ -122,6 +122,9 @@ export function OmnidatOperatorCrud() {
   // H1b incident (live list from DB)
   const [incidentTitle, setIncidentTitle] = useState("Network issue at PAD-01");
   const [incidentId, setIncidentId] = useState("");
+  const [incidentSeverity, setIncidentSeverity] = useState<
+    "minor" | "major" | "critical"
+  >("minor");
   const incidents = useQuery({
     ...trpc.omnidat.listIncidents.queryOptions(),
     retry: 1,
@@ -758,6 +761,50 @@ export function OmnidatOperatorCrud() {
             >
               Export event evidence
             </button>
+            <button
+              type="button"
+              className="rounded border border-[#9ed783] px-3 py-1 text-[#9ed783] disabled:opacity-50"
+              disabled={exportEvidence.isPending || renderDocument.isPending}
+              onClick={async () => {
+                const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+                const date = new Date().toISOString().slice(0, 10);
+                const sessions = packetSessions.data?.sessions?.length ?? 0;
+                const incCount = incidents.data?.incidents?.length ?? 0;
+                const allocs = allocations.data?.allocations?.length ?? 0;
+                const evidenceCount =
+                  evidenceList.data?.artifacts?.length ?? 0;
+                try {
+                  const doc = await queryClient.fetchQuery(
+                    trpc.omnidat.renderDocument.queryOptions({
+                      kind: "daily-noc-summary",
+                      data: {
+                        date,
+                        sessions,
+                        incidents: incCount,
+                        allocations: allocs,
+                        orders: 0,
+                        evidence: evidenceCount,
+                      },
+                    }),
+                  );
+                  setDocKind("daily-noc-summary");
+                  setDocPreview(`${doc.title}\n\n${doc.body}`);
+                  exportEvidence.mutate({
+                    label: `Daily NOC ${date}`,
+                    eventId: exportEventId || null,
+                    url: `/evidence/daily-noc/${stamp}.txt`,
+                    recordCount:
+                      sessions + incCount + allocs + evidenceCount,
+                  });
+                } catch (error) {
+                  onError(
+                    error as { message?: string },
+                  );
+                }
+              }}
+            >
+              Daily NOC package
+            </button>
           </div>
 
           <h3 className="mt-4 font-semibold">Printable Documents</h3>
@@ -804,45 +851,140 @@ export function OmnidatOperatorCrud() {
 
         <div>
           <h3 className="font-semibold">Incidents (H1b)</h3>
-          <div className="mt-1 flex gap-1 text-xs">
-            <input className="flex-1 border border-[#5c4a32] bg-[#17130d] px-1" value={incidentTitle} onChange={e=>setIncidentTitle(e.target.value)} />
-            <button className="bg-[#c0a36e] px-2 text-black" onClick={() => openIncident.mutate({title: incidentTitle, severity: "minor"})}>Open Incident</button>
-          </div>
-          <div className="mt-1 flex gap-1 text-xs">
+          <p className="mt-1 text-[10px] text-[#9a8a6e]">
+            Lifecycle: open → mitigating → resolved. Severity on open only.
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1 text-xs">
             <input
-              className="flex-1 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+              className="min-w-[8rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1"
+              value={incidentTitle}
+              onChange={(e) => setIncidentTitle(e.target.value)}
+            />
+            <select
+              aria-label="incident severity"
+              className="border border-[#5c4a32] bg-[#17130d] px-1"
+              value={incidentSeverity}
+              onChange={(e) =>
+                setIncidentSeverity(e.target.value as typeof incidentSeverity)
+              }
+            >
+              <option value="minor">minor</option>
+              <option value="major">major</option>
+              <option value="critical">critical</option>
+            </select>
+            <button
+              className="bg-[#c0a36e] px-2 text-black"
+              onClick={() =>
+                openIncident.mutate({
+                  title: incidentTitle,
+                  severity: incidentSeverity,
+                })
+              }
+            >
+              Open
+            </button>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1 text-xs">
+            <input
+              className="min-w-[8rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
               placeholder="incident uuid"
               value={incidentId}
-              onChange={e=>setIncidentId(e.target.value)}
+              onChange={(e) => setIncidentId(e.target.value)}
             />
             <button
+              className="border border-[#5c4a32] px-2 disabled:opacity-50"
+              disabled={!incidentId.trim() || updateIncident.isPending}
+              onClick={() =>
+                updateIncident.mutate({
+                  incidentId: incidentId.trim(),
+                  status: "open",
+                })
+              }
+            >
+              Reopen
+            </button>
+            <button
+              className="border border-[#c0a36e] px-2 text-[#c0a36e] disabled:opacity-50"
+              disabled={!incidentId.trim() || updateIncident.isPending}
+              onClick={() =>
+                updateIncident.mutate({
+                  incidentId: incidentId.trim(),
+                  status: "mitigating",
+                })
+              }
+            >
+              Mitigating
+            </button>
+            <button
               className="bg-[#c0a36e] px-2 text-black disabled:opacity-50"
-              disabled={!incidentId.trim()}
-              onClick={() => updateIncident.mutate({incidentId: incidentId.trim(), status: "resolved"})}
+              disabled={!incidentId.trim() || updateIncident.isPending}
+              onClick={() =>
+                updateIncident.mutate({
+                  incidentId: incidentId.trim(),
+                  status: "resolved",
+                  timeToClearMinutes: 15,
+                })
+              }
             >
               Resolve
             </button>
           </div>
           {incidents.isError ? (
-            <p className="mt-1 text-[10px] text-[#c0a36e]">Role required to list incidents.</p>
+            <p className="mt-1 text-[10px] text-[#c0a36e]">
+              Role required to list incidents.
+            </p>
           ) : (
-            <ul className="mt-1 max-h-28 overflow-y-auto text-[10px] text-[#d9cbb0]">
+            <ul className="mt-1 max-h-32 overflow-y-auto text-[10px] text-[#d9cbb0]">
               {(incidents.data?.incidents ?? []).length === 0 ? (
-                <li className="text-[#9a8a6e]">No incidents in DB — open one above.</li>
+                <li className="text-[#9a8a6e]">
+                  No incidents in DB — open one above.
+                </li>
               ) : (
                 (incidents.data?.incidents ?? []).slice(0, 12).map((inc) => (
-                  <li key={inc.id} className="flex flex-wrap gap-1 border-b border-[#33291d] py-0.5">
+                  <li
+                    key={inc.id}
+                    className="flex flex-wrap items-center gap-1 border-b border-[#33291d] py-0.5"
+                  >
                     <button
                       type="button"
                       className="font-mono text-[#9ed783] underline"
                       onClick={() => setIncidentId(inc.id)}
-                      title="Use id for resolve"
+                      title="Select for status updates"
                     >
                       {inc.id.slice(0, 8)}
                     </button>
                     <span className="uppercase text-[#c0a36e]">{inc.status}</span>
                     <span className="uppercase">{inc.severity}</span>
                     <span>{inc.title}</span>
+                    {inc.status !== "resolved" ? (
+                      <>
+                        <button
+                          type="button"
+                          className="border border-[#5c4a32] px-1"
+                          onClick={() =>
+                            updateIncident.mutate({
+                              incidentId: inc.id,
+                              status: "mitigating",
+                            })
+                          }
+                        >
+                          → mit
+                        </button>
+                        <button
+                          type="button"
+                          className="border border-[#5c4a32] px-1"
+                          onClick={() =>
+                            updateIncident.mutate({
+                              incidentId: inc.id,
+                              status: "resolved",
+                              timeToClearMinutes: 15,
+                            })
+                          }
+                        >
+                          → res
+                        </button>
+                      </>
+                    ) : null}
                   </li>
                 ))
               )}

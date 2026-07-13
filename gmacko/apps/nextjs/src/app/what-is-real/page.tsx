@@ -143,6 +143,12 @@ export default function WhatIsRealPage() {
               — circuit board, sessions, authority drill
             </li>
             <li>
+              <Link className="underline text-[#9ed783]" href="/directory">
+                Directory
+              </Link>{" "}
+              — public X.121 service map
+            </li>
+            <li>
               <a
                 className="underline text-[#9ed783]"
                 href="https://bucks.omnidat.cc/app/login"

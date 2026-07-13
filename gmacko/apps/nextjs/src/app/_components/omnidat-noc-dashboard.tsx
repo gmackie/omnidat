@@ -259,6 +259,8 @@ export function OmnidatNocDashboard() {
         )}
       </section>
 
+      <NocIncidentBoard />
+
       <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
         <h2 className="text-2xl font-bold">Evidence Artifacts</h2>
         <p className="mt-1 text-sm text-[#c0a36e]">
@@ -301,6 +303,109 @@ function Status(props: { label: string; value: string }) {
       <p className="text-sm text-[#c0a36e]">{props.label}</p>
       <p className="mt-2 font-mono text-lg font-bold">{props.value}</p>
     </div>
+  );
+}
+
+function NocIncidentBoard() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [notice, setNotice] = useState<string | null>(null);
+  const incidents = useQuery({
+    ...trpc.omnidat.listIncidents.queryOptions(),
+    retry: 1,
+    staleTime: 5_000,
+  });
+  const update = useMutation(
+    trpc.omnidat.updateIncident.mutationOptions({
+      onSuccess: (_r, input) => {
+        setNotice(`Incident ${input.incidentId.slice(0, 8)} → ${input.status}`);
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listIncidents.queryFilter(),
+        );
+      },
+      onError: (error: { message?: string }) => {
+        setNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "incident.write required."
+            : (error.message ?? "Update failed"),
+        );
+      },
+    }),
+  );
+
+  const rows = incidents.data?.incidents ?? [];
+  const openCount = rows.filter((i) => i.status !== "resolved").length;
+
+  return (
+    <section
+      className="rounded border border-[#4f3920] bg-[#211d15] p-5"
+      data-testid="noc-incidents"
+    >
+      <h2 className="text-2xl font-bold">Incident Board</h2>
+      <p className="mt-1 text-sm text-[#c0a36e]">
+        Live NOC incidents ({openCount} open/mitigating). Manage from Console
+        CRUD for create.
+      </p>
+      {notice ? (
+        <p className="mt-2 font-mono text-xs text-[#f0a875]">{notice}</p>
+      ) : null}
+      {incidents.isError ? (
+        <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
+          AUTH/ROLE REQUIRED — sign in to list incidents
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
+          NO INCIDENTS — open one from /console Operator CRUD
+        </p>
+      ) : (
+        <ul className="mt-4 max-h-48 space-y-1 overflow-y-auto font-mono text-xs">
+          {rows.slice(0, 20).map((inc) => (
+            <li
+              key={inc.id}
+              className="flex flex-wrap items-center gap-2 border-b border-[#33291d] py-1.5"
+            >
+              <span className="text-[#9ed783]">{inc.id.slice(0, 8)}</span>
+              <span className="uppercase text-[#c0a36e]">{inc.status}</span>
+              <span className="uppercase">{inc.severity}</span>
+              <span className="text-[#d9cbb0]">{inc.title}</span>
+              {inc.status !== "resolved" ? (
+                <span className="ml-auto flex gap-1">
+                  {inc.status !== "mitigating" ? (
+                    <button
+                      type="button"
+                      className="rounded border border-[#5c4a32] px-1.5 py-0.5 text-[10px] uppercase"
+                      disabled={update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          incidentId: inc.id,
+                          status: "mitigating",
+                        })
+                      }
+                    >
+                      Mitigate
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="rounded border border-[#9ed783] px-1.5 py-0.5 text-[10px] uppercase text-[#9ed783]"
+                    disabled={update.isPending}
+                    onClick={() =>
+                      update.mutate({
+                        incidentId: inc.id,
+                        status: "resolved",
+                        timeToClearMinutes: 15,
+                      })
+                    }
+                  >
+                    Resolve
+                  </button>
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

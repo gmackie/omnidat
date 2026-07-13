@@ -29,6 +29,9 @@ export default async function HomePage() {
                 <Link className="rounded border border-[#7a694f] px-3 py-2" href="/operator-admin">
                   Admin
                 </Link>
+                <Link className="rounded border border-[#7a694f] px-3 py-2" href="/directory">
+                  Directory
+                </Link>
                 <Link className="rounded border border-[#7a694f] px-3 py-2" href="/what-is-real">
                   What is real
                 </Link>

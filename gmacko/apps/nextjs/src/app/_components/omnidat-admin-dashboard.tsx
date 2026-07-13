@@ -344,43 +344,189 @@ export function OmnidatAdminDashboard() {
         </div>
       </section>
 
-      <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
-        <h2 className="text-2xl font-bold">Verbs and Address Assignments</h2>
-        <div className="mt-4 grid gap-3">
-          {(services.data?.services ?? []).map((service) => (
-            <article
-              className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
-              key={service.slug}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-mono text-sm text-[#9ed783]">{service.x121}</p>
-                  <h3 className="mt-1 font-semibold">{service.name}</h3>
-                </div>
-                <span className="rounded border border-[#7a694f] px-2 py-1 text-xs uppercase">
-                  {service.category}
-                </span>
-              </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {service.verbs.map((verb) => (
-                  <div
-                    className="rounded border border-[#33291d] p-3"
-                    key={verb.name}
-                  >
-                    <p className="font-mono text-sm font-semibold">{verb.name}</p>
-                    <p className="mt-1 text-sm text-[#d9cbb0]">{verb.description}</p>
-                    <p className="mt-2 text-xs text-[#c0a36e]">
-                      in: {verb.inputs.join(", ")} / out:{" "}
-                      {verb.outputs.join(", ")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <ServiceVerbDesk
+        services={services.data?.services ?? []}
+        onChanged={() => {
+          void queryClient.invalidateQueries(
+            trpc.omnidat.services.queryFilter(),
+          );
+          void queryClient.invalidateQueries(
+            trpc.omnidat.listRecentAuditEvents.queryFilter(),
+          );
+        }}
+      />
     </div>
+  );
+}
+
+function ServiceVerbDesk(props: {
+  services: Array<{
+    slug: string;
+    name: string;
+    x121: string;
+    category: string;
+    verbs: Array<{
+      name: string;
+      description: string;
+      inputs: string[];
+      outputs: string[];
+    }>;
+  }>;
+  onChanged: () => void;
+}) {
+  const trpc = useTRPC();
+  const [serviceId, setServiceId] = useState(
+    props.services[0]?.slug ?? "directory",
+  );
+  const [verb, setVerb] = useState("HELP");
+  const [description, setDescription] = useState("Operator-published verb");
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const upsert = useMutation(
+    trpc.omnidat.upsertServiceVerb.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(`Upserted verb ${result.verb ?? verb} on ${serviceId}`);
+        props.onChanged();
+      },
+      onError: (error: { message?: string }) => {
+        setNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "verb.write required (packet-operator / admin)."
+            : (error.message ?? "Upsert failed"),
+        );
+      },
+    }),
+  );
+  const disable = useMutation(
+    trpc.omnidat.disableServiceVerb.mutationOptions({
+      onSuccess: (_r, input) => {
+        setNotice(`Disabled ${input.verb} on ${input.serviceId}`);
+        props.onChanged();
+      },
+      onError: (error: { message?: string }) => {
+        setNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "verb.write required (packet-operator / admin)."
+            : (error.message ?? "Disable failed"),
+        );
+      },
+    }),
+  );
+
+  return (
+    <section
+      className="rounded border border-[#4f3920] bg-[#211d15] p-5"
+      data-testid="service-verb-desk"
+    >
+      <h2 className="text-2xl font-bold">Verbs and Address Assignments</h2>
+      <p className="mt-1 text-sm text-[#c0a36e]">
+        Publish or disable service verbs (verb.write). serviceId is the
+        service slug or DB uuid.
+      </p>
+
+      <div className="mt-4 rounded border border-[#5c4a32] bg-[#17130d] p-4">
+        <h3 className="text-sm font-semibold uppercase text-[#c0a36e]">
+          Upsert verb
+        </h3>
+        <div className="mt-2 flex flex-wrap gap-2 text-sm">
+          <select
+            aria-label="service for verb"
+            className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+            value={serviceId}
+            onChange={(e) => setServiceId(e.target.value)}
+          >
+            {props.services.map((s) => (
+              <option key={s.slug} value={s.slug}>
+                {s.slug} ({s.x121})
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label="verb name"
+            className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono uppercase"
+            value={verb}
+            onChange={(e) => setVerb(e.target.value.toUpperCase())}
+          />
+          <input
+            aria-label="verb description"
+            className="min-w-[12rem] flex-1 rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <button
+            type="button"
+            className="rounded bg-[#c0a36e] px-3 py-1 font-semibold text-black disabled:opacity-50"
+            disabled={upsert.isPending || !serviceId.trim() || !verb.trim()}
+            onClick={() =>
+              upsert.mutate({
+                serviceId: serviceId.trim(),
+                verb: verb.trim(),
+                description: description.trim() || null,
+                inputs: [],
+                outputs: ["ok"],
+              })
+            }
+          >
+            Upsert verb
+          </button>
+        </div>
+        {notice ? (
+          <p className="mt-2 font-mono text-xs text-[#f0a875]">{notice}</p>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {props.services.map((service) => (
+          <article
+            className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
+            key={service.slug}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-sm text-[#9ed783]">{service.x121}</p>
+                <h3 className="mt-1 font-semibold">{service.name}</h3>
+                <p className="font-mono text-[10px] text-[#9a8a6e]">
+                  serviceId: {service.slug}
+                </p>
+              </div>
+              <span className="rounded border border-[#7a694f] px-2 py-1 text-xs uppercase">
+                {service.category}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              {service.verbs.map((v) => (
+                <div
+                  className="rounded border border-[#33291d] p-3"
+                  key={v.name}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-mono text-sm font-semibold">{v.name}</p>
+                    <button
+                      type="button"
+                      className="rounded border border-[#a1471f] px-1.5 py-0.5 text-[10px] uppercase text-[#f0a875] disabled:opacity-50"
+                      disabled={disable.isPending}
+                      onClick={() =>
+                        disable.mutate({
+                          serviceId: service.slug,
+                          verb: v.name,
+                        })
+                      }
+                    >
+                      Disable
+                    </button>
+                  </div>
+                  <p className="mt-1 text-sm text-[#d9cbb0]">{v.description}</p>
+                  <p className="mt-2 text-xs text-[#c0a36e]">
+                    in: {v.inputs.join(", ") || "—"} / out:{" "}
+                    {v.outputs.join(", ") || "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
