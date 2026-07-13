@@ -5,8 +5,19 @@ import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
 
+const CLEAR_PRESETS = [
+  { label: "Normal DTE", cause: 0, diagnostic: 0 },
+  { label: "NP (13/67)", cause: 13, diagnostic: 67 },
+  { label: "NA (11/70)", cause: 11, diagnostic: 70 },
+  { label: "DER (9/0)", cause: 9, diagnostic: 0 },
+  { label: "OCC (1/0)", cause: 1, diagnostic: 0 },
+  { label: "NC (5/71)", cause: 5, diagnostic: 71 },
+] as const;
+
 export function OmnidatNocDashboard() {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [clearNotice, setClearNotice] = useState<string | null>(null);
   const noc = useQuery(trpc.omnidat.noc.queryOptions());
   const operations = useQuery(trpc.omnidat.operations.queryOptions());
   // Operator-gated views: the public status board renders without them, an
@@ -21,6 +32,25 @@ export function OmnidatNocDashboard() {
     retry: 1,
     staleTime: 5_000,
   });
+  const clearSession = useMutation(
+    trpc.omnidat.clearPacketSession.mutationOptions({
+      onSuccess: (result) => {
+        setClearNotice(
+          `Cleared ${result.id.slice(0, 8)} C:${result.clearCause} D:${result.clearDiagnostic}`,
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listPacketSessions.queryFilter(),
+        );
+      },
+      onError: (error: { message?: string }) => {
+        setClearNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "session.write required to clear sessions."
+            : (error.message ?? "Clear failed"),
+        );
+      },
+    }),
+  );
   const sessions = packetSessions.data?.sessions ?? [];
   const artifacts = evidence.data?.artifacts ?? [];
 
@@ -142,8 +172,12 @@ export function OmnidatNocDashboard() {
       <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
         <h2 className="text-2xl font-bold">Packet Sessions</h2>
         <p className="mt-1 text-sm text-[#c0a36e]">
-          Live sessions from signed-in VT100/XOT CALL (operator role required).
+          Live sessions from signed-in VT100/XOT CALL. Operators can clear open
+          sessions with honest X.25 cause codes (session.write).
         </p>
+        {clearNotice ? (
+          <p className="mt-2 font-mono text-xs text-[#f0a875]">{clearNotice}</p>
+        ) : null}
         {packetSessions.isError ? (
           <p className="mt-4 font-mono text-sm text-[#d9cbb0]">
             AUTH/ROLE REQUIRED — sign in at /login to list sessions
@@ -154,7 +188,7 @@ export function OmnidatNocDashboard() {
           </p>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-sm">
+            <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead className="text-left text-[#c0a36e]">
                 <tr>
                   <th className="border-b border-[#5c4a32] py-2">Destination X.121</th>
@@ -162,30 +196,63 @@ export function OmnidatNocDashboard() {
                   <th className="border-b border-[#5c4a32] py-2">Transport</th>
                   <th className="border-b border-[#5c4a32] py-2">Status</th>
                   <th className="border-b border-[#5c4a32] py-2">Clear</th>
+                  <th className="border-b border-[#5c4a32] py-2">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((session) => (
-                  <tr key={session.id}>
-                    <td className="border-b border-[#33291d] py-3 font-mono">
-                      {session.destinationX121}
-                    </td>
-                    <td className="border-b border-[#33291d] py-3">
-                      {session.sourceIdentity}
-                    </td>
-                    <td className="border-b border-[#33291d] py-3">
-                      {session.sourceTransport}
-                    </td>
-                    <td className="border-b border-[#33291d] py-3 uppercase">
-                      {session.status}
-                    </td>
-                    <td className="border-b border-[#33291d] py-3 font-mono">
-                      {session.clearCause === null
-                        ? "-"
-                        : `C:${session.clearCause} D:${session.clearDiagnostic ?? 0}`}
-                    </td>
-                  </tr>
-                ))}
+                {sessions.map((session) => {
+                  const open =
+                    session.status !== "cleared" &&
+                    session.clearCause === null;
+                  return (
+                    <tr key={session.id}>
+                      <td className="border-b border-[#33291d] py-3 font-mono">
+                        {session.destinationX121}
+                      </td>
+                      <td className="border-b border-[#33291d] py-3">
+                        {session.sourceIdentity}
+                      </td>
+                      <td className="border-b border-[#33291d] py-3">
+                        {session.sourceTransport}
+                      </td>
+                      <td className="border-b border-[#33291d] py-3 uppercase">
+                        {session.status}
+                      </td>
+                      <td className="border-b border-[#33291d] py-3 font-mono">
+                        {session.clearCause === null
+                          ? "-"
+                          : `C:${session.clearCause} D:${session.clearDiagnostic ?? 0}`}
+                      </td>
+                      <td className="border-b border-[#33291d] py-3">
+                        {open ? (
+                          <div className="flex flex-wrap gap-1">
+                            {CLEAR_PRESETS.map((preset) => (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                className="rounded border border-[#5c4a32] px-1.5 py-0.5 text-[10px] uppercase disabled:opacity-50"
+                                disabled={clearSession.isPending}
+                                title={`CLR ${preset.label}`}
+                                onClick={() =>
+                                  clearSession.mutate({
+                                    sessionId: session.id,
+                                    clearCause: preset.cause,
+                                    clearDiagnostic: preset.diagnostic,
+                                    transcript: `NOC clear ${preset.label} for ${session.destinationX121}`,
+                                  })
+                                }
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[#9a8a6e]">cleared</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

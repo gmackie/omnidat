@@ -65,7 +65,10 @@ export type OmnidatServiceDefinition = {
 };
 
 export type OmnidatBillingAccount = {
+  /** External / display account id (e.g. SB-CAMP-LAMINAR-001). */
   accountId: string;
+  /** DB uuid when loaded from omnidat_billing_account (fee policy FK). */
+  id?: string;
   provider: "ShadyBucks";
   type: "camp-operating" | "atm-settlement";
   owner: string;

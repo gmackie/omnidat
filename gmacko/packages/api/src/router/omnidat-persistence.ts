@@ -425,6 +425,7 @@ type ServiceVerbRow = {
 };
 
 type BillingAccountRow = {
+  id?: string | null;
   externalAccountId?: string | null;
   provider?: string | null;
   accountType?: string | null;
@@ -595,6 +596,7 @@ export async function loadPersistentOperationalState(
     .filter((row) => row.externalAccountId)
     .map((row): OmnidatBillingAccount => ({
       accountId: row.externalAccountId ?? "",
+      id: row.id ?? undefined,
       provider: "ShadyBucks",
       type: billingType(row.accountType),
       owner: row.displayName ?? row.externalAccountId ?? "OMNIDAT Account",

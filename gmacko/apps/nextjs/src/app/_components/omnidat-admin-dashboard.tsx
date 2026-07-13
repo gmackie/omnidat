@@ -1,12 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { useTRPC } from "~/trpc/react";
 import { OmnidatOperatorRolesPanel } from "./omnidat-operator-roles-panel";
 
 export function OmnidatAdminDashboard() {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const dashboard = useQuery(trpc.omnidat.dashboard.queryOptions());
   const services = useQuery(trpc.omnidat.services.queryOptions());
   const billing = useQuery(trpc.omnidat.billing.queryOptions());
@@ -16,6 +18,67 @@ export function OmnidatAdminDashboard() {
     retry: 1,
     staleTime: 10_000,
   });
+
+  const [extId, setExtId] = useState("SB-CAMP-DEMO-001");
+  const [displayName, setDisplayName] = useState("Camp Demo Operating");
+  const [accountType, setAccountType] = useState("camp-operating");
+  const [feeAccountId, setFeeAccountId] = useState("");
+  const [policyKind, setPolicyKind] = useState<
+    | "flat"
+    | "percentage"
+    | "per-message"
+    | "waived"
+    | "sponsored"
+    | "merchant-pays"
+    | "operator-pays"
+  >("percentage");
+  const [feeAmount, setFeeAmount] = useState("3");
+  const [billingNotice, setBillingNotice] = useState<string | null>(null);
+
+  const createBilling = useMutation(
+    trpc.omnidat.createBillingAccount.mutationOptions({
+      onSuccess: (result) => {
+        setFeeAccountId(result.id);
+        setBillingNotice(
+          `Created billing account ${result.externalAccountId} (uuid ${result.id.slice(0, 8)}…)`,
+        );
+        void queryClient.invalidateQueries(trpc.omnidat.billing.queryFilter());
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listRecentAuditEvents.queryFilter(),
+        );
+      },
+      onError: (error: { message?: string }) => {
+        setBillingNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "bank.write required (bank-operator / admin)."
+            : (error.message ?? "Create failed"),
+        );
+      },
+    }),
+  );
+
+  const setFee = useMutation(
+    trpc.omnidat.setFeePolicy.mutationOptions({
+      onSuccess: (_result, input) => {
+        setBillingNotice(
+          `Fee policy ${input.policyKind} set on ${input.accountId.slice(0, 8)}…`,
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.operations.queryFilter(),
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listRecentAuditEvents.queryFilter(),
+        );
+      },
+      onError: (error: { message?: string }) => {
+        setBillingNotice(
+          /role required|FORBIDDEN/i.test(error.message ?? "")
+            ? "bank.write required (bank-operator / admin)."
+            : (error.message ?? "Fee policy failed"),
+        );
+      },
+    }),
+  );
 
   return (
     <div className="grid gap-5">
@@ -89,15 +152,153 @@ export function OmnidatAdminDashboard() {
         </div>
       </section>
 
-      <section className="rounded border border-[#4f3920] bg-[#211d15] p-5">
-        <h2 className="text-2xl font-bold">ShadyBucks Settlement</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <section
+        className="rounded border border-[#4f3920] bg-[#211d15] p-5"
+        data-testid="billing-desk"
+      >
+        <h2 className="text-2xl font-bold">Billing Desk</h2>
+        <p className="mt-1 text-sm text-[#c0a36e]">
+          Create settlement accounts and set fee policy (bank.write). Play-money
+          until policy is signed off — see /what-is-real.
+        </p>
+        <div className="mt-4 rounded border border-[#5c4a32] bg-[#17130d] p-4">
+          <h3 className="text-sm font-semibold uppercase text-[#c0a36e]">
+            Create billing account
+          </h3>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm">
+            <input
+              aria-label="external account id"
+              className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+              value={extId}
+              onChange={(e) => setExtId(e.target.value)}
+              placeholder="SB-…"
+            />
+            <input
+              aria-label="display name"
+              className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <select
+              aria-label="account type"
+              className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1"
+              value={accountType}
+              onChange={(e) => setAccountType(e.target.value)}
+            >
+              <option value="camp-operating">camp-operating</option>
+              <option value="atm-settlement">atm-settlement</option>
+              <option value="merchant">merchant</option>
+            </select>
+            <button
+              type="button"
+              className="rounded bg-[#c0a36e] px-3 py-1 font-semibold text-black disabled:opacity-50"
+              disabled={
+                createBilling.isPending || !extId.trim() || !displayName.trim()
+              }
+              onClick={() =>
+                createBilling.mutate({
+                  externalAccountId: extId.trim(),
+                  displayName: displayName.trim(),
+                  accountType,
+                })
+              }
+            >
+              Create account
+            </button>
+          </div>
+          <h3 className="mt-4 text-sm font-semibold uppercase text-[#c0a36e]">
+            Set fee policy
+          </h3>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm">
+            <select
+              aria-label="fee account"
+              className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+              value={feeAccountId}
+              onChange={(e) => setFeeAccountId(e.target.value)}
+            >
+              <option value="">select account uuid</option>
+              {(billing.data?.accounts ?? [])
+                .filter((a) => a.id)
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.accountId} ({a.id?.slice(0, 8)})
+                  </option>
+                ))}
+            </select>
+            <input
+              aria-label="fee account uuid"
+              className="min-w-[12rem] rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono text-xs"
+              value={feeAccountId}
+              onChange={(e) => setFeeAccountId(e.target.value)}
+              placeholder="billing account uuid"
+            />
+            <select
+              aria-label="policy kind"
+              className="rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1"
+              value={policyKind}
+              onChange={(e) =>
+                setPolicyKind(e.target.value as typeof policyKind)
+              }
+            >
+              <option value="flat">flat</option>
+              <option value="percentage">percentage</option>
+              <option value="per-message">per-message</option>
+              <option value="waived">waived</option>
+              <option value="sponsored">sponsored</option>
+              <option value="merchant-pays">merchant-pays</option>
+              <option value="operator-pays">operator-pays</option>
+            </select>
+            <input
+              aria-label="fee amount"
+              className="w-20 rounded border border-[#5c4a32] bg-[#211d15] px-2 py-1 font-mono"
+              value={feeAmount}
+              onChange={(e) => setFeeAmount(e.target.value)}
+            />
+            <button
+              type="button"
+              className="rounded border border-[#5c4a32] px-3 py-1 uppercase disabled:opacity-50"
+              disabled={setFee.isPending || !feeAccountId.trim()}
+              onClick={() =>
+                setFee.mutate({
+                  accountId: feeAccountId.trim(),
+                  policyKind,
+                  amount: Number.parseInt(feeAmount, 10) || 0,
+                  memo: `fee policy ${policyKind}`,
+                })
+              }
+            >
+              Set fee policy
+            </button>
+          </div>
+          {billingNotice ? (
+            <p className="mt-3 font-mono text-xs text-[#f0a875]">{billingNotice}</p>
+          ) : null}
+        </div>
+
+        <h3 className="mt-5 text-lg font-bold">Settlement accounts</h3>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
           {(billing.data?.accounts ?? []).map((account) => (
             <article
               className="rounded border border-[#5c4a32] bg-[#17130d] p-4"
-              key={account.accountId}
+              key={account.id ?? account.accountId}
             >
-              <p className="font-mono text-sm text-[#9ed783]">{account.accountId}</p>
+              <p className="font-mono text-sm text-[#9ed783]">
+                {account.accountId}
+              </p>
+              {account.id ? (
+                <button
+                  type="button"
+                  className="mt-1 font-mono text-[10px] text-[#c0a36e] underline"
+                  onClick={() => setFeeAccountId(account.id ?? "")}
+                  title="Use for fee policy"
+                >
+                  uuid {account.id.slice(0, 12)}…
+                </button>
+              ) : (
+                <p className="mt-1 font-mono text-[10px] text-[#9a8a6e]">
+                  seed account (no uuid — create DB account for fee policy)
+                </p>
+              )}
               <h3 className="mt-1 font-semibold">{account.owner}</h3>
               <p className="mt-2 text-sm text-[#d9cbb0]">
                 {account.type} / {account.status}

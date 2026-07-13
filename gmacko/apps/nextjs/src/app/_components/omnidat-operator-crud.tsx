@@ -67,6 +67,14 @@ export function OmnidatOperatorCrud() {
   const campsites = useQuery({ ...trpc.omnidat.listCampsites.queryOptions(), retry: false });
   const provisioning = useQuery({ ...trpc.omnidat.listProvisioning.queryOptions(), retry: false });
   const apps = useQuery({ ...trpc.omnidat.listCampsiteApps.queryOptions({}), retry: false });
+  const packetSessions = useQuery({
+    ...trpc.omnidat.listPacketSessions.queryOptions(),
+    retry: false,
+  });
+  const evidenceList = useQuery({
+    ...trpc.omnidat.listEvidenceArtifacts.queryOptions({}),
+    retry: false,
+  });
 
   const onError = (error: { message?: string }) =>
     setNotice(
@@ -81,6 +89,9 @@ export function OmnidatOperatorCrud() {
   const [campsiteSlug, setCampsiteSlug] = useState("camp-laminar");
   const [campsiteName, setCampsiteName] = useState("Camp Laminar");
   const [contactHandle, setContactHandle] = useState("operator@camp.example");
+  const [campsiteNamespace, setCampsiteNamespace] = useState<"camp" | "vendor">(
+    "camp",
+  );
   const [provisionTransport, setProvisionTransport] = useState("xot");
   const [provisionX121, setProvisionX121] = useState("311088020501");
   const [notice, setNotice] = useState<string | null>(null);
@@ -263,11 +274,11 @@ export function OmnidatOperatorCrud() {
         owner: "OMNIDAT",
         transcript: "STATUS VERIFIED\nCIRCUIT UP",
         date: new Date().toISOString().slice(0, 10),
-        sessions: String(incidents.data?.incidents?.length ?? 0),
+        sessions: String(packetSessions.data?.sessions?.length ?? 0),
         incidents: String(incidents.data?.incidents?.length ?? 0),
         allocations: String(allocations.data?.allocations?.length ?? 0),
         orders: "0",
-        evidence: "0",
+        evidence: String(evidenceList.data?.artifacts?.length ?? 0),
         operator: "EX88-OP",
         role: "packet-operator",
         licenseNo: "OP-0001",
@@ -405,18 +416,35 @@ export function OmnidatOperatorCrud() {
               value={contactHandle}
               onChange={(event) => setContactHandle(event.target.value)}
             />
+            <select
+              aria-label="campsite namespace"
+              className="rounded border border-[#5c4a32] bg-[#17130d] px-2 py-1 text-sm"
+              value={campsiteNamespace}
+              onChange={(e) =>
+                setCampsiteNamespace(e.target.value as "camp" | "vendor")
+              }
+            >
+              <option value="camp">namespace: camp</option>
+              <option value="vendor">namespace: vendor</option>
+            </select>
             <button
               className="rounded bg-[#c0a36e] px-3 py-1 text-sm font-semibold text-black"
               onClick={() =>
-                createCampsite.mutate({ slug: campsiteSlug, displayName: campsiteName, contactHandle })
+                createCampsite.mutate({
+                  slug: campsiteSlug,
+                  displayName: campsiteName,
+                  contactHandle,
+                  namespace: campsiteNamespace,
+                })
               }
             >
-              Create campsite
+              Create {campsiteNamespace === "vendor" ? "vendor" : "campsite"}
             </button>
           </div>
           <p className="mt-1 text-[10px] text-[#9a8a6e]">
-            Lifecycle: pending → active → suspended. Suspend freezes directory
-            participation; reactivate with Active.
+            Lifecycle: pending → active → suspended. Vendors reuse campsite
+            rows with namespace=vendor (H1b). Suspend freezes directory
+            participation.
           </p>
           <ul className="mt-3 space-y-2 text-sm" data-testid="campsites-list">
             {(campsites.data?.campsites ?? []).map(
@@ -425,6 +453,7 @@ export function OmnidatOperatorCrud() {
                 slug: string;
                 status: string;
                 displayName?: string;
+                namespace?: string;
               }) => {
                 const next = nextInOrder(CAMPSITE_STATUS_ORDER, item.status);
                 return (
@@ -433,8 +462,16 @@ export function OmnidatOperatorCrud() {
                     className="flex flex-wrap items-center gap-2 font-mono"
                   >
                     <span>
-                      {item.slug} — {item.status}
+                      [{item.namespace ?? "camp"}] {item.slug} — {item.status}
                     </span>
+                    <button
+                      type="button"
+                      className="text-[10px] text-[#9ed783] underline"
+                      onClick={() => setAppCampsiteId(item.id)}
+                      title="Use as campsite app parent"
+                    >
+                      use for apps
+                    </button>
                     {CAMPSITE_STATUS_ORDER.map((status) => (
                       <button
                         key={status}
