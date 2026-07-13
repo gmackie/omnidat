@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 
 import { useTRPC } from "~/trpc/react";
 
@@ -8,6 +9,7 @@ export function OmnidatHomeDashboard() {
   const trpc = useTRPC();
   const dashboard = useQuery(trpc.omnidat.dashboard.queryOptions());
   const services = useQuery(trpc.omnidat.services.queryOptions());
+  const publicStatus = useQuery(trpc.omnidat.publicStatus.queryOptions({}));
 
   if (!dashboard.data || !services.data) {
     return (
@@ -16,6 +18,9 @@ export function OmnidatHomeDashboard() {
       </section>
     );
   }
+
+  const sync = publicStatus.data?.sync ?? dashboard.data.sync;
+  const bank = publicStatus.data?.bank;
 
   return (
     <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
@@ -27,6 +32,23 @@ export function OmnidatHomeDashboard() {
         <h2 className="mt-2 text-2xl font-bold">
           {dashboard.data.network.protocol} {dashboard.data.network.status}
         </h2>
+        {sync ? (
+          <p
+            className="mt-2 font-mono text-xs uppercase text-[#9ed783]"
+            data-testid="home-sync-strip"
+          >
+            Authority {sync.holder} · epoch {sync.epoch}
+            {sync.stalenessSeconds != null
+              ? ` · stale ${sync.stalenessSeconds}s`
+              : ""}
+          </p>
+        ) : null}
+        {bank ? (
+          <p className="mt-1 font-mono text-xs text-[#c0a36e]">
+            Bank {bank.rail}
+            {bank.testnet ? " testnet" : ""} · {bank.merchantLinkStatus}
+          </p>
+        ) : null}
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
           <Metric label="Services" value={dashboard.data.metrics.totalServices} />
           <Metric label="Reachable" value={dashboard.data.metrics.upServices} />
@@ -39,6 +61,20 @@ export function OmnidatHomeDashboard() {
             value={dashboard.data.metrics.billingAccounts}
           />
         </dl>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <Link className="rounded border border-[#5c4a32] px-2 py-1" href="/status">
+            Status
+          </Link>
+          <Link className="rounded border border-[#5c4a32] px-2 py-1" href="/directory">
+            Directory
+          </Link>
+          <Link className="rounded border border-[#5c4a32] px-2 py-1" href="/console/brief">
+            Ops brief
+          </Link>
+          <Link className="rounded border border-[#5c4a32] px-2 py-1" href="/what-is-real">
+            Honesty
+          </Link>
+        </div>
       </div>
 
       <div className="rounded border border-[#4f3920] bg-[#211d15] p-5">

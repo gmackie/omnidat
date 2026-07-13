@@ -15,6 +15,7 @@ type Active =
 
 const NAV: { href: string; label: string; key: Active }[] = [
   { href: "/console", label: "Operator Console", key: "console" },
+  { href: "/console/brief", label: "Ops Brief", key: "console" },
   { href: "/console/terminal", label: "VT100 Terminal", key: "terminal" },
   { href: "/noc", label: "NOC", key: "noc" },
   { href: "/operator-admin", label: "Admin", key: "admin" },

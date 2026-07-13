@@ -300,6 +300,46 @@ export function OmnidatOperatorCrud() {
       onError,
     }),
   );
+  const setupAtm = useMutation(
+    trpc.omnidat.setupAtmTerminal.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `ATM ${result.terminalId} @ ${result.terminalX121} — ${result.activationCode}`,
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.operations.queryFilter(),
+        );
+      },
+      onError,
+    }),
+  );
+  const vintagePos = useMutation(
+    trpc.omnidat.vintagePosSale.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `POS ${result.status} host ${result.hostX121} — pos-sale-receipt when persisted`,
+        );
+        void queryClient.invalidateQueries(
+          trpc.omnidat.listEvidenceArtifacts.queryFilter(),
+        );
+      },
+      onError,
+    }),
+  );
+  const isoSim = useMutation(
+    trpc.omnidat.iso8583Transaction.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `ISO8583 RC=${result.responseCode} AUTH=${result.authorizationCode}`,
+        );
+      },
+      onError,
+    }),
+  );
+  const [atmId, setAtmId] = useState("ATM-EX88-001");
+  const [atmAccount, setAtmAccount] = useState("SB-ATM-EX88-100");
+  const [posTerminal, setPosTerminal] = useState("VF-TR330-NITEMARKT-01");
+  const [posAmount, setPosAmount] = useState("19");
   const exportEvidence = useMutation(
     trpc.omnidat.exportEventEvidence.mutationOptions({
       onSuccess: (artifact) => {
@@ -1068,11 +1108,142 @@ export function OmnidatOperatorCrud() {
           </ul>
         </div>
 
-        <div>
-          <h3 className="font-semibold text-sm">Merchant (H4 demo)</h3>
-          <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
-          <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "CC-CAMP-27", batchId: "CC-001", transactions: [{kind:"sale", amount: 19, reference: "EU-1"}, {kind:"sale", amount: 25, reference: "EU-2"}]})}>CC Camp Demo</button>
-          {batchReport && <pre className="text-[8px] mt-1 overflow-auto max-h-20">{batchReport}</pre>}
+        <div data-testid="merchant-rail" className="md:col-span-2">
+          <h3 className="font-semibold">Merchant rail (H4 demo)</h3>
+          <p className="mt-1 text-[10px] text-[#9a8a6e]">
+            Play-money only — bank.write / vendor.write. No cash redemption
+            without posted policy.
+          </p>
+          <div className="mt-2 grid gap-3 md:grid-cols-3">
+            <div className="rounded border border-[#33291d] p-2">
+              <p className="text-[10px] uppercase text-[#c0a36e]">ATM setup</p>
+              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                <input
+                  className="w-28 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+                  value={atmId}
+                  onChange={(e) => setAtmId(e.target.value)}
+                />
+                <input
+                  className="min-w-[6rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+                  value={atmAccount}
+                  onChange={(e) => setAtmAccount(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="bg-[#c0a36e] px-2 text-black disabled:opacity-50"
+                  disabled={setupAtm.isPending}
+                  onClick={() =>
+                    setupAtm.mutate({
+                      terminalId: atmId.trim(),
+                      settlementAccountId: atmAccount.trim(),
+                      terminalX121: "311088030100",
+                      locationLabel: "Exchange 88 ATM Desk",
+                    })
+                  }
+                >
+                  Setup ATM
+                </button>
+              </div>
+            </div>
+            <div className="rounded border border-[#33291d] p-2">
+              <p className="text-[10px] uppercase text-[#c0a36e]">
+                Vintage POS sale
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                <input
+                  className="min-w-[8rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+                  value={posTerminal}
+                  onChange={(e) => setPosTerminal(e.target.value)}
+                />
+                <input
+                  className="w-16 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+                  value={posAmount}
+                  onChange={(e) => setPosAmount(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="bg-[#c0a36e] px-2 text-black disabled:opacity-50"
+                  disabled={vintagePos.isPending}
+                  onClick={() => {
+                    const rrn = String(Date.now()).slice(-12);
+                    vintagePos.mutate({
+                      terminalId: posTerminal.trim(),
+                      terminalModel: "VERIFONE_TRANZ_330",
+                      merchantAccountId: foodAccount.trim() || "SB-CAMP-LAMINAR-001",
+                      clerkCode: "042",
+                      amount: Number.parseFloat(posAmount) || 19,
+                      feePolicyId: "MERCHANT_POS_MERCHANT_PAYS",
+                      noteSerial: `SBMO-${rrn}`,
+                      retrievalReference: rrn,
+                    });
+                  }}
+                >
+                  POS sale
+                </button>
+              </div>
+            </div>
+            <div className="rounded border border-[#33291d] p-2">
+              <p className="text-[10px] uppercase text-[#c0a36e]">
+                ISO 8583 sim
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                <button
+                  type="button"
+                  className="border border-[#5c4a32] px-2 disabled:opacity-50"
+                  disabled={isoSim.isPending}
+                  onClick={() => {
+                    const rrn = String(Date.now()).slice(-12);
+                    isoSim.mutate({
+                      mti: "0200",
+                      processingCode: "000000",
+                      amount: Number.parseFloat(posAmount) || 19,
+                      accountId: foodAccount.trim() || "SB-CAMP-LAMINAR-001",
+                      terminalId: atmId.trim() || "ATM-EX88-001",
+                      retrievalReference: rrn,
+                    });
+                  }}
+                >
+                  Purchase sim
+                </button>
+                <button
+                  type="button"
+                  className="border border-[#5c4a32] px-2"
+                  onClick={() =>
+                    batchClose.mutate({
+                      terminalId: "DEMO-01",
+                      batchId: "BATCH-001",
+                      transactions: [
+                        { kind: "sale", amount: 42, reference: "REF1" },
+                      ],
+                    })
+                  }
+                >
+                  Batch close
+                </button>
+                <button
+                  type="button"
+                  className="border border-[#5c4a32] px-2"
+                  onClick={() =>
+                    batchClose.mutate({
+                      terminalId: "CC-CAMP-27",
+                      batchId: "CC-001",
+                      transactions: [
+                        { kind: "sale", amount: 19, reference: "EU-1" },
+                        { kind: "sale", amount: 25, reference: "EU-2" },
+                      ],
+                    })
+                  }
+                >
+                  CC Camp batch
+                </button>
+              </div>
+              {batchReport ? (
+                <pre className="mt-1 max-h-16 overflow-auto text-[8px]">
+                  {batchReport}
+                </pre>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <div data-testid="field-ops" className="md:col-span-2">
