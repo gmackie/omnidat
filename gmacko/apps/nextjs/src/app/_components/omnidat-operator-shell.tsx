@@ -19,6 +19,7 @@ const NAV: { href: string; label: string; key: Active }[] = [
   { href: "/noc", label: "NOC", key: "noc" },
   { href: "/operator-admin", label: "Admin", key: "admin" },
   { href: "/directory", label: "Directory", key: "home" },
+  { href: "/status", label: "Status", key: "home" },
   { href: "/what-is-real", label: "What is real", key: "what-is-real" },
 ];
 

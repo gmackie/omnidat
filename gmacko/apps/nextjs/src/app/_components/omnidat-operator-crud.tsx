@@ -109,6 +109,14 @@ export function OmnidatOperatorCrud() {
   >("meshcore-pad");
   const [padLabel, setPadLabel] = useState("Field Mesh PAD");
   const [evidenceKindFilter, setEvidenceKindFilter] = useState("");
+  const [foodPickup, setFoodPickup] = useState("Packet Window 3");
+  const [foodAccount, setFoodAccount] = useState("SB-CAMP-LAMINAR-001");
+  const [passportId, setPassportId] = useState("PASS-04271");
+  const [badgeId, setBadgeId] = useState("FIELD-COURIER");
+  const [passportOp, setPassportOp] = useState("OP-EX88");
+  const [passportEvidence, setPassportEvidence] = useState(
+    "Filed an X.25 packet receipt.",
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
   // H3/H4 demo state
@@ -267,6 +275,26 @@ export function OmnidatOperatorCrud() {
         );
         void queryClient.invalidateQueries(
           trpc.omnidat.operations.queryFilter(),
+        );
+      },
+      onError,
+    }),
+  );
+  const createFoodOrder = useMutation(
+    trpc.omnidat.createFoodOrder.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `Food order ${result.lineTicket ?? result.id ?? "ok"} — ${result.status ?? "received"}`,
+        );
+      },
+      onError,
+    }),
+  );
+  const stampPassport = useMutation(
+    trpc.omnidat.stampActivityPassport.mutationOptions({
+      onSuccess: (result) => {
+        setNotice(
+          `Passport stamp ${result.stampId ?? result.id ?? "ok"} filed`,
         );
       },
       onError,
@@ -1045,6 +1073,89 @@ export function OmnidatOperatorCrud() {
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "DEMO-01", batchId: "BATCH-001", transactions: [{kind:"sale", amount: 42, reference: "REF1"}]})}>Close Demo Batch</button>
           <button className="text-xs border px-2" onClick={() => batchClose.mutate({terminalId: "CC-CAMP-27", batchId: "CC-001", transactions: [{kind:"sale", amount: 19, reference: "EU-1"}, {kind:"sale", amount: 25, reference: "EU-2"}]})}>CC Camp Demo</button>
           {batchReport && <pre className="text-[8px] mt-1 overflow-auto max-h-20">{batchReport}</pre>}
+        </div>
+
+        <div data-testid="field-ops" className="md:col-span-2">
+          <h3 className="font-semibold">Field Ops (food + passport)</h3>
+          <p className="mt-1 text-[10px] text-[#9a8a6e]">
+            vendor.write — Miliways order and activity passport stamp. Play
+            money only.
+          </p>
+          <div className="mt-2 grid gap-3 md:grid-cols-2">
+            <div className="rounded border border-[#33291d] p-2">
+              <p className="text-[10px] uppercase text-[#c0a36e]">Food order</p>
+              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                <input
+                  className="min-w-[6rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1"
+                  value={foodPickup}
+                  onChange={(e) => setFoodPickup(e.target.value)}
+                  placeholder="pickup"
+                />
+                <input
+                  className="min-w-[6rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+                  value={foodAccount}
+                  onChange={(e) => setFoodAccount(e.target.value)}
+                  placeholder="account"
+                />
+                <button
+                  type="button"
+                  className="bg-[#c0a36e] px-2 text-black disabled:opacity-50"
+                  disabled={createFoodOrder.isPending}
+                  onClick={() =>
+                    createFoodOrder.mutate({
+                      itemIds: ["NOODLE-CUP"],
+                      pickupName: foodPickup.trim() || "Window",
+                      shadybucksAccountId: foodAccount.trim(),
+                    })
+                  }
+                >
+                  Order noodle cup
+                </button>
+              </div>
+            </div>
+            <div className="rounded border border-[#33291d] p-2">
+              <p className="text-[10px] uppercase text-[#c0a36e]">
+                Passport stamp
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                <input
+                  className="w-24 border border-[#5c4a32] bg-[#17130d] px-1 font-mono"
+                  value={passportId}
+                  onChange={(e) => setPassportId(e.target.value)}
+                />
+                <input
+                  className="w-28 border border-[#5c4a32] bg-[#17130d] px-1"
+                  value={badgeId}
+                  onChange={(e) => setBadgeId(e.target.value)}
+                />
+                <input
+                  className="w-20 border border-[#5c4a32] bg-[#17130d] px-1"
+                  value={passportOp}
+                  onChange={(e) => setPassportOp(e.target.value)}
+                />
+                <input
+                  className="min-w-[8rem] flex-1 border border-[#5c4a32] bg-[#17130d] px-1"
+                  value={passportEvidence}
+                  onChange={(e) => setPassportEvidence(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="bg-[#c0a36e] px-2 text-black disabled:opacity-50"
+                  disabled={stampPassport.isPending}
+                  onClick={() =>
+                    stampPassport.mutate({
+                      passportId: passportId.trim(),
+                      badgeId: badgeId.trim(),
+                      operatorId: passportOp.trim(),
+                      evidence: passportEvidence.trim(),
+                    })
+                  }
+                >
+                  Stamp passport
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div data-testid="pad-configure">

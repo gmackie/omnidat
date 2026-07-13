@@ -143,6 +143,23 @@ describe("omnidat tRPC router", () => {
     expect(byName.meshtastic?.accessClass).toBe("PUBLIC");
   });
 
+  it("publicDirectory returns services and app kinds", async () => {
+    const dir = await caller.omnidat.publicDirectory();
+    expect(dir.services.length).toBeGreaterThan(0);
+    expect(dir.services[0]?.verbs?.length).toBeGreaterThan(0);
+    expect(dir.appKinds).toContain("bulletin");
+    expect(dir.etiquette).toMatch(/honest CLR/i);
+  });
+
+  it("publicStatus reports network metrics and honesty flags", async () => {
+    const status = await caller.omnidat.publicStatus({});
+    expect(status.network.protocol).toBe("X.25");
+    expect(status.metrics.totalServices).toBeGreaterThan(0);
+    expect(status.honesty.cashRedemption).toBe(false);
+    expect(status.honesty.page).toBe("/what-is-real");
+    expect(status.sync.holder).toMatch(/cloud|field/);
+  });
+
   it("returns ShadyBucks, food protocol, ATM protocol, and provisioning verification", async () => {
     const billing = await adminCaller.omnidat.billing();
     const food = await caller.omnidat.foodProtocol();

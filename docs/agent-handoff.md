@@ -168,9 +168,10 @@ Also useful: `docs/plans/2026-07-04-roadmap-expansion.md`, field office plan `20
 5. **Billing desk + NOC session clear (landed):** Admin createBillingAccount / setFeePolicy; NOC clear open sessions with honest CLR presets; vendor namespace on campsites.
 6. **Verb desk + incident board + public directory (landed):** Admin upsert/disable verbs; incident open→mitigating→resolved; NOC incident board; `/directory` public X.121 map; Daily NOC evidence package.
 7. **Transports H2b UI (landed):** `listTransports` public; NOC/directory policy board; XOT `TRANSPORT`/`POLICIES` + selector; PAD configure + evidence browser on console.
-8. **Public honesty:** `/what-is-real` on console (H0 claim matrix). Passkey soft-enroll nudge after login (Authentik owns WebAuthn).
-9. **Do not invent redeemable money** without policy sign-off (H4 remaining work is governance, not more ISO demos).
-10. Hardware / ShadyTel questions stay in `docs/open-questions.md` — track decisions, don’t block pure software slices.
+8. **Public directory + status + field ops (landed):** `publicDirectory` / `publicStatus`; `/status` board; campsite apps on directory; food+passport field ops on console.
+9. **Public honesty:** `/what-is-real` on console (H0 claim matrix). Passkey soft-enroll nudge after login (Authentik owns WebAuthn).
+10. **Do not invent redeemable money** without policy sign-off (H4 remaining work is governance, not more ISO demos).
+11. Hardware / ShadyTel questions stay in `docs/open-questions.md` — track decisions, don’t block pure software slices.
 
 ---
 

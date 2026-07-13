@@ -293,6 +293,90 @@ export const omnidatRouter = {
     })),
   })),
 
+  /**
+   * Participant-facing directory: exchange services + active campsite apps
+   * (delisted apps omitted). No auth required.
+   */
+  publicDirectory: publicProcedure.query(async ({ ctx }) => {
+    const db = dbOf(ctx);
+    const operationalState =
+      (await loadPersistentOperationalState(db, getOperationalState())) ??
+      getOperationalState();
+    const apps = (await loadCampsiteApps(db)).filter(
+      (app) => app.status === "active" || app.status === "pending",
+    );
+    return {
+      services: operationalState.services.map((s) => ({
+        slug: s.slug,
+        name: s.name,
+        x121: s.x121,
+        category: s.category,
+        status: s.status,
+        reachable: s.reachable,
+        owner: s.owner,
+        verbs: s.verbs.map((v) => v.name),
+      })),
+      campsiteApps: apps.map((app) => ({
+        address: app.address,
+        name: app.name,
+        appKind: app.appKind,
+        status: app.status,
+      })),
+      appKinds: CAMP_APP_KINDS,
+      etiquette:
+        "Be brief on 020xxx. Use honest CLR. Play-money unless policy posted.",
+    };
+  }),
+
+  /**
+   * Public honest ops status board (not operator-gated secrets).
+   */
+  publicStatus: publicProcedure.input(syncViewInput).query(async ({ ctx, input }) => {
+    const db = dbOf(ctx);
+    const operationalState =
+      (await loadPersistentOperationalState(db, getOperationalState())) ??
+      getOperationalState();
+    const snapshot = buildNetworkSnapshot();
+    const bank = getShadyBankIntegrationProfile(shadyBankConfig(ctx));
+    const services = operationalState.services;
+    return {
+      asOf: new Date().toISOString(),
+      network: {
+        protocol: snapshot.protocol,
+        status: snapshot.status,
+        source: snapshot.source,
+      },
+      metrics: {
+        totalServices: services.length,
+        upServices: services.filter((s) => s.status === "up").length,
+        degradedCircuits: operationalState.circuits.filter(
+          (c) => c.status === "degraded",
+        ).length,
+        campsiteApps: (await loadCampsiteApps(db)).filter(
+          (a) => a.status === "active",
+        ).length,
+      },
+      sync: await computeSyncStatus(
+        syncDb(ctx),
+        input?.eventId ?? null,
+        syncViewNow(input),
+      ),
+      bank: {
+        rail: bank.rail,
+        configured: bank.configured,
+        merchantLinkStatus: bank.merchantLinkStatus,
+        label: bank.label,
+        testnet: bank.testnet,
+      },
+      honesty: {
+        eventCritical: false,
+        cashRedemption: false,
+        simulation: true,
+        page: "/what-is-real",
+      },
+    };
+  }),
+
   services: publicProcedure.query(async ({ ctx }) => ({
     services: (
       (await loadPersistentOperationalState(

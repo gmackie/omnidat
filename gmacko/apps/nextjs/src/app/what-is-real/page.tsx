@@ -149,6 +149,12 @@ export default function WhatIsRealPage() {
               — public X.121 service map
             </li>
             <li>
+              <Link className="underline text-[#9ed783]" href="/status">
+                Status
+              </Link>{" "}
+              — live readiness + honesty flags
+            </li>
+            <li>
               <a
                 className="underline text-[#9ed783]"
                 href="https://bucks.omnidat.cc/app/login"
